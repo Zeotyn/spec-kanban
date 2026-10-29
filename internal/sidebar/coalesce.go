@@ -30,7 +30,7 @@ func Coalesce(dir string, pass func() error) error {
 				return passErr
 			}
 			if err := os.WriteFile(pending, nil, 0o644); err != nil {
-				return err
+				return pass() // cannot leave a request behind: refresh ourselves rather than lose it
 			}
 			// Try once more: the holder may have looked for pending just before we touched it and
 			// released the lock since. If it still holds the lock, it will see pending after unlocking.

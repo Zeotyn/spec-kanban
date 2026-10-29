@@ -77,9 +77,12 @@ const report = "workspace report-metadata "
 func TestSync(t *testing.T) {
 	p := projects(t, "kanban", "magentic", "empty", "broken")
 	open := []openspec.Change{{Name: "m1-board-view", Done: 3, Total: 6}}
+	var mu sync.Mutex // Sync loads Projects in parallel
 	loads := map[string]int{}
 	load := func(proj string) ([]openspec.Change, error) {
+		mu.Lock()
 		loads[proj]++
+		mu.Unlock()
 		switch proj {
 		case p["kanban"], p["magentic"]:
 			return open, nil
