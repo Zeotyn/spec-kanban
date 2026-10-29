@@ -318,7 +318,7 @@ func (m Model) card(c openspec.Change, p phase.Phase, w int, selected bool) []st
 	if badge != "" {
 		nameW = inner - len(badge) - 1
 	}
-	name := fitName(c.Name, nameW)
+	name := FitName(c.Name, nameW)
 	first := name
 	if badge != "" {
 		first += strings.Repeat(" ", max(1, inner-lipgloss.Width(name)-len(badge))) + badge

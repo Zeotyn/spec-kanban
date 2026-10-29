@@ -41,7 +41,7 @@ The plugin writes two lines into each workspace's Space rows in the sidebar, for
 
 The first line is the most recently modified change with its progress; it turns green once all its tasks are done (the bar is full only then). The second counts the open changes per column; `wip` stands for In Progress. When the line gets too long, Draft is dropped first. Workspaces outside a project show nothing.
 
-herdr refreshes the lines on startup, when an agent's status changes and when a pane gets focus or a pane or workspace is created. Copy the `[ui]` and `[ui.sidebar.spaces]` part of [`herdr-config.toml`](herdr-config.toml) into `~/.config/herdr/config.toml` and run `herdr server reload-config`. If you used herdr-openspec, replace its `$openspec` and `$openspec_change` rows; they stay empty once that plugin is disabled.
+herdr refreshes the lines on startup, when an agent's status changes and when a pane gets focus or a pane or workspace is created. To show them, edit `~/.config/herdr/config.toml` as in [`herdr-config.toml`](herdr-config.toml): add `sidebar_width = 34` and `sidebar_max_width = 36` to your existing `[ui]` table (a second `[ui]` header is a TOML error), copy the `[ui.sidebar.spaces]` table, and run `herdr server reload-config`. If you used herdr-openspec, replace its `$openspec` and `$openspec_change` rows; they stay empty once that plugin is disabled.
 
 ## Development
 

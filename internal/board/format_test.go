@@ -21,8 +21,8 @@ func TestFitName(t *testing.T) {
 		{"abcdefghij", 0, ""},
 		{"add-a-very-long-change-name-that-never-ends-in-any-column", 20, "add-a-very…ny-column"},
 	} {
-		if got := fitName(c.name, c.width); got != c.want {
-			t.Errorf("fitName(%q, %d) = %q, want %q", c.name, c.width, got, c.want)
+		if got := FitName(c.name, c.width); got != c.want {
+			t.Errorf("FitName(%q, %d) = %q, want %q", c.name, c.width, got, c.want)
 		}
 	}
 }

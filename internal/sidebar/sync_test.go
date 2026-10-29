@@ -170,3 +170,31 @@ func TestSyncLoadsAtMostFourAtOnce(t *testing.T) {
 		t.Errorf("want 4 loads at once at most (and in parallel), got %d", got)
 	}
 }
+
+func TestSyncFocusedPanePerWorkspace(t *testing.T) {
+	p := projects(t, "a", "b")
+	h := &fakeHerdr{
+		workspaces: []string{"w1", "w2", "w3"},
+		panes: []pane{
+			{ws: "w1", cwd: p["a"]},
+			{ws: "w1", cwd: p["b"], focused: true},
+			{ws: "w2", cwd: p["b"]},
+			{ws: "w2", cwd: p["a"], focused: true},
+			{ws: "w3", cwd: p["b"]}, // no focused pane: the first listed decides
+			{ws: "w3", cwd: p["a"]},
+		},
+	}
+	load := func(proj string) ([]openspec.Change, error) {
+		return []openspec.Change{{Name: filepath.Base(proj)}}, nil
+	}
+	if err := Sync(h.run, load); err != nil {
+		t.Fatal(err)
+	}
+	tokens := func(name string) string {
+		return " --source openspec-kanban --token kanban_change=no tasks " + name + " --token kanban=1 draft"
+	}
+	want := []string{report + "w1" + tokens("b"), report + "w2" + tokens("a"), report + "w3" + tokens("b")}
+	if !reflect.DeepEqual(h.reports, want) {
+		t.Errorf("reports\n got %q\nwant %q", h.reports, want)
+	}
+}

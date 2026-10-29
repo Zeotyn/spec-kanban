@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/zeotyn/openspec-kanban/internal/board"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/phase"
 )
@@ -38,7 +39,7 @@ func Summary(changes []openspec.Change) (change, phases string) {
 		filled := min(latest.Done, latest.Total) * 6 / latest.Total // floor: full only when all are done
 		head = strings.Repeat("▰", filled) + strings.Repeat("▱", 6-filled) + fmt.Sprintf(" %d/%d ", latest.Done, latest.Total)
 	}
-	change = head + fitName(latest.Name, width-len([]rune(head)))
+	change = head + board.FitName(latest.Name, width-len([]rune(head)))
 
 	var parts []string
 	for p, n := range counts {
@@ -50,18 +51,4 @@ func Summary(changes []openspec.Change) (change, phases string) {
 		parts = parts[1:] // Draft is the least urgent, and the Board shows it anyway
 	}
 	return change, strings.Join(parts, " · ")
-}
-
-// fitName shortens name in the middle with "…" to at most width runes, keeping more of the start.
-// Copied from board.
-func fitName(name string, width int) string {
-	r := []rune(name)
-	if len(r) <= width {
-		return name
-	}
-	if width < 2 {
-		return string(r[:max(width, 0)])
-	}
-	keep := width - 1
-	return string(r[:keep-keep/2]) + "…" + string(r[len(r)-keep/2:])
 }

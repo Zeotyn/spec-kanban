@@ -1,7 +1,7 @@
 ## 1. Summary text (TDD)
 
 - [x] 1.1 Write failing table tests for `sidebar.Summary`: Change in progress (`▰▰▰▱▱▱ 3/6 m1-board-view`), 29/30 not full, all done full, no tasks, long name shortened to 28, newest `Modified` wins with ties by name, archived Changes ignored, no open Change (empty change, `no open changes`), Phase overview with zeros omitted, four Phases dropping Draft to fit 28
-- [x] 1.2 Implement `Summary` (six-cell floor bar, copied `fitName`, `phase.Of` counts) until the tests pass
+- [x] 1.2 Implement `Summary` (six-cell floor bar, `board.FitName`, `phase.Of` counts) until the tests pass
 
 ## 2. One pass (TDD, fake `herdr.Runner` and fake loader)
 

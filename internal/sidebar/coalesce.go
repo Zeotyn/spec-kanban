@@ -9,14 +9,15 @@ import (
 
 // Coalesce runs pass under <dir>/sync.lock. When another process holds the lock, it touches
 // <dir>/sync.pending and returns at once; the holder then runs one more pass, however many requests
-// arrived. It returns the error of the last pass it ran.
+// arrived. It returns the error of the last pass it ran. Without a usable dir it just runs pass:
+// state problems never stop a refresh.
 func Coalesce(dir string, pass func() error) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+	if os.MkdirAll(dir, 0o755) != nil { // also when dir is ""
+		return pass()
 	}
 	f, err := os.OpenFile(filepath.Join(dir, "sync.lock"), os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
-		return err
+		return pass()
 	}
 	defer f.Close() // releases the lock
 	pending := filepath.Join(dir, "sync.pending")
@@ -36,7 +37,7 @@ func Coalesce(dir string, pass func() error) error {
 			touched = true
 			continue
 		} else if err != nil {
-			return err
+			return pass()
 		}
 		for {
 			os.Remove(pending)

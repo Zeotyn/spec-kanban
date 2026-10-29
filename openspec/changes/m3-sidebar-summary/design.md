@@ -35,13 +35,13 @@ Source id `openspec-kanban`; tokens `kanban_change` (Most recently modified Chan
 - `kanban`: counts for Draft, Ready, In Progress (`wip`), Review in Board order, zeros omitted, ` · ` separator. If longer than 28, drop Phases from the left until it fits: Draft is the least urgent and the Board shows it anyway. `in progress` would push Review out too often; `wip` is the one abbreviation, explained in the README.
 - Most recently modified Change: the open Change with the newest `Modified`, ties by name; Phases come from `phase.Of`.
 
-The Board's `progressBar` stays in `board`; the sidebar has its own six-cell bar (different glyphs and rounding). The sidebar copies the 10-line `fitName` instead of exporting it from `board` or adding a shared package.
+The Board's `progressBar` stays in `board`; the sidebar has its own six-cell bar (different glyphs and rounding). The sidebar shortens names with `board.FitName` (exported for it), so both truncate alike.
 
 ### Workspace → Project
 `herdr workspace list` gives every workspace id (needed to clear tokens for workspaces without panes in a Project). `herdr pane list` gives `workspace_id`, `foreground_cwd` (fallback `cwd`) and `focused`; `project.Find` maps a directory to its Project. Per workspace the focused pane's Project wins, otherwise the first listed pane with a Project. herdr marks only the globally focused pane, so for other workspaces "first listed" decides — same as herdr-openspec; good enough.
 
 ### Coalescing
-`kanban sync` takes `flock(LOCK_EX|LOCK_NB)` on `<state>/sync.lock` (stdlib `syscall.Flock`, macOS and Linux only, as the manifest declares). If the lock is taken it touches `<state>/sync.pending` and exits 0. The holder loops: remove `pending`, run one pass, repeat while `pending` exists. To lose no request that races the holder's last look, the holder checks `pending` again after unlocking (and starts over if it exists), and a requester that touched `pending` tries the lock once more before exiting. The lock dies with the process, so a crash never leaves a stale lock. `<state>` is `cache.Dir()`; cache files are `<hash>.json`, no clash. Alternatives: a long-running daemon (herdr does not supervise startup hooks), debounce by sleeping (adds latency to every refresh).
+`kanban sync` takes `flock(LOCK_EX|LOCK_NB)` on `<state>/sync.lock` (stdlib `syscall.Flock`, macOS and Linux only, as the manifest declares). If the lock is taken it touches `<state>/sync.pending` and exits 0. The holder loops: remove `pending`, run one pass, repeat while `pending` exists. To lose no request that races the holder's last look, the holder checks `pending` again after unlocking (and starts over if it exists), and a requester that touched `pending` tries the lock once more before exiting. The lock dies with the process, so a crash never leaves a stale lock. `<state>` is `cache.Dir()`; cache files are `<hash>.json`, no clash. When `<state>` is unusable (empty, not a directory, not writable), `kanban sync` runs the pass without coalescing: state problems never stop a refresh. Alternatives: a long-running daemon (herdr does not supervise startup hooks), debounce by sleeping (adds latency to every refresh).
 
 ### Events
 `[[startup]]` plus `[[events]]` for `pane.agent_status_changed` (an agent turn ending is when tasks get ticked), `pane.focused` (user moves between Projects; also catches edits made outside agents), `pane.created` and `workspace.created` (new workspace or pane may enter a Project). Same set as herdr-openspec, proven on 0.9.5. Focus events are frequent, but coalescing caps them at one pass in flight plus one queued.
@@ -60,8 +60,9 @@ Keep, not clear, on a failed Project load: a transient CLI error (Node update, l
 ### Config snippet
 
 ```toml
-[ui]
+[ui]  # add to the existing table, a second [ui] header is a TOML error
 sidebar_width = 34
+sidebar_max_width = 36
 
 [ui.sidebar.spaces]
 rows = [

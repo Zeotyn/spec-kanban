@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// fitName shortens name in the middle with "…" to at most width runes, keeping more of the start.
-func fitName(name string, width int) string {
+// FitName shortens name in the middle with "…" to at most width runes, keeping more of the start.
+func FitName(name string, width int) string {
 	r := []rune(name)
 	if len(r) <= width {
 		return name

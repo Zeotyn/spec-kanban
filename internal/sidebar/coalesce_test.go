@@ -4,8 +4,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestCoalesce(t *testing.T) {
@@ -72,5 +75,64 @@ func TestCoalescePassError(t *testing.T) {
 	boom := errors.New("boom")
 	if err := Coalesce(t.TempDir(), func() error { return boom }); !errors.Is(err, boom) {
 		t.Errorf("want the pass error, got %v", err)
+	}
+}
+
+func TestCoalesceUnusableStateDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(dir, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	boom := errors.New("boom")
+	passes := 0
+	if err := Coalesce(dir, func() error { passes++; return boom }); !errors.Is(err, boom) || passes != 1 {
+		t.Errorf("a broken state dir must not stop the pass: %d passes, %v", passes, err)
+	}
+}
+
+// TestCoalesceConcurrent races callers against each other: passes never overlap, never outnumber
+// the callers, and the last request is always served by a pass that starts after it.
+func TestCoalesceConcurrent(t *testing.T) {
+	for round := range 200 {
+		dir := t.TempDir()
+		const callers = 50
+		var inFlight, runs atomic.Int32
+		var mu sync.Mutex
+		var lastStart, lastCall time.Time
+		pass := func() error {
+			if inFlight.Add(1) > 1 {
+				t.Error("passes overlap")
+			}
+			runs.Add(1)
+			mu.Lock()
+			lastStart = time.Now()
+			mu.Unlock()
+			time.Sleep(50 * time.Microsecond)
+			inFlight.Add(-1)
+			return nil
+		}
+		var wg sync.WaitGroup
+		for i := range callers {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				time.Sleep(time.Duration(i%10) * 20 * time.Microsecond)
+				mu.Lock()
+				if now := time.Now(); now.After(lastCall) {
+					lastCall = now
+				}
+				mu.Unlock()
+				if err := Coalesce(dir, pass); err != nil {
+					t.Error(err)
+				}
+			}()
+		}
+		wg.Wait()
+		if n := runs.Load(); n < 1 || n > callers {
+			t.Fatalf("round %d: %d passes for %d callers", round, n, callers)
+		}
+		if !lastStart.After(lastCall) {
+			t.Fatalf("round %d: the last request (%v) was not served by a later pass (last start %v)", round, lastCall, lastStart)
+		}
 	}
 }
