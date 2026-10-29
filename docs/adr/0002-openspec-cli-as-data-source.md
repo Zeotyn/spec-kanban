@@ -9,4 +9,4 @@ The Board reads Changes through `openspec … --json` (`list`, `status`, `instru
 
 ## Consequences
 
-Every CLI call costs about 0.6 s (Node startup). `list` is enough for all Cards; `status` per Change runs in parallel in the background. The JSON format is not versioned, so all calls sit behind one adapter with contract tests against the real CLI.
+Every CLI call costs about 0.65 s (Node startup). `list` is enough for all Cards; `status` per Change runs in parallel in the background. Measured on magentic (9 Changes, openspec 1.8.0, 2026-10-29): `list` 0.65 s, `instructions apply` 0.65 s, `status` for all 9 Changes 5.95 s sequentially and 1.45 s with 8 in parallel. The JSON format is not versioned, so all calls sit behind one adapter with contract tests against the real CLI.

@@ -22,6 +22,10 @@ When an agent for the Change is already running, Start SHALL focus that agent in
 - **WHEN** the user starts `m1-board-view` and then starts it again while the first agent is still running
 - **THEN** no second tab is created and the existing agent's tab is focused
 
+#### Scenario: Start after the agent exited
+- **WHEN** the agent for `m1-board-view` has exited but its tab is still open, and the user starts the Change again
+- **THEN** no second tab is created; Claude is started again in that tab, receives `/opsx:apply m1-board-view`, and the tab is focused
+
 ### Requirement: Start rejects unknown Changes
 Start SHALL check that the Change exists as an open Change of the Project before calling herdr, and SHALL exit with a non-zero status and a message naming the Change otherwise.
 

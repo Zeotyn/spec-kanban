@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Start through the herdr agent API
 
 Start creates a new herdr tab in the Project (`herdr tab create --cwd <project> --label <change> --focus`), launches Claude in it with `herdr agent start <name> --kind claude --pane <pane>`, and submits `/opsx:apply <change>` with `herdr agent prompt`. That way herdr knows the session as an agent (status in the sidebar, `agent wait`) instead of us typing text into a shell.
 
-Status stays `proposed` until the M0 spike confirms the flow on herdr 0.9.5.
+Confirmed by the M0 spike on herdr 0.9.5: start to ready takes about 4 s. herdr keeps an agent registered after Claude exits, so Start checks the pane's foreground process (`pane process-info`): a running agent is focused, an exited one is restarted in its existing tab, and only an unknown name gets a new tab.
 
 ## Considered Options
 

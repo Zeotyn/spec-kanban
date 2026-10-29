@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -18,10 +19,17 @@ func Exec(args ...string) ([]byte, error) {
 	if bin == "" {
 		bin = "herdr"
 	}
-	out, err := exec.Command(bin, args...).Output()
+	return Run(bin, "", args...)
+}
+
+// Run runs bin in dir ("" for the current one) and folds its stderr into the error.
+func Run(bin, dir string, args ...string) ([]byte, error) {
+	cmd := exec.Command(bin, args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
-		err = fmt.Errorf("herdr %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(exit.Stderr)))
+		err = fmt.Errorf("%s %s: %w: %s", filepath.Base(bin), strings.Join(args, " "), err, strings.TrimSpace(string(exit.Stderr)))
 	}
 	return out, err
 }

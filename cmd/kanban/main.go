@@ -11,6 +11,7 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/board"
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
 	"github.com/zeotyn/openspec-kanban/internal/project"
+	"github.com/zeotyn/openspec-kanban/internal/start"
 )
 
 const version = "0.1.0"
@@ -20,6 +21,8 @@ const usage = `kanban — OpenSpec kanban board for herdr
 Usage:
   kanban open       Open the Board popup for the invoking pane's project (plugin action)
   kanban board      Show the Board for $KANBAN_PROJECT (set by kanban open)
+  kanban start <change>
+                    Run /opsx:apply <change> in a Claude tab of the current directory's project
   kanban --version  Print the version
 `
 
@@ -32,6 +35,12 @@ func main() {
 	switch cmd {
 	case "open":
 		err = open(os.Getenv("HERDR_PLUGIN_CONTEXT_JSON"), herdr.Exec)
+	case "start":
+		if len(os.Args) != 3 {
+			fmt.Fprintf(os.Stderr, "kanban: start needs exactly one change name\n\n%s", usage)
+			os.Exit(2)
+		}
+		err = startChange(os.Args[2])
 	case "board":
 		err = showBoard(os.Getenv("KANBAN_PROJECT"))
 	case "--version":
@@ -66,6 +75,19 @@ func open(contextJSON string, run herdr.Runner) error {
 	out, err := run(args...)
 	os.Stdout.Write(out) // shows up in herdr plugin log list
 	return err
+}
+
+func startChange(change string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	proj := project.Find(cwd)
+	if proj == "" {
+		return fmt.Errorf("no OpenSpec project at or above %s", cwd)
+	}
+	openspec := func(args ...string) ([]byte, error) { return herdr.Run("openspec", proj, args...) }
+	return start.Start(proj, change, herdr.Exec, openspec)
 }
 
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,

@@ -1,0 +1,1 @@
+{"id": "cli:pane:process_info", "result": {"process_info": {"foreground_process_group_id": 58175, "foreground_processes": [{"argv": ["-zsh"], "argv0": "zsh", "cmdline": "-zsh", "cwd": "/Users/U758014/code/openspec-kanban", "name": "zsh", "pid": 58175}], "pane_id": "w2:p1J", "shell_pid": 58175}, "type": "pane_process_info"}}
