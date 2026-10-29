@@ -3,6 +3,7 @@ package detail
 
 import (
 	_ "embed"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/zeotyn/openspec-kanban/internal/docs"
+	"github.com/zeotyn/openspec-kanban/internal/editor"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
@@ -23,6 +25,9 @@ var terminalStyle []byte
 
 // CloseMsg asks the Board to close the detail view.
 type CloseMsg struct{}
+
+// EditedMsg reports that the editor started from the detail view has exited.
+type EditedMsg struct{ Err error }
 
 const (
 	tasks = iota
@@ -39,6 +44,9 @@ const chrome = 5
 
 type Model struct {
 	header        string
+	dir           string // the Change's folder
+	archived      bool
+	notice        string // one-line message in place of the footer, cleared by the next key
 	docs          docs.Docs
 	tab           int
 	off           [tabs]int
@@ -49,7 +57,8 @@ type Model struct {
 
 // New opens the details of c in project under header (built by the Board, which owns Card formatting).
 func New(project string, c openspec.Change, header string, width, height int) Model {
-	m := Model{header: header, docs: docs.Read(docs.Dir(project, c)), width: width, height: height, tab: proposal}
+	dir := docs.Dir(project, c)
+	m := Model{header: header, dir: dir, archived: c.Archived, docs: docs.Read(dir), width: width, height: height, tab: proposal}
 	if c.Total > 0 {
 		m.tab = tasks
 	}
@@ -59,6 +68,12 @@ func New(project string, c openspec.Change, header string, width, height int) Mo
 
 func (m Model) doc(tab int) string {
 	return [tabs]string{m.docs.Tasks, m.docs.Proposal, m.docs.Design, m.docs.Specs}[tab]
+}
+
+// WithHeader replaces the header, e.g. after the Board reloaded the Change.
+func (m Model) WithHeader(header string) Model {
+	m.header = header
+	return m
 }
 
 // content returns the markdown of tab, or a note when the Change has no such document.
@@ -100,11 +115,20 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.render()
+	case EditedMsg:
+		m.docs = docs.Read(m.dir)
+		m.render()
+		if msg.Err != nil {
+			m.notice = "editor failed: " + msg.Err.Error()
+		}
 	case tea.KeyMsg:
+		m.notice = ""
 		g := m.pendingG
 		m.pendingG = false
 		off := &m.off[m.tab]
 		switch k := msg.String(); k {
+		case "e":
+			return m.edit()
 		case "q", "esc":
 			return m, func() tea.Msg { return CloseMsg{} }
 		case "ctrl+c":
@@ -136,6 +160,22 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// edit opens the current tab's file(s) in the editor, or explains why not.
+func (m Model) edit() (Model, tea.Cmd) {
+	name := strings.ToLower(tabNames[m.tab])
+	switch {
+	case m.archived:
+		m.notice = "archived changes are read-only"
+	case m.doc(m.tab) == "":
+		m.notice = "no " + name + " to edit"
+	case m.tab == specs:
+		return m, editor.Open(func(err error) tea.Msg { return EditedMsg{err} }, m.docs.SpecFiles...)
+	default:
+		return m, editor.Open(func(err error) tea.Msg { return EditedMsg{err} }, filepath.Join(m.dir, name+".md"))
+	}
+	return m, nil
+}
+
 func (m Model) View() string {
 	bar := func(short bool) string {
 		parts := make([]string, tabs)
@@ -163,9 +203,12 @@ func (m Model) View() string {
 	// glamour does not wrap code, tables or long URLs: cut them, or the terminal wraps them and the view grows
 	fit := lipgloss.NewStyle().MaxWidth(m.width)
 	body := fit.Height(m.body()).MaxHeight(m.body()).Render(strings.Join(lines, "\n"))
-	footer := "1-4/tab tab · j/k scroll · ctrl+d/u half page · gg/G top/end · q back"
+	footer := "1-4/tab tab · j/k scroll · ctrl+d/u half page · gg/G top/end · e edit · q back"
 	if lipgloss.Width(footer) > m.width {
-		footer = "1-4 j/k ^d/^u gg/G · q back"
+		footer = "1-4 j/k ^d/^u gg/G e · q back"
+	}
+	if m.notice != "" {
+		footer = m.notice
 	}
 	return fit.Render(m.header) + "\n" + fit.Render(tabBar) + "\n" + rule + "\n" + body + "\n" + rule + "\n" + fit.Render(footer)
 }

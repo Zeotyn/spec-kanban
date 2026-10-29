@@ -2,4 +2,4 @@ OpenSpec Kanban · proj
 
 Loading changes…
 
-h/l column · j/k card · ⏎ details · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close
+h/l j/k ⏎ e gg/G ^d/^u 1-5 · r · q close

@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/zeotyn/openspec-kanban/internal/detail"
+	"github.com/zeotyn/openspec-kanban/internal/editor"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
@@ -311,5 +314,108 @@ func TestEnterCancelsPendingG(t *testing.T) {
 	m = keys(send(next.(Model), cmd()), "g")
 	if m.nav.sel[1] != 4 {
 		t.Errorf("g, Enter, q, g jumped to Card %d; Enter must cancel the pending g", m.nav.sel[1])
+	}
+}
+
+// fakeEditor records the editor's arguments and runs edit (if any) before reporting success.
+func fakeEditor(t *testing.T, edit func()) *[]string {
+	t.Helper()
+	var args []string
+	old := editor.Exec
+	editor.Exec = func(c *exec.Cmd, done tea.ExecCallback) tea.Cmd {
+		args = c.Args
+		return func() tea.Msg {
+			if edit != nil {
+				edit()
+			}
+			return done(nil)
+		}
+	}
+	t.Cleanup(func() { editor.Exec = old })
+	t.Setenv("EDITOR", "ed")
+	return &args
+}
+
+func TestEditTasksFromBoard(t *testing.T) {
+	proj := t.TempDir()
+	tasks := filepath.Join(proj, "openspec", "changes", "m1-board-view", "tasks.md")
+	if err := os.MkdirAll(filepath.Dir(tasks), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tasks, []byte("- [ ] 1.1 a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	changes := fixture
+	loads := 0
+	m := New(proj, func() ([]openspec.Change, error) { loads++; return changes, nil }, func() time.Time { return now }, nil)
+	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
+	m = keys(send(m, m.Init()()), "3") // In Progress: m1-board-view 5/11
+	args := fakeEditor(t, func() {
+		changes = append([]openspec.Change{{Name: "m1-board-view", Done: 6, Total: 11, Modified: now}}, fixture[:4]...)
+	})
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	if cmd == nil {
+		t.Fatal("e must start the editor")
+	}
+	m = next.(Model)
+	next, cmd = m.Update(cmd()) // editor exits → reload
+	if cmd == nil || !slices.Equal(*args, []string{"ed", tasks}) {
+		t.Fatalf("editor %q, want ed %s; and a reload must follow", *args, tasks)
+	}
+	m = send(next.(Model), cmd())
+	if loads != 2 || !strings.Contains(m.View(), "6/11") || m.cols[2][m.nav.sel[2]].Name != "m1-board-view" {
+		t.Errorf("after editing: %d loads, view:\n%s", loads, m.View())
+	}
+}
+
+func TestEditRefusedOnBoard(t *testing.T) {
+	args := fakeEditor(t, nil)
+	m := keys(board(t, 120, 30, fixture), "1") // Draft without tasks.md on disk
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	if cmd != nil || *args != nil || !strings.Contains(next.(Model).View(), "no tasks to edit") {
+		t.Errorf("Draft without tasks: cmd %v, view:\n%s", cmd != nil, next.(Model).View())
+	}
+	m = keys(board(t, 120, 30, fixture), "5")
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	if cmd != nil || !strings.Contains(next.(Model).View(), "archived changes are read-only") {
+		t.Errorf("archived: cmd %v, view:\n%s", cmd != nil, next.(Model).View())
+	}
+}
+
+func TestEditDuringLoadReloadsAgain(t *testing.T) {
+	m := board(t, 120, 30, fixture)
+	m, _ = m.refresh() // a load is running
+	next, cmd := m.Update(editedMsg{})
+	if cmd != nil {
+		t.Fatal("no second load while one runs")
+	}
+	next, cmd = next.(Model).Update(loadedMsg{changes: fixture})
+	if cmd == nil {
+		t.Error("the load that raced the edit must be followed by another one")
+	}
+}
+
+func TestDetailEditedAfterCloseStillReloads(t *testing.T) {
+	m := board(t, 120, 30, fixture)
+	if _, cmd := m.Update(detail.EditedMsg{}); cmd == nil {
+		t.Error("an edit reported after the detail closed must still reload the Board")
+	}
+}
+
+func TestNoticeFitsWidth(t *testing.T) {
+	m := send(board(t, 60, 30, fixture), editedMsg{err: errors.New(`exec: "nvimx": executable file not found in $PATH`)})
+	for _, l := range strings.Split(m.View(), "\n") {
+		if lipgloss.Width(l) > 60 {
+			t.Errorf("line wider than 60: %q", l)
+		}
+	}
+}
+
+func TestDetailHeaderFollowsReload(t *testing.T) {
+	m, _ := enter(keys(board(t, 120, 30, fixture), "3")) // m1-board-view 5/11
+	fresh := append([]openspec.Change{{Name: "m1-board-view", Done: 6, Total: 11, Modified: now}}, fixture[:4]...)
+	m = send(m, loadedMsg{changes: fresh})
+	if !strings.HasPrefix(m.View(), "m1-board-view  M1  6/11  In Progress") {
+		t.Errorf("detail header after reload:\n%s", m.View())
 	}
 }

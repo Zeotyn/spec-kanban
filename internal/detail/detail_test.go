@@ -1,8 +1,10 @@
 package detail
 
 import (
+	"errors"
 	"flag"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"github.com/zeotyn/openspec-kanban/internal/editor"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
@@ -208,5 +211,88 @@ func TestTerminalStyleUsesOnlyANSI16(t *testing.T) {
 	// 256-colour and truecolour sequences would override the terminal theme
 	if strings.Contains(out, "38;5;") || strings.Contains(out, "48;5;") || strings.Contains(out, "38;2;") || strings.Contains(out, "48;") {
 		t.Errorf("only the 16 ANSI colours may be used: %q", out)
+	}
+}
+
+// fakeEditor records the editor's arguments and runs edit (if any) before reporting err.
+func fakeEditor(t *testing.T, edit func(), err error) *[]string {
+	t.Helper()
+	var args []string
+	old := editor.Exec
+	editor.Exec = func(c *exec.Cmd, done tea.ExecCallback) tea.Cmd {
+		args = c.Args
+		return func() tea.Msg {
+			if edit != nil {
+				edit()
+			}
+			return done(err)
+		}
+	}
+	t.Cleanup(func() { editor.Exec = old })
+	t.Setenv("EDITOR", "ed")
+	return &args
+}
+
+// edit presses e and runs the resulting command, if any, feeding its message back.
+func edit(m Model) (Model, bool) {
+	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	if cmd == nil {
+		return m, false
+	}
+	m, _ = m.Update(cmd())
+	return m, true
+}
+
+func TestEditCurrentDocument(t *testing.T) {
+	p := project(t)
+	dir := filepath.Join(p, "openspec", "changes", "m1-board-view")
+	tests := []struct {
+		tab  string
+		want []string
+	}{
+		{"1", []string{"ed", filepath.Join(dir, "tasks.md")}},
+		{"2", []string{"ed", filepath.Join(dir, "proposal.md")}},
+		{"4", []string{"ed", filepath.Join(dir, "specs/agent-control/session/spec.md"), filepath.Join(dir, "specs/board/spec.md")}},
+	}
+	for _, tt := range tests {
+		args := fakeEditor(t, nil, nil)
+		m := press(New(p, change, "h", 80, 24), tt.tab)
+		if _, ran := edit(m); !ran || !slices.Equal(*args, tt.want) {
+			t.Errorf("tab %s: editor %q, want %q", tt.tab, *args, tt.want)
+		}
+	}
+}
+
+func TestEditRereadsAndKeepsTab(t *testing.T) {
+	p := project(t)
+	proposal := filepath.Join(p, "openspec", "changes", "m1-board-view", "proposal.md")
+	fakeEditor(t, func() { os.WriteFile(proposal, []byte("## Why\n\nEdited by hand.\n"), 0o644) }, nil)
+	m, _ := edit(press(New(p, change, "h", 80, 24), "2"))
+	if m.tab != 1 || !strings.Contains(m.View(), "Edited by hand.") {
+		t.Errorf("after editing: tab %d, view:\n%s", m.tab, m.View())
+	}
+}
+
+func TestEditRefused(t *testing.T) {
+	args := fakeEditor(t, nil, nil)
+	m, ran := edit(press(open(t, change, 80, 24), "3"))
+	if ran || *args != nil || !strings.Contains(m.View(), "no design to edit") {
+		t.Errorf("missing design: ran %v, view:\n%s", ran, m.View())
+	}
+	archived := openspec.Change{Name: "m1-board-view", Archived: true}
+	m, ran = edit(New(t.TempDir(), archived, "h", 80, 24))
+	if ran || !strings.Contains(m.View(), "archived changes are read-only") {
+		t.Errorf("archived: ran %v, view:\n%s", ran, m.View())
+	}
+	if m = press(m, "j"); strings.Contains(m.View(), "read-only") {
+		t.Error("the next key must clear the notice")
+	}
+}
+
+func TestEditorFails(t *testing.T) {
+	fakeEditor(t, nil, errors.New(`exec: "nope": executable file not found in $PATH`))
+	m, _ := edit(open(t, change, 80, 24))
+	if !strings.Contains(m.View(), "editor failed") || !strings.Contains(m.View(), "nope") {
+		t.Errorf("editor error must show as a notice:\n%s", m.View())
 	}
 }

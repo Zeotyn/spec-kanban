@@ -56,6 +56,11 @@ func TestReadAll(t *testing.T) {
 		Specs: "# agent-control/session-wait\n\nwait spec\n\n\n" +
 			"# agent-control\n\ncontrol spec\n\n\n" +
 			"# board\n\nboard spec\n",
+		SpecFiles: []string{
+			filepath.Join(dir, "specs/agent-control/session-wait/spec.md"),
+			filepath.Join(dir, "specs/agent-control/spec.md"),
+			filepath.Join(dir, "specs/board/spec.md"),
+		},
 		Next: "next ▸ 1.2 Open",
 	}
 	if !reflect.DeepEqual(got, want) {

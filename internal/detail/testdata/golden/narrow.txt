@@ -17,4 +17,4 @@ m1-board-view  M1  1/3  In Progress
                                   
   A line of the proposal that says
 ────────────────────────────────────────
-1-4 j/k ^d/^u gg/G · q back
+1-4 j/k ^d/^u gg/G e · q back

@@ -27,8 +27,9 @@ func Dir(project string, c openspec.Change) string {
 // Docs holds a Change's documents as markdown; a field is "" when the document does not exist.
 type Docs struct {
 	Tasks, Proposal, Design string
-	Specs                   string // every specs/**/spec.md in lexical path order, each as "# <capability path>\n\n<content>", joined by "\n\n"
-	Next                    string // "next ▸ <task text>" for the first "- [ ] " task, "all tasks done" when tasks exist and none is open, "" without tasks
+	Specs                   string   // every specs/**/spec.md in lexical path order, each as "# <capability path>\n\n<content>", joined by "\n\n"
+	SpecFiles               []string // paths of those spec.md files, same order, for the editor
+	Next                    string   // "next ▸ <task text>" for the first "- [ ] " task, "all tasks done" when tasks exist and none is open, "" without tasks
 }
 
 var task = regexp.MustCompile(`(?m)^[ \t]*[-*] \[( |x|X)\] (.*)$`)
@@ -53,6 +54,7 @@ func Read(dir string) Docs {
 		}
 		rel, _ := filepath.Rel(specs, filepath.Dir(path))
 		parts = append(parts, "# "+filepath.ToSlash(rel)+"\n\n"+string(b))
+		d.SpecFiles = append(d.SpecFiles, path)
 		return nil
 	})
 	d.Specs = strings.Join(parts, "\n\n")

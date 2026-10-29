@@ -7,4 +7,4 @@ OpenSpec Kanban · proj                             15/31 48%
 ▌3h                                                         
                                                             
 
-h/l j/k ⏎ gg/G ^d/^u 1-5 · r · q close
+h/l j/k ⏎ e gg/G ^d/^u 1-5 · r · q close

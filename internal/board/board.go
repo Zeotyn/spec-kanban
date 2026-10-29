@@ -3,6 +3,7 @@ package board
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/zeotyn/openspec-kanban/internal/detail"
+	"github.com/zeotyn/openspec-kanban/internal/docs"
+	"github.com/zeotyn/openspec-kanban/internal/editor"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/phase"
 )
@@ -20,6 +23,9 @@ const (
 	cardLines   = 4  // three lines of content plus a blank line
 	chromeLines = 6  // header, blank, column title, rule, footer, blank above footer
 )
+
+// editedMsg reports that the editor started from the Board has exited.
+type editedMsg struct{ err error }
 
 type loadedMsg struct {
 	changes []openspec.Change
@@ -36,7 +42,10 @@ type Model struct {
 	err           error
 	cols          [columns][]openspec.Change
 	nav           nav
-	detail        *detail.Model // the open detail view, nil on the Board
+	detail        *detail.Model   // the open detail view, nil on the Board
+	detailOf      openspec.Change // the Change the detail shows, matched by name and archive state
+	stale         bool            // something changed while a load ran; load again when it ends
+	notice        string          // one-line message in place of the footer, cleared by the next key
 	width, height int
 }
 
@@ -69,6 +78,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case detail.CloseMsg:
 			m.detail = nil
 			return m, nil
+		case detail.EditedMsg:
+			d, cmd := m.detail.Update(msg)
+			m.detail = &d
+			m, reload := m.refresh() // the edit may have changed the Card too
+			return m, tea.Batch(cmd, reload)
 		case tea.KeyMsg:
 			d, cmd := m.detail.Update(msg)
 			m.detail = &d
@@ -90,8 +104,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			old := m.cols
 			m.cols, m.loaded = phase.Group(msg.changes), true
 			m.nav.keep(names(old), names(m.cols), m.visible())
+			m.updateDetailHeader()
 		}
+		if m.stale {
+			m.stale = false
+			return m.refresh()
+		}
+	case detail.EditedMsg: // the detail closed before the editor reported back
+		return m.refresh()
+	case editedMsg:
+		if msg.err != nil {
+			m.notice = "editor failed: " + msg.err.Error()
+		}
+		return m.refresh()
 	case tea.KeyMsg:
+		m.notice = ""
 		switch k := msg.String(); {
 		case k == "q" || k == "esc" || k == "ctrl+c":
 			return m, tea.Quit
@@ -100,20 +127,64 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if col := m.cols[m.nav.col]; len(col) > 0 {
 				c := col[m.nav.sel[m.nav.col]]
 				d := detail.New(m.project, c, detailHeader(c, phase.Phase(m.nav.col)), m.width, m.height)
-				m.detail = &d
+				m.detail, m.detailOf = &d, c
+			}
+		case k == "e":
+			m.nav.pendingG = false
+			if col := m.cols[m.nav.col]; len(col) > 0 {
+				return m.edit(col[m.nav.sel[m.nav.col]])
 			}
 		case k == "r" && m.project != "":
 			m.nav.pendingG = false
-			if m.loading { // one load at a time, so an older result cannot overwrite a newer one
-				return m, nil
-			}
-			m.loading = true
-			return m, m.reload
+			return m.refresh()
 		default:
 			m.nav.key(k, m.counts(), m.visible())
 		}
 	}
 	return m, nil
+}
+
+// refresh starts a load unless one is running, so an older result cannot overwrite a newer one.
+func (m Model) refresh() (Model, tea.Cmd) {
+	if m.loading {
+		m.stale = true
+		return m, nil
+	}
+	if m.project == "" {
+		return m, nil
+	}
+	m.loading = true
+	return m, m.reload
+}
+
+// updateDetailHeader refreshes the open detail's header from the freshly loaded Change.
+func (m *Model) updateDetailHeader() {
+	if m.detail == nil {
+		return
+	}
+	for p, col := range m.cols {
+		for _, c := range col {
+			if c.Name == m.detailOf.Name && c.Archived == m.detailOf.Archived {
+				d := m.detail.WithHeader(detailHeader(c, phase.Phase(p)))
+				m.detail = &d
+				return
+			}
+		}
+	}
+}
+
+// edit opens c's tasks.md in the editor, or explains why not.
+func (m Model) edit(c openspec.Change) (Model, tea.Cmd) {
+	tasks := filepath.Join(docs.Dir(m.project, c), "tasks.md")
+	if c.Archived {
+		m.notice = "archived changes are read-only"
+		return m, nil
+	}
+	if _, err := os.Stat(tasks); err != nil {
+		m.notice = "no tasks to edit"
+		return m, nil
+	}
+	return m, editor.Open(func(err error) tea.Msg { return editedMsg{err} }, tasks)
 }
 
 // detailHeader sums up a Change for the detail view: name, milestone, Progress and Phase or archive date.
@@ -175,9 +246,12 @@ func (m Model) View() string {
 	default:
 		body = m.columns()
 	}
-	footer := "h/l column · j/k card · ⏎ details · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
+	footer := "h/l column · j/k card · ⏎ details · e edit tasks · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
 	if lipgloss.Width(footer) > m.width {
-		footer = "h/l j/k ⏎ gg/G ^d/^u 1-5 · r · q close"
+		footer = "h/l j/k ⏎ e gg/G ^d/^u 1-5 · r · q close"
+	}
+	if m.notice != "" {
+		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(m.notice)
 	}
 	return m.header() + "\n\n" + body + "\n\n" + footer // no trailing newline: the view fills the height exactly
 }
