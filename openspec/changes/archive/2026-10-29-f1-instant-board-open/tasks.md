@@ -26,4 +26,4 @@
 
 - [x] 4.1 Wire `cache.Dir/Read/Write` and `openspec.Load` with known Changes into `kanban board`
 - [x] 4.2 `go test -race ./...` and `go vet ./...` pass
-- [ ] 4.3 Measure in herdr: second `prefix+o` in this repo and in magentic shows the Board without the loading notice; time a refresh with nothing changed (expect about one `openspec list`)
+- [x] 4.3 Measure in herdr: second `prefix+o` in this repo and in magentic shows the Board without the loading notice; time a refresh with nothing changed (expect about one `openspec list`)
