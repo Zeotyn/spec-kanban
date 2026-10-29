@@ -25,13 +25,14 @@ const (
 )
 
 type Change struct {
-	Name        string
-	Done, Total int
-	Modified    time.Time
-	Planning    Planning
-	Artifacts   map[string]string // artifact id → done|ready|blocked|skipped, only when Planning was read
-	Archived    bool
-	ArchivedOn  string // "2026-10-29"; "" when open or the archive folder has no date
+	Name       string            `json:"name"`
+	Done       int               `json:"done"`
+	Total      int               `json:"total"`
+	Modified   time.Time         `json:"modified"`
+	Planning   Planning          `json:"planning"`
+	Artifacts  map[string]string `json:"artifacts,omitempty"` // artifact id → done|ready|blocked|skipped, only when Planning was read
+	Archived   bool              `json:"archived,omitempty"`
+	ArchivedOn string            `json:"archivedOn,omitempty"` // "2026-10-29"; "" when open or the archive folder has no date
 }
 
 // maxParallel bounds concurrent `openspec status` calls (each starts a Node process).

@@ -1,6 +1,6 @@
 ## 1. Planning reuse in the adapter (TDD)
 
-- [ ] 1.1 Add JSON tags to `openspec.Change`
+- [x] 1.1 Add JSON tags to `openspec.Change`
 - [ ] 1.2 Write failing tests for `Load` with known Changes: unchanged → no `status` call; modified → `status` for that Change only; known Unknown → `status` again; `nil` known → today's behaviour
 - [ ] 1.3 Implement the `known` parameter and update callers until the tests pass
 
