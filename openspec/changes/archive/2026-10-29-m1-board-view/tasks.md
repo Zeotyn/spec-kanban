@@ -19,4 +19,4 @@
 ## 4. Verification
 
 - [x] 4.1 `go test ./...` and `go vet ./...` pass
-- [ ] 4.2 Smoke test in herdr: `prefix+o` in this repo and in magentic shows the right columns; navigate with all keys; `r` after ticking a task updates the Card; a narrow herdr window switches to single-column mode
+- [x] 4.2 Smoke test in herdr: `prefix+o` in this repo and in magentic shows the right columns; navigate with all keys; `r` after ticking a task updates the Card; a narrow herdr window switches to single-column mode
