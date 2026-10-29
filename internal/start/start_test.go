@@ -48,7 +48,7 @@ func (f *fakeHerdr) run(args ...string) ([]byte, error) {
 	return []byte(`{}`), nil
 }
 
-func openspec(names ...string) func(...string) ([]byte, error) {
+func fakeList(names ...string) func(...string) ([]byte, error) {
 	return func(args ...string) ([]byte, error) {
 		out := `{"changes":[`
 		for i, n := range names {
@@ -97,7 +97,7 @@ func TestStart(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			if err := Start("/p", change, h.run, openspec("other", change)); err != nil {
+			if err := Start("/p", change, h.run, fakeList("other", change)); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(h.calls, tt.want) {
@@ -109,7 +109,7 @@ func TestStart(t *testing.T) {
 
 func TestStartRejectsChangesThatAreNotOpen(t *testing.T) {
 	h := &fakeHerdr{t: t}
-	err := Start("/p", "m1-bord-view", h.run, openspec(change))
+	err := Start("/p", "m1-bord-view", h.run, fakeList(change))
 	if err == nil || !strings.Contains(err.Error(), `"m1-bord-view" is not an open change`) {
 		t.Fatalf("want not-open error, got %v", err)
 	}
@@ -142,7 +142,7 @@ func TestStartReportsFailingStep(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: map[string]string{"tab create": "tab-create.json"}, fail: tt.fail}
-			err := Start("/p", change, h.run, openspec(change))
+			err := Start("/p", change, h.run, fakeList(change))
 			if err == nil {
 				t.Fatal("want error")
 			}
@@ -172,7 +172,7 @@ func TestStartWithUnexpectedPaneState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			err := Start("/p", change, h.run, openspec(change))
+			err := Start("/p", change, h.run, fakeList(change))
 			if err == nil || !strings.Contains(err.Error(), tt.wants) {
 				t.Fatalf("want error with %q, got %v", tt.wants, err)
 			}

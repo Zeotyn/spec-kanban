@@ -5,16 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
 // Start runs /opsx:apply <change> in a herdr agent named after the Change: it focuses the agent if it
-// is running, restarts it in its tab if it exited, and opens a new tab otherwise. openspec runs the
-// openspec CLI inside project.
-func Start(project, change string, run, openspec herdr.Runner) error {
-	if err := checkOpen(project, change, openspec); err != nil {
+// is running, restarts it in its tab if it exited, and opens a new tab otherwise. openspecRun runs
+// the openspec CLI inside project.
+func Start(project, change string, run, openspecRun herdr.Runner) error {
+	if err := checkOpen(project, change, openspecRun); err != nil {
 		return err
 	}
 
@@ -110,25 +112,15 @@ func agentRunning(run herdr.Runner, pane string) (bool, error) {
 	return false, fmt.Errorf("pane %s runs %s, not Claude: quit it and start again", pane, busy)
 }
 
-func checkOpen(project, change string, openspec herdr.Runner) error {
-	out, err := openspec("list", "--json")
+func checkOpen(project, change string, run herdr.Runner) error {
+	names, err := openspec.OpenNames(run)
 	if err != nil {
-		return fmt.Errorf("openspec list: %w", err)
+		return err
 	}
-	var list struct {
-		Changes []struct {
-			Name string `json:"name"`
-		} `json:"changes"`
+	if !slices.Contains(names, change) {
+		return fmt.Errorf("%q is not an open change of %s", change, filepath.Base(project))
 	}
-	if err := json.Unmarshal(out, &list); err != nil {
-		return fmt.Errorf("openspec list: %w", err)
-	}
-	for _, c := range list.Changes {
-		if c.Name == change {
-			return nil
-		}
-	}
-	return fmt.Errorf("%q is not an open change of %s", change, filepath.Base(project))
+	return nil
 }
 
 func step(run herdr.Runner, args ...string) error {
