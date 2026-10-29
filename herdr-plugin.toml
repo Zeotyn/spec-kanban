@@ -24,3 +24,24 @@ placement = "popup"
 width = "90%"
 height = "90%"
 command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\" board"]
+
+# Sidebar summary: once at startup, then on events that follow real work. `kanban sync` coalesces
+# bursts, so frequent focus events are cheap.
+[[startup]]
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\" sync"]
+
+[[events]]
+on = "pane.agent_status_changed"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\" sync"]
+
+[[events]]
+on = "pane.focused"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\" sync"]
+
+[[events]]
+on = "pane.created"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\" sync"]
+
+[[events]]
+on = "workspace.created"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\" sync"]

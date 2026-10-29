@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/zeotyn/openspec-kanban/internal/cache"
+	"github.com/zeotyn/openspec-kanban/internal/herdr"
 )
 
 func TestOpen(t *testing.T) {
@@ -128,3 +129,21 @@ func mustOnly(t *testing.T, dir string) string {
 }
 
 func sorted(s []string) []string { return slices.Sorted(slices.Values(s)) }
+
+func TestSyncLoadWritesBoardCache(t *testing.T) {
+	proj, dir := t.TempDir(), t.TempDir()
+	var ranIn string
+	cli := func(p string) herdr.Runner {
+		ranIn = p
+		return func(...string) ([]byte, error) {
+			return []byte(`{"changes":[{"name":"a","completedTasks":1,"totalTasks":2}]}`), nil
+		}
+	}
+	changes, err := syncLoad(dir, cli)(proj)
+	if err != nil || len(changes) != 1 || ranIn != proj {
+		t.Fatalf("want one Change read in %s, got %v, %v (ran in %q)", proj, changes, err, ranIn)
+	}
+	if got := cache.Read(dir, proj); !reflect.DeepEqual(got, changes) {
+		t.Errorf("the Board's cache must hold the sync's load\n got %v\nwant %v", got, changes)
+	}
+}

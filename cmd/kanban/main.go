@@ -14,6 +14,7 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/project"
+	"github.com/zeotyn/openspec-kanban/internal/sidebar"
 	"github.com/zeotyn/openspec-kanban/internal/start"
 )
 
@@ -26,6 +27,7 @@ Usage:
   kanban board      Show the Board for $KANBAN_PROJECT (set by kanban open)
   kanban start <change>
                     Run /opsx:apply <change> in a Claude tab of the current directory's project
+  kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
   kanban --version  Print the version
 `
 
@@ -46,6 +48,9 @@ func main() {
 		err = startChange(os.Args[2])
 	case "board":
 		err = showBoard(os.Getenv("KANBAN_PROJECT"))
+	case "sync":
+		dir := cache.Dir()
+		err = sidebar.Coalesce(dir, func() error { return sidebar.Sync(herdr.Exec, syncLoad(dir, openspecCLI)) })
 	case "--version":
 		fmt.Println(version)
 	case "-h", "--help", "":
@@ -89,16 +94,14 @@ func startChange(change string) error {
 	if proj == "" {
 		return fmt.Errorf("no OpenSpec project at or above %s", cwd)
 	}
-	openspec := func(args ...string) ([]byte, error) { return herdr.Run("openspec", proj, args...) }
-	return start.Start(proj, change, herdr.Exec, openspec)
+	return start.Start(proj, change, herdr.Exec, openspecCLI(proj))
 }
 
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,
 // which is itself an OpenSpec project.
 func showBoard(proj string) error {
 	dir := cache.Dir()
-	run := func(args ...string) ([]byte, error) { return herdr.Run("openspec", proj, args...) }
-	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, run), time.Now, cache.Read(dir, proj)), tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj)), tea.WithAltScreen()).Run()
 	return err
 }
 
@@ -117,4 +120,14 @@ func loader(dir, proj string, run herdr.Runner) func() ([]openspec.Change, error
 		}
 		return changes, err
 	}
+}
+
+// syncLoad loads a Project for the sidebar through the Board's loader, so every sync warms the Board's cache.
+func syncLoad(dir string, cli func(proj string) herdr.Runner) func(string) ([]openspec.Change, error) {
+	return func(proj string) ([]openspec.Change, error) { return loader(dir, proj, cli(proj))() }
+}
+
+// openspecCLI runs the openspec CLI inside proj.
+func openspecCLI(proj string) herdr.Runner {
+	return func(args ...string) ([]byte, error) { return herdr.Run("openspec", proj, args...) }
 }

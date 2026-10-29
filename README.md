@@ -30,6 +30,19 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 
 `e` opens `$EDITOR` (`vi` when unset) inside the popup. GUI editors need their wait flag, for example `EDITOR="code -w"`, or the Board reloads before you have saved.
 
+## Sidebar
+
+The plugin writes two lines into each workspace's Space rows in the sidebar, for the project its panes work in (the focused pane's project wins):
+
+```
+▰▰▰▱▱▱ 3/6 m1-board-view
+3 draft · 2 ready · 1 review
+```
+
+The first line is the most recently modified change with its progress; it turns green once all its tasks are done (the bar is full only then). The second counts the open changes per column; `wip` stands for In Progress. When the line gets too long, Draft is dropped first. Workspaces outside a project show nothing.
+
+herdr refreshes the lines on startup, when an agent's status changes and when a pane gets focus or a pane or workspace is created. Copy the `[ui]` and `[ui.sidebar.spaces]` part of [`herdr-config.toml`](herdr-config.toml) into `~/.config/herdr/config.toml` and run `herdr server reload-config`. If you used herdr-openspec, replace its `$openspec` and `$openspec_change` rows; they stay empty once that plugin is disabled.
+
 ## Development
 
 `herdr plugin link` does not run the build step, so build the binary yourself after every change:

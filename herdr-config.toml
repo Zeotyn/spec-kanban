@@ -3,3 +3,16 @@
 key = "prefix+o"
 type = "plugin_action"
 command = "openspec-kanban-open"
+
+# Sidebar summary (kanban sync): the Most recently modified Change, green once all its tasks are
+# done, and the open Changes per Phase. Replaces herdr-openspec's $openspec/$openspec_change rows.
+[ui]
+sidebar_width = 34
+
+[ui.sidebar.spaces]
+rows = [
+  ["state_icon", "workspace"],
+  ["branch", "git_status"],
+  [{ token = "$kanban_change", fg = "#89b4fa", rules = [{ starts_with = "▰▰▰▰▰▰", fg = "#a6e3a1" }] }],
+  [{ token = "$kanban", dim = true }],
+]
