@@ -71,8 +71,9 @@ func TestContract(t *testing.T) {
 
 // TestMissingCLI checks that a missing binary reaches Load through the real runner as "not found".
 func TestMissingCLI(t *testing.T) {
+	dir := t.TempDir() // once: the --version goroutine may still call run after the test ended
 	run := func(args ...string) ([]byte, error) {
-		return herdr.Run("openspec-not-installed-xyz", t.TempDir(), args...)
+		return herdr.Run("openspec-not-installed-xyz", dir, args...)
 	}
 	if _, err := Load(t.TempDir(), run, nil); err == nil || !strings.Contains(err.Error(), "openspec CLI not found") {
 		t.Fatalf("want not-found error, got %v", err)
