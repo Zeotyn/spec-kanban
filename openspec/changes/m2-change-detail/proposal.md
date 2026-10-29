@@ -5,9 +5,9 @@ A Card shows only a summary. To decide what to do next, the user needs the Chang
 ## What Changes
 
 - `Enter` on a Card opens a detail view with tabs Tasks, Proposal, Design, Specs; `1`–`4` and `Tab` switch tabs; `q`/`Esc` returns to the Board with the selection kept.
-- Tasks are grouped by their `##` heading with done markers and the next open task highlighted.
-- Markdown is rendered for the terminal; nested specs are all shown.
-- `o` on a Card toggles an inline task list without leaving the Board.
+- The Tasks tab shows the next open task on top, then `tasks.md` rendered with its `##` groups and done markers.
+- Markdown is rendered for the terminal and scrolls with vim keys; nested specs are all shown, each under its capability path.
+- Missing documents say so instead of an empty tab; archived Changes open read-only from the archive folder.
 
 ## Capabilities
 
@@ -15,8 +15,9 @@ A Card shows only a summary. To decide what to do next, the user needs the Chang
 - `change-detail`: what the detail view shows for a Change and how it is navigated.
 
 ### Modified Capabilities
-- `board`: `Enter` and `o` open details.
+- `board`: `Enter` opens a Card's details.
 
 ## Impact
 
-- New `internal/detail/`; markdown rendering dependency (glamour or similar, decided in design).
+- New `internal/detail/`; new dependency glamour for markdown rendering.
+- An inline task list on the Board (`o`) was dropped: the detail view covers it.
