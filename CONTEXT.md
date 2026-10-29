@@ -39,7 +39,7 @@ The state of a Change derived from its artifacts and tasks; each Phase is one co
 _Avoid_: Status, lane
 
 **Draft**:
-Phase of a Change whose planning artifacts are not yet complete, or that has no tasks at all.
+Phase of an open Change that has no tasks, or none of whose tasks is completed while its planning is incomplete or unknown; once a task is completed, progress decides the Phase.
 
 **Ready**:
 Phase of a fully planned Change with at least one task, none of which is completed.
@@ -48,7 +48,7 @@ Phase of a fully planned Change with at least one task, none of which is complet
 Phase of a Change some, but not all, of whose tasks are completed.
 
 **Review**:
-Phase of an open Change all of whose tasks are completed, even while an agent is still working on it.
+Phase of an open Change with at least one task, all of which are completed, even while an agent is still working on it.
 _Avoid_: Done, finished
 
 **Archived**:
