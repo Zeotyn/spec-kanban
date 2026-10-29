@@ -4,6 +4,11 @@ context: |
   Language: English for everything in this repo - file names, ADRs, CONTEXT.md,
   OpenSpec artifacts, code, comments, commit messages and UI text.
 
+  Change names are lowercase kebab-case with a type prefix:
+  - m<N>-<slug>: part of milestone N (e.g. m0-plugin-skeleton); a milestone has several changes
+  - f<N>-<slug>: fix, N is a running number (f1-, f2-, ...)
+  - c<N>-<slug>: special change outside the milestones, N is a running number
+
 # Project context (optional)
 # This is shown to AI when creating artifacts.
 # Add your tech stack, conventions, style guides, domain knowledge, etc.
