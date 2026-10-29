@@ -21,4 +21,4 @@
 ## 5. Verification
 
 - [x] 5.1 `go test ./...` and `go vet ./...` pass
-- [ ] 5.2 Manual: `kanban start <change>` in this repo opens a tab with Claude running `/opsx:apply <change>`; running it again focuses the same tab
+- [x] 5.2 Manual: `kanban start <change>` in this repo opens a tab with Claude running `/opsx:apply <change>`; running it again focuses the same tab
