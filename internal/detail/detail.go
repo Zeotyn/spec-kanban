@@ -2,6 +2,7 @@
 package detail
 
 import (
+	_ "embed"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,9 +13,13 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
-// Style is the glamour standard style. Not "auto": that queries the terminal, which can stall for
-// seconds when it does not answer and races bubbletea for input. A light option comes with M5 config.
-var Style = "dark"
+// Style names a glamour standard style; "" uses terminal.json, which colours only with the 16 ANSI
+// colours so the terminal's own theme decides how things look. Tests use "notty".
+// Not glamour's "auto": that queries the terminal, which can stall in a popup that does not answer.
+var Style = ""
+
+//go:embed terminal.json
+var terminalStyle []byte
 
 // CloseMsg asks the Board to close the detail view.
 type CloseMsg struct{}
@@ -69,7 +74,11 @@ func (m Model) content(tab int) string {
 }
 
 func (m *Model) render() {
-	r, err := glamour.NewTermRenderer(glamour.WithStandardStyle(Style), glamour.WithWordWrap(max(20, m.width-4)))
+	style := glamour.WithStylesFromJSONBytes(terminalStyle)
+	if Style != "" {
+		style = glamour.WithStandardStyle(Style)
+	}
+	r, err := glamour.NewTermRenderer(style, glamour.WithWordWrap(max(20, m.width-4)))
 	for t := range tabs {
 		out := m.content(t)
 		if err == nil {

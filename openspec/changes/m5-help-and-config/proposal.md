@@ -5,7 +5,7 @@ Keys are only discoverable from the README, and the popup placement is fixed. Be
 ## What Changes
 
 - `?` shows all keys grouped by view.
-- A config file in herdr's plugin config dir with: placement (`popup` or `tab`), popup size, document style (`dark` or `light` for the detail view), Phases to hide (e.g. Archived), and agent kind for Start.
+- A config file in herdr's plugin config dir with: placement (`popup` or `tab`), popup size, Phases to hide (e.g. Archived), and agent kind for Start.
 - Invalid config falls back to defaults with a visible warning.
 
 ## Capabilities

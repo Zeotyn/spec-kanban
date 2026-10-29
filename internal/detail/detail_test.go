@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
@@ -189,4 +190,23 @@ func TestViews(t *testing.T) {
 	golden(t, "specs", press(open(t, change, 80, 20), "4").View())
 	golden(t, "missing-design", press(open(t, change, 80, 20), "3").View())
 	golden(t, "narrow", press(open(t, change, 40, 20), "2").View())
+}
+
+func TestTerminalStyleUsesOnlyANSI16(t *testing.T) {
+	Style = ""
+	defer func() { Style = "notty" }()
+	lipgloss.SetColorProfile(termenv.ANSI256)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+	r, err := glamour.NewTermRenderer(glamour.WithStylesFromJSONBytes(terminalStyle), glamour.WithColorProfile(termenv.ANSI256))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := r.Render("# Title\n\n## Sub\n\ntext `code` [link](https://x.y)\n\n```\nblock\n```\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 256-colour and truecolour sequences would override the terminal theme
+	if strings.Contains(out, "38;5;") || strings.Contains(out, "48;5;") || strings.Contains(out, "38;2;") || strings.Contains(out, "48;") {
+		t.Errorf("only the 16 ANSI colours may be used: %q", out)
+	}
 }
