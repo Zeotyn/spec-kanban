@@ -5,10 +5,22 @@ description = "Kanban board for OpenSpec changes"
 min_herdr_version = "0.9.3"
 platforms = ["macos", "linux"]
 
+# Runs on `herdr plugin install` only; linked checkouts build by hand (see README).
+[[build]]
+command = ["go", "build", "-o", "bin/kanban", "./cmd/kanban"]
+
 # Invoke: herdr plugin action invoke openspec-kanban-open  (or via keybinding, see herdr-config.toml)
 [[actions]]
 id = "openspec-kanban-open"
 title = "Open OpenSpec Kanban"
 description = "Shows the OpenSpec changes of this workspace as a kanban board"
 contexts = ["global", "workspace", "tab", "pane"]
-command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\""]
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\" open"]
+
+[[panes]]
+id = "board"
+title = "OpenSpec Kanban"
+placement = "popup"
+width = "90%"
+height = "90%"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/kanban\" board"]

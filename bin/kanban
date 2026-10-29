@@ -1,2 +1,0 @@
-#!/bin/sh
-echo "openspec-kanban (plugin root: $HERDR_PLUGIN_ROOT)" >&2

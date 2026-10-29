@@ -1,0 +1,5 @@
+No OpenSpec project here.
+
+Open the board from a pane inside a project (a directory containing openspec/changes).
+
+q close
