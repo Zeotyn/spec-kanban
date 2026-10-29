@@ -17,4 +17,4 @@
 
 - [x] 4.1 README: `e` and the `$EDITOR` note for GUI editors
 - [x] 4.2 `go test -race ./...` and `go vet ./...` pass
-- [ ] 4.3 Smoke test in herdr: `e` on the Board ticks a task and the Card updates; `e` on Proposal and Specs in the detail view; `e` on an archived Change shows the notice
+- [x] 4.3 Smoke test in herdr: `e` on the Board ticks a task and the Card updates; `e` on Proposal and Specs in the detail view; `e` on an archived Change shows the notice
