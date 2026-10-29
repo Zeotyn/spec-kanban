@@ -31,10 +31,10 @@ Each Card SHALL show the Change name, shortened in the middle with `…` when it
 - **THEN** the name is shortened in the middle with `…`, keeping its start and end
 
 ### Requirement: Vim-style navigation
-Exactly one Card SHALL be selected when the focused column has Cards. The keys SHALL act as follows: `h`/`l` focus the previous/next column, `j`/`k` select the next/previous Card, `gg`/`G` select the first/last Card, `ctrl-d`/`ctrl-u` move the selection half a column height down/up, `1`–`5` focus that column. Each column SHALL remember its own selected Card when focus leaves and returns. Moves past the first or last column or Card SHALL stop there.
+Exactly one Card SHALL be selected when the focused column has Cards. Only columns with Cards SHALL receive focus. The keys SHALL act as follows: `h`/`l` focus the previous/next column that has Cards, `j`/`k` select the next/previous Card, `gg`/`G` select the first/last Card, `ctrl-d`/`ctrl-u` move the selection half a column height down/up, `1`–`5` focus that column if it has Cards and do nothing otherwise. When the focused column has no Cards after a load, focus SHALL move to the first column with Cards to its right, otherwise to the first one to its left, otherwise to Draft. Each column SHALL remember its own selected Card when focus leaves and returns. Moves past the first or last column or Card SHALL stop there.
 
 #### Scenario: Move between columns
-- **WHEN** the third Card of Ready is selected, the user presses `l` and then `h`
+- **WHEN** Ready and In Progress both have Cards, the third Card of Ready is selected, and the user presses `l` and then `h`
 - **THEN** In Progress is focused with its previously selected Card, and then Ready is focused again with its third Card selected
 
 #### Scenario: Jump to the end
@@ -42,12 +42,24 @@ Exactly one Card SHALL be selected when the focused column has Cards. The keys S
 - **THEN** the twelfth and then the first Card is selected
 
 #### Scenario: Jump to a column
-- **WHEN** the user presses `5`
+- **WHEN** Archived has Cards and the user presses `5`
 - **THEN** the Archived column is focused
 
-#### Scenario: Empty column
-- **WHEN** the user focuses an empty column
-- **THEN** no Card is selected and `j`/`k` do nothing
+#### Scenario: Empty columns are skipped
+- **WHEN** Draft is focused, Ready is empty and In Progress has Cards, and the user presses `l`
+- **THEN** In Progress is focused
+
+#### Scenario: Jump to an empty column
+- **WHEN** Review is empty and the user presses `4`
+- **THEN** focus stays where it was
+
+#### Scenario: Focused column empties on reload
+- **WHEN** the only Card in Review is archived and the user presses `r` while Review is focused
+- **THEN** focus moves to Archived
+
+#### Scenario: Nothing to show
+- **WHEN** the Project has no Changes at all
+- **THEN** Draft is focused, every column says it is empty, and no Card is selected
 
 ### Requirement: The selected Card stays visible
 When a column has more Cards than fit its height, the column SHALL scroll so the selected Card is fully visible, and SHALL show that more Cards exist above or below.

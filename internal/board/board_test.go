@@ -155,6 +155,7 @@ func TestViews(t *testing.T) {
 	golden(t, "board-200", board(t, 200, 30, fixture).View())
 	golden(t, "board-120", keys(board(t, 120, 30, fixture), "l", "j").View())
 	golden(t, "board-60", keys(board(t, 60, 30, fixture), "l", "l").View())
+	golden(t, "board-empty", board(t, 120, 30, nil).View())
 	golden(t, "board-scrolled", keys(board(t, 120, 14, fixture), "j").View()) // room for one Card per column
 }
 

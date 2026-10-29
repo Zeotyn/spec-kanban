@@ -20,11 +20,13 @@ func (n *nav) key(k string, counts [columns]int, visible int) {
 	half := max(1, visible/2)
 	switch k {
 	case "h":
-		n.col = max(0, n.col-1)
+		n.col = n.next(counts, n.col-1, -1)
 	case "l":
-		n.col = min(columns-1, n.col+1)
+		n.col = n.next(counts, n.col+1, 1)
 	case "1", "2", "3", "4", "5":
-		n.col = int(k[0] - '1')
+		if c := int(k[0] - '1'); counts[c] > 0 {
+			n.col = c
+		}
 	case "j":
 		n.sel[n.col]++
 	case "k":
@@ -56,6 +58,27 @@ func (n *nav) keep(old, fresh [columns][]string, visible int) {
 		}
 		n.fit(c, len(fresh[c]), visible)
 	}
+	var counts [columns]int
+	for c := range columns {
+		counts[c] = len(fresh[c])
+	}
+	if counts[n.col] == 0 { // look right first, then left; Draft when everything is empty
+		n.col = n.next(counts, n.col, 1)
+		n.col = n.next(counts, n.col, -1)
+		if counts[n.col] == 0 {
+			n.col = 0
+		}
+	}
+}
+
+// next returns the first column with Cards from c on in direction dir, or the focused column if none.
+func (n *nav) next(counts [columns]int, c, dir int) int {
+	for ; c >= 0 && c < columns; c += dir {
+		if counts[c] > 0 {
+			return c
+		}
+	}
+	return n.col
 }
 
 // fit clamps column c's selection to its count Cards and scrolls so the selection is visible.

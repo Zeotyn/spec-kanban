@@ -44,13 +44,55 @@ func TestNavGCancelledByOtherKey(t *testing.T) {
 }
 
 func TestNavJumpToColumn(t *testing.T) {
+	counts := [columns]int{1, 1, 1, 0, 1}
 	var n nav
-	if n.key("5", [columns]int{}, 1); n.col != 4 {
+	if n.key("5", counts, 1); n.col != 4 {
 		t.Fatalf("after 5: col %d, want 4", n.col)
 	}
-	press(&n, [columns]int{}, 1, "1")
+	if n.key("4", counts, 1); n.col != 4 {
+		t.Fatalf("after 4 on an empty column: col %d, want 4", n.col)
+	}
+	press(&n, counts, 1, "1")
 	if n.col != 0 {
 		t.Fatalf("after 1: col %d, want 0", n.col)
+	}
+}
+
+func TestNavSkipsEmptyColumns(t *testing.T) {
+	counts := [columns]int{2, 0, 3, 0, 0}
+	var n nav
+	if press(&n, counts, 5, "l"); n.col != 2 {
+		t.Fatalf("l: col %d, want 2", n.col)
+	}
+	if press(&n, counts, 5, "l"); n.col != 2 {
+		t.Fatalf("l with only empty columns to the right: col %d, want 2", n.col)
+	}
+	if press(&n, counts, 5, "h"); n.col != 0 {
+		t.Fatalf("h: col %d, want 0", n.col)
+	}
+}
+
+func TestKeepMovesFocusOffEmptyColumn(t *testing.T) {
+	tests := []struct {
+		name  string
+		col   int
+		fresh [columns][]string
+		want  int
+	}{
+		{"right first", 3, [columns][]string{0: {"a"}, 4: {"b"}}, 4},
+		{"left when nothing to the right", 3, [columns][]string{1: {"a"}}, 1},
+		{"stays when it has Cards", 3, [columns][]string{0: {"a"}, 3: {"c"}}, 3},
+		{"Draft when all are empty", 3, [columns][]string{}, 0},
+		{"first load into empty Draft", 0, [columns][]string{2: {"a"}}, 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := nav{col: tt.col}
+			n.keep([columns][]string{}, tt.fresh, 5)
+			if n.col != tt.want {
+				t.Errorf("col %d, want %d", n.col, tt.want)
+			}
+		})
 	}
 }
 

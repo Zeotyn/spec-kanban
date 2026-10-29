@@ -1,0 +1,7 @@
+OpenSpec Kanban · proj
+
+Draft 0                 Ready 0                 In Progress 0           Review 0                Archived 0             
+─────────────────────── ─────────────────────── ─────────────────────── ─────────────────────── ───────────────────────
+nothing here            nothing here            nothing here            nothing here            nothing here           
+
+h/l column · j/k card · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close
