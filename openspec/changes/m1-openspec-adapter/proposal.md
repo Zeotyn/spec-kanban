@@ -5,7 +5,7 @@ Every Board feature needs the Changes of a Project. ADR 0002 makes the `openspec
 ## What Changes
 
 - Read open Changes with `openspec list --json` (name, task counts, last modified, status).
-- Read per-Change planning state with `openspec status --change <name> --json`, in parallel and in the background.
+- Read planning state with `openspec status --change <name> --json` for Changes without completed tasks (only there it decides the Phase), in parallel.
 - Read archived Changes from `openspec/changes/archive/` on disk.
 - Fixture Project under `testdata/project/` covering every Phase, nested specs, and a Change without `tasks.md`.
 - Contract tests that run the real CLI against the fixture and are skipped when `openspec` is missing.
