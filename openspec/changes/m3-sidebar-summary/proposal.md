@@ -8,7 +8,7 @@ The user wants to see each workspace's OpenSpec state at a glance in herdr's Spa
 - Runs on herdr startup and on agent and pane events; bursts of events are coalesced so that at most one extra pass runs.
 - Clears the tokens of workspaces outside any Project; keeps them unchanged when a Project cannot be read.
 - Reuses the change cache, so a sync usually costs one `openspec list` per Project and keeps the Board's cache warm.
-- Config snippet with the two sidebar rows and a colour rule (green when the Most recently modified Change is in Review); the README documents copying it.
+- Config snippet with the two sidebar rows and a bold rule (when the Most recently modified Change is in Review); the README documents copying it.
 - This plugin takes over the sidebar from herdr-openspec (ADR 0006).
 
 ## Capabilities

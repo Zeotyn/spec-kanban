@@ -68,7 +68,7 @@ sidebar_max_width = 36
 rows = [
   ["state_icon", "workspace"],
   ["branch", "git_status"],
-  [{ token = "$kanban_change", fg = "#89b4fa", rules = [{ starts_with = "▰▰▰▰▰▰", fg = "#a6e3a1" }] }],
+  [{ token = "$kanban_change", rules = [{ starts_with = "▰▰▰▰▰▰", bold = true }] }],
   [{ token = "$kanban", dim = true }],
 ]
 ```

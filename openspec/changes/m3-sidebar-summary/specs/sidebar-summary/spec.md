@@ -95,8 +95,8 @@ When a Project's Changes cannot be read (for example, the openspec CLI is missin
 - **THEN** no token is reported or cleared and the command exits with an error
 
 ### Requirement: Sidebar config snippet
-The repository SHALL provide a herdr config snippet with Space rows that show `$kanban_change` and `$kanban` on their own lines, colour `$kanban_change` green when the Change's Progress bar is full, and widen the sidebar so the 28-character values fit. The README SHALL explain copying the snippet and replacing herdr-openspec's `$openspec` rows.
+The repository SHALL provide a herdr config snippet with Space rows that show `$kanban_change` and `$kanban` on their own lines, make `$kanban_change` bold when the Change's Progress bar is full, and widen the sidebar so the 28-character values fit. The README SHALL explain copying the snippet and replacing herdr-openspec's `$openspec` rows.
 
 #### Scenario: Snippet applied
 - **WHEN** the user copies the snippet into `~/.config/herdr/config.toml` and reloads the config
-- **THEN** each workspace inside a Project shows the two summary lines under its name, and the first one turns green once all tasks of the Change are completed
+- **THEN** each workspace inside a Project shows the two summary lines under its name, and the first one turns bold once all tasks of the Change are completed
