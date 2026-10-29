@@ -17,4 +17,4 @@
 ## 4. Verification
 
 - [x] 4.1 `go test -race ./...` and `go vet ./...` pass
-- [ ] 4.2 Smoke test in herdr: open details of an In Progress, a Draft and an archived Card in this repo and in magentic (nested specs); scroll, switch tabs, return
+- [x] 4.2 Smoke test in herdr: open details of an In Progress, a Draft and an archived Card in this repo and in magentic (nested specs); scroll, switch tabs, return
