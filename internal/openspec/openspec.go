@@ -2,13 +2,18 @@
 package openspec
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +38,7 @@ type Change struct {
 	Artifacts  map[string]string `json:"artifacts,omitempty"` // artifact id → done|ready|blocked|skipped, only when Planning was read
 	Archived   bool              `json:"archived,omitempty"`
 	ArchivedOn string            `json:"archivedOn,omitempty"` // "2026-10-29"; "" when open or the archive folder has no date
+	Files      string            `json:"files,omitempty"`      // fingerprint of the file paths, only for open Changes without completed tasks
 }
 
 // maxParallel bounds concurrent `openspec status` calls (each starts a Node process).
@@ -42,17 +48,34 @@ var dated = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})-(.+)$`)
 
 // Load returns the open Changes, read by run (the openspec CLI inside project), in `openspec list`
 // order, then the archived ones by folder name.
-// Planning state is read only for open Changes without completed tasks.
-func Load(project string, run herdr.Runner) ([]Change, error) {
+// Planning state is read only for open Changes without completed tasks; it is copied from known
+// instead when known holds the Change with the same non-zero Modified, the same file fingerprint
+// and a Planning other than Unknown.
+func Load(project string, run herdr.Runner, known map[string]Change) ([]Change, error) {
+	version := make(chan string, 1) // in parallel with list, so it costs no extra time
+	go func() {
+		out, _ := run("--version")
+		version <- strings.TrimSpace(string(out))
+	}()
 	changes, err := list(run)
 	if err != nil {
 		return nil, err
 	}
 
+	v := <-version
+	base := setup(project, v)
 	var wg sync.WaitGroup
 	slots := make(chan struct{}, maxParallel)
 	for i := range changes {
 		if changes[i].Done > 0 {
+			continue
+		}
+		if v != "" { // without a version an upgrade would go unnoticed, so leave the fingerprint empty
+			changes[i].Files = files(filepath.Join(project, "openspec", "changes", changes[i].Name), base)
+		}
+		if k, ok := known[changes[i].Name]; ok && k.Planning != Unknown && !k.Modified.IsZero() &&
+			k.Modified.Equal(changes[i].Modified) && k.Files != "" && k.Files == changes[i].Files {
+			changes[i].Planning, changes[i].Artifacts = k.Planning, k.Artifacts
 			continue
 		}
 		wg.Add(1)
@@ -80,6 +103,45 @@ func Load(project string, run herdr.Runner) ([]Change, error) {
 		changes = append(changes, c)
 	}
 	return changes, nil
+}
+
+// files fingerprints the OpenSpec setup (see setup) and the relative file paths under dir. openspec's
+// lastModified is the newest file time, which misses an older file being deleted or renamed; the
+// path list catches that. "" on error, which never matches.
+func files(dir, setup string) string {
+	h := sha256.New()
+	io.WriteString(h, setup)
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			rel, _ := filepath.Rel(dir, p)
+			io.WriteString(h, rel+"\n")
+		}
+		return err
+	})
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(h.Sum(nil))[:16]
+}
+
+// setup stamps what `openspec status` depends on outside a Change: the Project's config.yaml, its
+// project schemas, and the openspec CLI version.
+func setup(project, version string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "openspec %s\n", version)
+	stamp := func(p string) {
+		if fi, err := os.Stat(p); err == nil {
+			fmt.Fprintf(&b, "%s %d %d\n", p, fi.Size(), fi.ModTime().UnixNano())
+		}
+	}
+	stamp(filepath.Join(project, "openspec", "config.yaml"))
+	filepath.WalkDir(filepath.Join(project, "openspec", "schemas"), func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			stamp(p)
+		}
+		return nil
+	})
+	return b.String()
 }
 
 // OpenNames returns the names of the open Changes.

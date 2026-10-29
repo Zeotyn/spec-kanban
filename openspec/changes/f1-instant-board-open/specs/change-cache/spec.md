@@ -16,7 +16,7 @@ After every successful load of a Project's Changes, the plugin SHALL store them,
 - **THEN** the cache file for that Project is unchanged
 
 ### Requirement: Cached data is validated before use
-Before any cached data is used, the cache file SHALL be checked; the whole file SHALL be ignored when it cannot be read or parsed, when its format version differs from the plugin's, when it belongs to a different Project path, or when an entry lacks a Change name. An ignored file SHALL be replaced by the next successful load.
+Before any cached data is used, the cache file SHALL be checked; the whole file SHALL be ignored when it cannot be read or parsed, when its format version differs from the plugin's, when it belongs to a different Project path, or when an entry lacks a Change name or has an unknown planning value. An ignored file SHALL be replaced by the next successful load.
 
 #### Scenario: Corrupted file
 - **WHEN** the cache file contains invalid JSON
@@ -31,7 +31,7 @@ Before any cached data is used, the cache file SHALL be checked; the whole file 
 - **THEN** none of its data is used
 
 ### Requirement: Planning state is reused only for unchanged Changes
-During a load, a Change's cached planning state SHALL be used instead of calling `openspec status` only when the cached entry has the same name and exactly the same last modification time as `openspec list` reports now, and the cached planning state is known. Otherwise `openspec status` SHALL be called as without a cache.
+During a load, a Change's cached planning state SHALL be used instead of calling `openspec status` only when the cached entry has the same name, exactly the same non-empty last modification time as `openspec list` reports now, the same set of file paths in the Change's directory, the same OpenSpec setup (the Project's `openspec/config.yaml`, its project schemas and the installed openspec CLI), and a known planning state. Otherwise `openspec status` SHALL be called as without a cache. The file set is checked because `openspec list` reports the newest file time, which does not change when an older file is deleted or renamed.
 
 #### Scenario: Nothing changed since the last load
 - **WHEN** a Project has 7 Changes without completed tasks, none modified since the last load
@@ -40,6 +40,14 @@ During a load, a Change's cached planning state SHALL be used instead of calling
 #### Scenario: One Change edited
 - **WHEN** one of those 7 Changes was modified since the last load
 - **THEN** the load calls `openspec status` for that Change only
+
+#### Scenario: Artifact deleted
+- **WHEN** `design.md` of a Change is deleted while a newer file of that Change remains
+- **THEN** the load calls `openspec status` for that Change
+
+#### Scenario: Schema or CLI changed
+- **WHEN** `openspec/config.yaml` was edited, or the openspec CLI was upgraded, since the last load
+- **THEN** the load calls `openspec status` for every Change without completed tasks
 
 #### Scenario: Unknown planning is not reused
 - **WHEN** a Change's cached planning state is unknown because its last `status` call failed

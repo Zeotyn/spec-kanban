@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/zeotyn/openspec-kanban/internal/board"
+	"github.com/zeotyn/openspec-kanban/internal/cache"
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/project"
@@ -95,9 +96,25 @@ func startChange(change string) error {
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,
 // which is itself an OpenSpec project.
 func showBoard(proj string) error {
-	load := func() ([]openspec.Change, error) {
-		return openspec.Load(proj, func(args ...string) ([]byte, error) { return herdr.Run("openspec", proj, args...) })
-	}
-	_, err := tea.NewProgram(board.New(proj, load, time.Now), tea.WithAltScreen()).Run()
+	dir := cache.Dir()
+	run := func(args ...string) ([]byte, error) { return herdr.Run("openspec", proj, args...) }
+	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, run), time.Now, cache.Read(dir, proj)), tea.WithAltScreen()).Run()
 	return err
+}
+
+// loader reads the Project's Changes, reusing cached planning state, and caches every successful load.
+func loader(dir, proj string, run herdr.Runner) func() ([]openspec.Change, error) {
+	return func() ([]openspec.Change, error) {
+		known := map[string]openspec.Change{}
+		for _, c := range cache.Read(dir, proj) { // re-read each time, so every refresh reuses the newest load
+			if !c.Archived { // an archived Change may share an open one's name
+				known[c.Name] = c
+			}
+		}
+		changes, err := openspec.Load(proj, run, known)
+		if err == nil {
+			_ = cache.Write(dir, proj, changes) // cache problems never break the Board
+		}
+		return changes, err
+	}
 }

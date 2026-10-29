@@ -68,7 +68,7 @@ var fixture = []openspec.Change{
 // board returns a loaded Board of the fixture at the given size.
 func board(t *testing.T, w, h int, changes []openspec.Change) Model {
 	t.Helper()
-	m := New("/x/proj", func() ([]openspec.Change, error) { return changes, nil }, func() time.Time { return now })
+	m := New("/x/proj", func() ([]openspec.Change, error) { return changes, nil }, func() time.Time { return now }, nil)
 	m = send(m, tea.WindowSizeMsg{Width: w, Height: h})
 	return send(m, m.Init()())
 }
@@ -106,7 +106,7 @@ func TestQuitKeys(t *testing.T) {
 }
 
 func TestLoading(t *testing.T) {
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now })
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil)
 	if !strings.Contains(m.View(), "Loading changes…") {
 		t.Errorf("no loading notice before data:\n%s", m.View())
 	}
@@ -119,12 +119,12 @@ func TestLoading(t *testing.T) {
 func TestReload(t *testing.T) {
 	calls := 0
 	changes := fixture
-	m := New("/x/proj", func() ([]openspec.Change, error) { calls++; return changes, nil }, func() time.Time { return now })
+	m := New("/x/proj", func() ([]openspec.Change, error) { calls++; return changes, nil }, func() time.Time { return now }, nil)
 	m = send(m, m.Init()())
 	m = keys(m, "3") // In Progress: m1-board-view
 	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
 	m = next.(Model)
-	if cmd == nil || !strings.Contains(m.View(), "loading…") {
+	if cmd == nil || !strings.Contains(m.View(), "refreshing…") {
 		t.Fatal("r must reload and show it in the header")
 	}
 	changes = append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
@@ -140,7 +140,7 @@ func TestReload(t *testing.T) {
 func TestLoadError(t *testing.T) {
 	m := New("/x/proj", func() ([]openspec.Change, error) {
 		return nil, errors.New("openspec CLI not found: install it with npm i -g @fission-ai/openspec")
-	}, func() time.Time { return now })
+	}, func() time.Time { return now }, nil)
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = send(m, m.Init()())
 	golden(t, "error", m.View())
@@ -150,8 +150,8 @@ func TestLoadError(t *testing.T) {
 }
 
 func TestViews(t *testing.T) {
-	golden(t, "no-project", New("", nil, time.Now).View())
-	golden(t, "loading", New("/x/proj", nil, time.Now).View())
+	golden(t, "no-project", New("", nil, time.Now, nil).View())
+	golden(t, "loading", New("/x/proj", nil, time.Now, nil).View())
 	golden(t, "board-200", board(t, 200, 30, fixture).View())
 	golden(t, "board-120", keys(board(t, 120, 30, fixture), "l", "j").View())
 	golden(t, "board-60", keys(board(t, 60, 30, fixture), "l", "l").View())
@@ -217,5 +217,34 @@ func TestHeaderProgress(t *testing.T) {
 	m = send(m, m.reload())
 	if strings.Contains(m.View(), "%") {
 		t.Errorf("error view must not show stale progress:\n%s", m.View())
+	}
+}
+
+func TestSnapshot(t *testing.T) {
+	fresh := append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture)
+	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
+	if v := m.View(); strings.Contains(v, "Loading changes…") || !strings.Contains(v, "refreshing…") || !strings.Contains(v, "m1-board-view") {
+		t.Fatalf("snapshot must show at once, marked refreshing:\n%s", v)
+	}
+	golden(t, "refreshing", m.View())
+	m = keys(m, "3") // In Progress: m1-board-view
+	cmd := m.Init()
+	if cmd == nil {
+		t.Fatal("a snapshot must still trigger a fresh load")
+	}
+	m = send(m, cmd())
+	if v := m.View(); strings.Contains(v, "refreshing…") || !strings.Contains(v, "m3-new") {
+		t.Errorf("fresh load must replace the snapshot and clear the marker:\n%s", v)
+	}
+	if got := m.cols[2][m.nav.sel[2]].Name; got != "m1-board-view" {
+		t.Errorf("selection after the swap %q, want m1-board-view", got)
+	}
+}
+
+func TestSnapshotMovesFocusOffEmptyDraft(t *testing.T) {
+	m := New("/x/proj", nil, func() time.Time { return now }, []openspec.Change{{Name: "doing", Done: 1, Total: 2, Modified: now}})
+	if m.nav.col != 2 {
+		t.Errorf("focus %d, want In Progress (2)", m.nav.col)
 	}
 }

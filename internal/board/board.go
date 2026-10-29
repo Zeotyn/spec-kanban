@@ -38,8 +38,15 @@ type Model struct {
 	width, height int
 }
 
-func New(project string, load func() ([]openspec.Change, error), now func() time.Time) Model {
-	return Model{project: project, load: load, now: now, loading: project != "", width: 120, height: 30}
+// New builds the Board. A non-nil snapshot (the cached last load) is shown at once while the fresh
+// load from Init runs; nil means show a loading notice until then.
+func New(project string, load func() ([]openspec.Change, error), now func() time.Time, snapshot []openspec.Change) Model {
+	m := Model{project: project, load: load, now: now, loading: project != "", width: 120, height: 30}
+	if snapshot != nil {
+		m.cols, m.loaded = phase.Group(snapshot), true
+		m.nav.keep([columns][]string{}, names(m.cols), m.visible())
+	}
+	return m
 }
 
 func (m Model) Init() tea.Cmd {
@@ -134,8 +141,8 @@ func (m Model) View() string {
 
 func (m Model) header() string {
 	title := "OpenSpec Kanban · " + filepath.Base(m.project)
-	if m.loading {
-		title += " · loading…"
+	if m.loading && m.loaded { // before the first load the body says so
+		title += " · refreshing…"
 	}
 	var done, total int
 	for _, col := range m.cols[:phase.Archived] {
