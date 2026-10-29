@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"github.com/zeotyn/openspec-kanban/internal/detail"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
@@ -21,6 +22,7 @@ var update = flag.Bool("update", false, "rewrite golden files")
 
 func TestMain(m *testing.M) {
 	lipgloss.SetColorProfile(termenv.Ascii) // goldens without escape codes
+	detail.Style = "notty"
 	os.Exit(m.Run())
 }
 
@@ -246,5 +248,68 @@ func TestSnapshotMovesFocusOffEmptyDraft(t *testing.T) {
 	m := New("/x/proj", nil, func() time.Time { return now }, []openspec.Change{{Name: "doing", Done: 1, Total: 2, Modified: now}})
 	if m.nav.col != 2 {
 		t.Errorf("focus %d, want In Progress (2)", m.nav.col)
+	}
+}
+
+func enter(m Model) (Model, tea.Cmd) {
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	return next.(Model), cmd
+}
+
+func TestEnterOpensDetail(t *testing.T) {
+	m, _ := enter(keys(board(t, 120, 30, fixture), "3")) // In Progress: m1-board-view
+	if m.detail == nil || !strings.HasPrefix(m.View(), "m1-board-view  M1  5/11  In Progress") {
+		t.Fatalf("Enter must open the selected Card's details:\n%s", m.View())
+	}
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	m = send(next.(Model), cmd())
+	if m.detail != nil || m.nav.col != 2 || m.cols[2][m.nav.sel[2]].Name != "m1-board-view" {
+		t.Errorf("q must return to the Board with the same selection:\n%s", m.View())
+	}
+}
+
+func TestEnterOnArchivedCard(t *testing.T) {
+	m, _ := enter(keys(board(t, 120, 30, fixture), "5"))
+	if !strings.HasPrefix(m.View(), "m0-plugin-skeleton  M0  archived 2026-10-29") {
+		t.Errorf("archived header:\n%s", m.View())
+	}
+}
+
+func TestEnterOnEmptyBoard(t *testing.T) {
+	if m, _ := enter(board(t, 120, 30, nil)); m.detail != nil {
+		t.Error("Enter without Cards must do nothing")
+	}
+}
+
+func TestDetailKeysAndQuit(t *testing.T) {
+	m, _ := enter(keys(board(t, 120, 30, fixture), "3"))
+	m = keys(m, "j", "l") // detail keys; l is not a detail key and must not move the Board
+	if m.nav.col != 2 {
+		t.Errorf("keys in the detail must not reach the Board, col %d", m.nav.col)
+	}
+	if _, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC}); cmd == nil || cmd() != tea.Quit() {
+		t.Error("ctrl+c must quit from the detail")
+	}
+}
+
+func TestDetailStaysOpenAcrossReloadAndResize(t *testing.T) {
+	m, _ := enter(keys(board(t, 120, 30, fixture), "3"))
+	m = send(m, loadedMsg{changes: fixture})
+	m = send(m, tea.WindowSizeMsg{Width: 60, Height: 20})
+	if m.detail == nil || !strings.HasPrefix(m.View(), "m1-board-view") {
+		t.Fatalf("a reload or resize must not close the detail:\n%s", m.View())
+	}
+	if lines := strings.Count(m.View(), "\n") + 1; lines > 20 || m.width != 60 {
+		t.Errorf("resize must reach detail and Board: %d lines, board width %d", lines, m.width)
+	}
+}
+
+func TestEnterCancelsPendingG(t *testing.T) {
+	m := keys(board(t, 120, 30, tall(5)), "2", "G", "g")
+	m, _ = enter(m)
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	m = keys(send(next.(Model), cmd()), "g")
+	if m.nav.sel[1] != 4 {
+		t.Errorf("g, Enter, q, g jumped to Card %d; Enter must cancel the pending g", m.nav.sel[1])
 	}
 }

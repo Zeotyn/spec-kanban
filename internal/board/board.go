@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/zeotyn/openspec-kanban/internal/detail"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/phase"
 )
@@ -35,6 +36,7 @@ type Model struct {
 	err           error
 	cols          [columns][]openspec.Change
 	nav           nav
+	detail        *detail.Model // the open detail view, nil on the Board
 	width, height int
 }
 
@@ -62,6 +64,20 @@ func (m Model) reload() tea.Msg {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.detail != nil {
+		switch msg.(type) {
+		case detail.CloseMsg:
+			m.detail = nil
+			return m, nil
+		case tea.KeyMsg:
+			d, cmd := m.detail.Update(msg)
+			m.detail = &d
+			return m, cmd
+		case tea.WindowSizeMsg:
+			d, _ := m.detail.Update(msg)
+			m.detail = &d // and fall through so the Board resizes too
+		}
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -79,6 +95,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch k := msg.String(); {
 		case k == "q" || k == "esc" || k == "ctrl+c":
 			return m, tea.Quit
+		case k == "enter":
+			m.nav.pendingG = false
+			if col := m.cols[m.nav.col]; len(col) > 0 {
+				c := col[m.nav.sel[m.nav.col]]
+				d := detail.New(m.project, c, detailHeader(c, phase.Phase(m.nav.col)), m.width, m.height)
+				m.detail = &d
+			}
 		case k == "r" && m.project != "":
 			m.nav.pendingG = false
 			if m.loading { // one load at a time, so an older result cannot overwrite a newer one
@@ -91,6 +114,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// detailHeader sums up a Change for the detail view: name, milestone, Progress and Phase or archive date.
+func detailHeader(c openspec.Change, p phase.Phase) string {
+	parts := []string{c.Name}
+	if b := milestone(c.Name); b != "" {
+		parts = append(parts, b)
+	}
+	switch {
+	case c.Archived:
+		parts = append(parts, strings.TrimSpace("archived "+c.ArchivedOn))
+	case c.Total > 0:
+		parts = append(parts, fmt.Sprintf("%d/%d", c.Done, c.Total), p.String())
+	default:
+		parts = append(parts, "no tasks", p.String())
+	}
+	return strings.Join(parts, "  ")
 }
 
 func names(cols [columns][]openspec.Change) [columns][]string {
@@ -117,6 +157,9 @@ func (m Model) visible() int {
 }
 
 func (m Model) View() string {
+	if m.detail != nil {
+		return m.detail.View()
+	}
 	if m.project == "" {
 		return "No OpenSpec project here.\n\n" +
 			"Open the board from a pane inside a project (a directory containing openspec/changes).\n\n" +
@@ -132,9 +175,9 @@ func (m Model) View() string {
 	default:
 		body = m.columns()
 	}
-	footer := "h/l column · j/k card · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
+	footer := "h/l column · j/k card · ⏎ details · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
 	if lipgloss.Width(footer) > m.width {
-		footer = "h/l j/k gg/G ^d/^u 1-5 · r reload · q close"
+		footer = "h/l j/k ⏎ gg/G ^d/^u 1-5 · r · q close"
 	}
 	return m.header() + "\n\n" + body + "\n\n" + footer // no trailing newline: the view fills the height exactly
 }
