@@ -1,3 +1,0 @@
-OpenSpec Kanban · proj
-
-q close

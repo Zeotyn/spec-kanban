@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/zeotyn/openspec-kanban/internal/board"
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/project"
 	"github.com/zeotyn/openspec-kanban/internal/start"
 )
@@ -93,6 +95,9 @@ func startChange(change string) error {
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,
 // which is itself an OpenSpec project.
 func showBoard(proj string) error {
-	_, err := tea.NewProgram(board.New(proj), tea.WithAltScreen()).Run()
+	load := func() ([]openspec.Change, error) {
+		return openspec.Load(proj, func(args ...string) ([]byte, error) { return herdr.Run("openspec", proj, args...) })
+	}
+	_, err := tea.NewProgram(board.New(proj, load, time.Now), tea.WithAltScreen()).Run()
 	return err
 }
