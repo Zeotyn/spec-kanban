@@ -24,4 +24,4 @@
 ## 5. Verification
 
 - [x] 5.1 `go test -race ./...` and `go vet ./...` pass
-- [ ] 5.2 Smoke test in herdr: rebuild, apply the snippet to `~/.config/herdr/config.toml`, reload; workspaces in this repo and in magentic show both lines, a workspace outside a Project shows none; tick a task via an agent turn and see the count update; finish a Change's tasks and see the line turn bold; `herdr plugin log list` shows no errors and a burst of focus changes runs at most two passes
+- [x] 5.2 Smoke test in herdr: rebuild, apply the snippet to `~/.config/herdr/config.toml`, reload; workspaces in this repo and in magentic show both lines, a workspace outside a Project shows none; tick a task via an agent turn and see the count update; finish a Change's tasks and see the line turn bold; `herdr plugin log list` shows no errors and a burst of focus changes runs at most two passes
