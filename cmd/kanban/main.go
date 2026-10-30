@@ -49,7 +49,10 @@ Usage:
                     Send the configured prompt for <change> to an agent in a new tab of the current
                     directory's project, or in a worktree of the project on a branch named <change>
   kanban launch <change> <pane> <tab> <kind> <prompt>
-                    Focus tab, start an agent of kind in pane and send prompt (internal, spawned by the Board)
+                    Focus tab, start an agent of kind in pane, send prompt and watch it until it hands
+                    the Change off or goes away (internal, spawned by the Board)
+  kanban resume <change> <pane> <tab>
+                    Focus tab and reopen the session recorded for <change> in pane (internal, spawned by the Board)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
   kanban --version  Print the version
 `
@@ -75,6 +78,12 @@ func main() {
 			os.Exit(2)
 		}
 		err = launch(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], herdr.Exec)
+	case "resume":
+		if len(os.Args) != 5 {
+			fmt.Fprintf(os.Stderr, "kanban: resume needs a change name, a pane and a tab\n\n%s", usage)
+			os.Exit(2)
+		}
+		err = resumeChange(os.Args[2], os.Args[3], os.Args[4], herdr.Exec)
 	case "board":
 		err = showBoard(os.Getenv("KANBAN_PROJECT"))
 	case "sync":
@@ -155,20 +164,35 @@ func showBoard(proj string) error {
 			return err
 		}
 		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
-		return spawnLaunch(change, pane, tab, kind, cfg.PromptFor(change))
+		return spawn("launch", change, pane, tab, kind, cfg.PromptFor(change))
 	}
-	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI, git), time.Now, cache.Read(dir, proj), running, startOne, cfg.Hide, notice), tea.WithAltScreen()).Run()
+	reopenable := func(change string) bool { return start.ResumeArgs(cache.ReadSession(dir, proj, change)) != nil }
+	resumable := func(change string) (string, bool) {
+		return cache.ReadSession(dir, proj, change).Agent, reopenable(change)
+	}
+	resume := func(change string) error {
+		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, git)
+		if err != nil || pane == "" {
+			return err
+		}
+		if !reopenable(change) { // a Running badge without a record, and the agent was idle
+			return fmt.Errorf("no reopenable session for %s", change)
+		}
+		return spawn("resume", change, pane, tab)
+	}
+	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI, git), time.Now, cache.Read(dir, proj), running, startOne,
+		resumable, resume, cfg.Hide, notice), tea.WithAltScreen()).Run()
 	return err
 }
 
-// spawnLaunch runs kanban launch detached in its own session, so it outlives the Board's popup.
+// spawn runs kanban with args detached in its own session, so it outlives the Board's popup.
 // Only the child moves focus, so a popup that closes on focus loss cannot kill the Board before the spawn.
-func spawnLaunch(change, pane, tab, kind, prompt string) error {
+func spawn(args ...string) error {
 	self, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(self, "launch", change, pane, tab, kind, prompt)
+	cmd := exec.Command(self, args...)
 	cmd.Env = childEnv(os.Environ())
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
@@ -185,10 +209,32 @@ func childEnv(env []string) []string {
 }
 
 // launch runs start.Launch and reports a failure as a herdr notification: nobody reads its stderr.
+// A Start from the Board ($KANBAN_PROJECT set) is then watched until it hands off or its agent goes away.
 func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
-	err := start.Launch(change, kind, prompt, pane, tab, run)
-	if err != nil {
+	if err := start.Launch(change, kind, prompt, pane, tab, run); err != nil {
 		run("notification", "show", "openspec-kanban: start failed", "--body", err.Error())
+		return err
+	}
+	proj := os.Getenv("KANBAN_PROJECT")
+	if proj == "" {
+		return nil
+	}
+	cfg, _ := config.Load(config.Dir(run)) // a broken config was already shown by the Board
+	dir, git := cache.Dir(), gitCLI(proj)
+	start.Watch(start.Watched{Project: proj, Change: change, Main: os.Getenv("KANBAN_MAIN_PANE"), Base: cfg.Base,
+		Load:   loader(dir, proj, openspecCLI, git),
+		Record: func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
+	}, run, git)
+	return nil
+}
+
+// resumeChange reopens the session recorded for change of $KANBAN_PROJECT and reports a failure as
+// a herdr notification.
+func resumeChange(change, pane, tab string, run herdr.Runner) error {
+	s := cache.ReadSession(cache.Dir(), os.Getenv("KANBAN_PROJECT"), change)
+	err := start.Resume(change, s, pane, tab, run)
+	if err != nil {
+		run("notification", "show", "openspec-kanban: resume failed", "--body", err.Error())
 	}
 	return err
 }

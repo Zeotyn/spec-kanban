@@ -155,6 +155,7 @@ func TestSyncLoadWritesBoardCache(t *testing.T) {
 }
 
 func TestLaunchNotifiesOnFailure(t *testing.T) {
+	t.Setenv("KANBAN_PROJECT", "/x/proj") // a failed Launch is not watched
 	var calls [][]string
 	run := func(args ...string) ([]byte, error) {
 		calls = append(calls, args)
@@ -174,6 +175,7 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 }
 
 func TestLaunchSucceedsQuietly(t *testing.T) {
+	t.Setenv("KANBAN_PROJECT", "") // not from the Board: not watched
 	var calls [][]string
 	run := func(args ...string) ([]byte, error) { calls = append(calls, args); return nil, nil }
 	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view with TDD", run); err != nil {
@@ -189,9 +191,61 @@ func TestLaunchSucceedsQuietly(t *testing.T) {
 	}
 }
 
+func TestLaunchWatches(t *testing.T) {
+	t.Setenv("KANBAN_PROJECT", t.TempDir())
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
+	var calls []string
+	run := func(args ...string) ([]byte, error) {
+		calls = append(calls, strings.Join(args, " "))
+		if args[0] == "agent" && args[1] == "get" {
+			return nil, errors.New("agent_not_found") // the agent went away: watching ends
+		}
+		return nil, nil
+	}
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:apply m1-board-view", run); err != nil {
+		t.Fatal(err)
+	}
+	if want := "agent get m1-board-view"; len(calls) != 4 || calls[3] != want {
+		t.Errorf("want Launch's three calls, then %q; got %q", want, calls)
+	}
+}
+
+func TestResumeNotifiesOnFailure(t *testing.T) {
+	t.Setenv("KANBAN_PROJECT", "/x/proj")
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", t.TempDir()) // no record
+	var calls [][]string
+	run := func(args ...string) ([]byte, error) { calls = append(calls, args); return nil, nil }
+	err := resumeChange("m1-board-view", "w2:p1J", "w2:tG", run)
+	if err == nil {
+		t.Fatal("want an error without a record")
+	}
+	want := [][]string{{"notification", "show", "openspec-kanban: resume failed", "--body", err.Error()}}
+	if !reflect.DeepEqual(calls, want) {
+		t.Errorf("herdr calls %q, want %q", calls, want)
+	}
+}
+
+func TestResumeRecordedSession(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KANBAN_PROJECT", "/x/proj")
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
+	if err := cache.WriteSession(dir, "/x/proj", "m1-board-view", herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}); err != nil {
+		t.Fatal(err)
+	}
+	var calls []string
+	run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
+	if err := resumeChange("m1-board-view", "w2:p1J", "w2:tG", run); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"tab focus w2:tG", "agent start m1-board-view --kind claude --pane w2:p1J --timeout 60000 -- --resume abc"}
+	if !reflect.DeepEqual(calls, want) {
+		t.Errorf("herdr calls %q, want %q", calls, want)
+	}
+}
+
 func TestChildEnvDropsPopupIDs(t *testing.T) {
-	got := childEnv([]string{"HOME=/h", "HERDR_PANE_ID=w2:p9", "HERDR_SOCKET=/s", "HERDR_TAB_ID=w2:t9"})
-	if want := []string{"HOME=/h", "HERDR_SOCKET=/s"}; !reflect.DeepEqual(got, want) {
+	got := childEnv([]string{"HOME=/h", "HERDR_PANE_ID=w2:p9", "KANBAN_PROJECT=/p", "HERDR_SOCKET=/s", "HERDR_TAB_ID=w2:t9", "KANBAN_MAIN_PANE=w2:p1"})
+	if want := []string{"HOME=/h", "KANBAN_PROJECT=/p", "HERDR_SOCKET=/s", "KANBAN_MAIN_PANE=w2:p1"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
