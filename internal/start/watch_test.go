@@ -406,10 +406,13 @@ func TestWatchSpecKit(t *testing.T) {
 
 func TestWatchAndResumeFeatureName(t *testing.T) {
 	const feature, agentID = "001-a", "f-001-a"
-	h := &script{t: t, answers: map[string][]any{"agent get " + agentID: {notFound}}}
-	w := Watched{Project: proj, Change: feature, Load: loads([]work.Item{}), Source: src, Record: func(herdr.Session) {}}
+	ready, working := "agent wait "+agentID+" --until working --timeout 60000", "agent wait "+agentID+" --until working"
+	h := &script{t: t, answers: map[string][]any{"agent get " + agentID: {"agent-get-watched.json"}, ready: {}, working: {notFound}}}
+	w := Watched{Project: proj, Change: feature, Load: loads([]work.Item{{Name: feature, Done: 3, Total: 7}}), Source: src, Record: func(herdr.Session) {}}
 	Watch(w, h.run, noGit)
-	if want := []string{"agent get " + agentID}; !reflect.DeepEqual(h.calls, want) {
+	get := "agent get " + agentID
+	stopped := "notification show spec-kanban: " + feature + " stopped --body " + feature + " stopped at 3/7 tasks"
+	if want := []string{get, ready, "agent wait " + agentID, get, stopped, get, working}; !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("Watch herdr calls %q, want %q", h.calls, want)
 	}
 	f := &fakeHerdr{t: t}

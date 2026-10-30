@@ -245,7 +245,7 @@ func Running(project string, run, git herdr.Runner) (map[string]bool, error) {
 	names, d := map[string]bool{}, dirs(project, worktree.List(git))
 	for _, a := range list.Result.Agents {
 		if a.Name != "" && insideAny(a.Cwd, d) {
-			names[itemName(a.Name)] = true
+			names[a.Name], names[itemName(a.Name)] = true, true // f-2fa may be an OpenSpec Change or Feature 2fa
 		}
 	}
 	return names, nil

@@ -667,6 +667,13 @@ func TestStartFeatureName(t *testing.T) {
 	if !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 	}
+	h = &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}}
+	if err := Start(proj, feature, "claude", "/speckit-implement", off, h.run, fakeList(feature), noGit); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"agent get f-" + feature, info, "agent focus f-" + feature}; !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("busy agent: herdr calls\n got %q\nwant %q", h.calls, want)
+	}
 }
 
 func TestPrepareNameTooLong(t *testing.T) {
@@ -683,7 +690,7 @@ func TestRunningFeatureName(t *testing.T) {
 		return []byte(`{"result":{"agents":[{"name":"f-001-a","cwd":"` + proj + `"},{"name":"f-x","cwd":"` + proj + `"}]}}`), nil
 	}
 	got, err := Running(proj, run, noGit)
-	if want := map[string]bool{"001-a": true, "f-x": true}; err != nil || !reflect.DeepEqual(got, want) {
+	if want := map[string]bool{"001-a": true, "f-001-a": true, "f-x": true}; err != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, %v, want %v", got, err, want)
 	}
 }
