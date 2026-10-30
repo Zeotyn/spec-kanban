@@ -782,7 +782,7 @@ func TestFilterPrompt(t *testing.T) {
 	if !slices.Equal(shown(m), []string{"m1-board-view"}) || !strings.Contains(v, "In Progress 1") || !strings.Contains(v, "Draft 0") {
 		t.Errorf("typing must filter columns and counts at once: %q\n%s", shown(m), v)
 	}
-	if !strings.Contains(v, "OpenSpec Kanban · proj · /board") || !strings.Contains(v, progress) || !strings.HasSuffix(v, "\n/board█") {
+	if !strings.Contains(v, "spec-kanban · proj · /board") || !strings.Contains(v, progress) || !strings.HasSuffix(v, "\n/board█") {
 		t.Errorf("header must show the filter and keep the Progress of all Changes:\n%s", v)
 	}
 	if m = keys(m, "esc"); m.prompting || m.filter != "" || len(shown(m)) != len(fixture) || strings.Contains(m.View(), "· /") {

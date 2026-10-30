@@ -1,4 +1,4 @@
-OpenSpec Kanban · proj
+spec-kanban · proj
 
 openspec CLI not found: install it with npm i -g @fission-ai/openspec                                                   
 

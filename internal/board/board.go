@@ -480,7 +480,7 @@ func (m Model) helpView() string {
 }
 
 func (m Model) header() string {
-	title := "OpenSpec Kanban · " + filepath.Base(m.project)
+	title := "spec-kanban · " + filepath.Base(m.project)
 	if m.filter != "" {
 		title += " · /" + m.filter
 	}

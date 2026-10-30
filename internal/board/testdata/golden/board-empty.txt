@@ -1,4 +1,4 @@
-OpenSpec Kanban · proj
+spec-kanban · proj
 
 Draft 0                 Ready 0                 In Progress 0           Review 0                Archived 0             
 ─────────────────────── ─────────────────────── ─────────────────────── ─────────────────────── ───────────────────────

@@ -1,4 +1,4 @@
-OpenSpec Kanban · proj
+spec-kanban · proj
 
 Loading changes…
 
