@@ -101,7 +101,7 @@ func TestStart(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			if err := Start(proj, change, h.run, fakeList("other", change)); err != nil {
+			if err := Start(proj, change, "claude", "/opsx:apply "+change, h.run, fakeList("other", change)); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(h.calls, tt.want) {
@@ -123,11 +123,12 @@ func TestPrepare(t *testing.T) {
 		{"new tab, not focused", map[string]string{"tab create": "tab-create.json"}, map[string]error{"agent get": notFound}, []string{get, create}, "w2:p1J", "w2:tG"},
 		{"agent running: focus only", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info, focus}, "", ""},
 		{"agent exited: its tab, not focused", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{get, info}, "w2:p1J", "w2:tG"},
+		{"agent of its reported kind running: focus only", map[string]string{"agent get": "agent-get-codex.json", "pane process-info": "process-info-codex.json"}, nil, []string{get, info, focus}, "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			pane, tab, err := Prepare(proj, change, h.run)
+			pane, tab, err := Prepare(proj, change, "claude", h.run) // the reported kind wins over the one passed
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -138,6 +139,72 @@ func TestPrepare(t *testing.T) {
 				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)
 			}
 		})
+	}
+}
+
+func TestPrepareWithoutReportedKind(t *testing.T) {
+	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get-no-kind.json", "pane process-info": "process-info-codex.json"}}
+	pane, _, err := Prepare(proj, change, "codex", h.run)
+	if err != nil || pane != "" || !reflect.DeepEqual(h.calls, []string{get, info, focus}) {
+		t.Fatalf("want the passed kind compared and the agent focused, got pane %q, %v, %q", pane, err, h.calls)
+	}
+	h = &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get-no-kind.json", "pane process-info": "process-info-codex.json"}}
+	if _, _, err := Prepare(proj, change, "claude", h.run); err == nil || !strings.Contains(err.Error(), "runs codex, not claude") {
+		t.Fatalf("want an error naming the program and the kind, got %v", err)
+	}
+}
+
+func TestPrepareForeignProgramNamesKind(t *testing.T) {
+	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get-codex.json", "pane process-info": "process-info-other.json"}}
+	if _, _, err := Prepare(proj, change, "claude", h.run); err == nil || !strings.Contains(err.Error(), "pane w2:p1J runs vim, not codex") {
+		t.Fatalf("want an error naming vim and codex, got %v", err)
+	}
+}
+
+func TestKind(t *testing.T) {
+	codex, err := os.ReadFile(filepath.Join("..", "..", "testdata", "herdr", "agent-get-codex.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name, configured, pane, out string
+		err                         error
+		want                        string
+		wantCalls                   []string
+	}{
+		{"configured kind wins without herdr", "gemini", "w1:p1", string(codex), nil, "gemini", nil},
+		{"no pane", "", "", string(codex), nil, "claude", nil},
+		{"agent in the pane", "", "w1:p1", string(codex), nil, "codex", []string{"agent get w1:p1"}},
+		{"no agent in the pane", "", "w1:p1", "", notFound, "claude", []string{"agent get w1:p1"}},
+		{"herdr error", "", "w1:p1", "", errors.New("herdr: not found"), "claude", []string{"agent get w1:p1"}},
+		{"unparsable output", "", "w1:p1", "not json", nil, "claude", []string{"agent get w1:p1"}},
+		{"kind herdr cannot start", "", "w1:p1", `{"result":{"agent":{"agent":"aider"}}}`, nil, "claude", []string{"agent get w1:p1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls []string
+			run := func(args ...string) ([]byte, error) {
+				calls = append(calls, strings.Join(args, " "))
+				return []byte(tt.out), tt.err
+			}
+			if got := Kind(tt.configured, tt.pane, run); got != tt.want {
+				t.Errorf("Kind = %q, want %q", got, tt.want)
+			}
+			if !reflect.DeepEqual(calls, tt.wantCalls) {
+				t.Errorf("herdr calls %q, want %q", calls, tt.wantCalls)
+			}
+		})
+	}
+}
+
+func TestLaunchKindAndPrompt(t *testing.T) {
+	h := &fakeHerdr{t: t}
+	if err := Launch(change, "codex", "/opsx-apply "+change+" with TDD", "w2:p1J", "w2:tG", h.run); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{tfocus, "agent start " + change + " --kind codex --pane w2:p1J --timeout 60000", "agent prompt " + change + " /opsx-apply " + change + " with TDD"}
+	if !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 	}
 }
 
@@ -157,7 +224,7 @@ func TestLaunch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, fail: tt.fail}
-			err := Launch(change, "w2:p1J", "w2:tG", h.run)
+			err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run)
 			if tt.wants == "" && err != nil || tt.wants != "" && (err == nil || !strings.Contains(err.Error(), tt.wants)) {
 				t.Fatalf("want error with %q, got %v", tt.wants, err)
 			}
@@ -170,7 +237,7 @@ func TestLaunch(t *testing.T) {
 
 func TestStartRefusesAnotherProjectsAgent(t *testing.T) {
 	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json"}}
-	err := Start(proj+"2", change, h.run, fakeList(change))
+	err := Start(proj+"2", change, "claude", "/opsx:apply "+change, h.run, fakeList(change))
 	if err == nil || !strings.Contains(err.Error(), change) || !strings.Contains(err.Error(), "already runs in "+proj) {
 		t.Fatalf("want already-runs error naming the change and %s, got %v", proj, err)
 	}
@@ -181,7 +248,7 @@ func TestStartRefusesAnotherProjectsAgent(t *testing.T) {
 
 func TestStartAgentWithoutCwd(t *testing.T) {
 	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get-no-cwd.json", "pane process-info": "process-info-running.json"}}
-	if err := Start(proj, change, h.run, fakeList(change)); err != nil {
+	if err := Start(proj, change, "claude", "/opsx:apply "+change, h.run, fakeList(change)); err != nil {
 		t.Fatalf("an unknown cwd must not refuse the agent: %v", err)
 	}
 	if !reflect.DeepEqual(h.calls, []string{get, info, focus}) {
@@ -191,7 +258,7 @@ func TestStartAgentWithoutCwd(t *testing.T) {
 
 func TestStartRejectsChangesThatAreNotOpen(t *testing.T) {
 	h := &fakeHerdr{t: t}
-	err := Start(proj, "m1-bord-view", h.run, fakeList(change))
+	err := Start(proj, "m1-bord-view", "claude", "/opsx:apply m1-bord-view", h.run, fakeList(change))
 	if err == nil || !strings.Contains(err.Error(), `"m1-bord-view" is not an open change`) {
 		t.Fatalf("want not-open error, got %v", err)
 	}
@@ -203,7 +270,7 @@ func TestStartRejectsChangesThatAreNotOpen(t *testing.T) {
 func TestStartOpenspecFails(t *testing.T) {
 	h := &fakeHerdr{t: t}
 	broken := func(...string) ([]byte, error) { return nil, errors.New("openspec: not found") }
-	if err := Start(proj, change, h.run, broken); err == nil || len(h.calls) != 0 {
+	if err := Start(proj, change, "claude", "/opsx:apply "+change, h.run, broken); err == nil || len(h.calls) != 0 {
 		t.Fatalf("want error and no herdr calls, got %v, %q", err, h.calls)
 	}
 }
@@ -224,7 +291,7 @@ func TestStartReportsFailingStep(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: map[string]string{"tab create": "tab-create.json"}, fail: tt.fail}
-			err := Start(proj, change, h.run, fakeList(change))
+			err := Start(proj, change, "claude", "/opsx:apply "+change, h.run, fakeList(change))
 			if err == nil {
 				t.Fatal("want error")
 			}
@@ -254,7 +321,7 @@ func TestStartWithUnexpectedPaneState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			err := Start(proj, change, h.run, fakeList(change))
+			err := Start(proj, change, "claude", "/opsx:apply "+change, h.run, fakeList(change))
 			if err == nil || !strings.Contains(err.Error(), tt.wants) {
 				t.Fatalf("want error with %q, got %v", tt.wants, err)
 			}

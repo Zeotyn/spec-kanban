@@ -34,6 +34,8 @@ func TestOpen(t *testing.T) {
 		{"workspace cwd fallback", `{"workspace_cwd":"` + proj + `"}`, withProject},
 		{"no project", `{"focused_pane_cwd":"` + root + `"}`, base},
 		{"no context", ``, base},
+		{"focused pane", `{"focused_pane_id":"w2:p1J","focused_pane_cwd":"` + root + `"}`, append(append([]string{}, base...), "--env", "KANBAN_MAIN_PANE=w2:p1J")},
+		{"focused pane in project", `{"focused_pane_id":"w2:p1J","focused_pane_cwd":"` + proj + `"}`, append(append([]string{}, withProject...), "--env", "KANBAN_MAIN_PANE=w2:p1J")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -157,7 +159,7 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 		}
 		return nil, nil
 	}
-	err := launch("m1-board-view", "w2:p1J", "w2:tG", run)
+	err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view", run)
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("want the Launch error, got %v", err)
 	}
@@ -168,13 +170,18 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 }
 
 func TestLaunchSucceedsQuietly(t *testing.T) {
-	var calls []string
-	run := func(args ...string) ([]byte, error) { calls = append(calls, args[0]+" "+args[1]); return nil, nil }
-	if err := launch("m1-board-view", "w2:p1J", "w2:tG", run); err != nil {
+	var calls [][]string
+	run := func(args ...string) ([]byte, error) { calls = append(calls, args); return nil, nil }
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view with TDD", run); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(calls, []string{"tab focus", "agent start", "agent prompt"}) {
-		t.Errorf("want no notification, got %q", calls)
+	want := [][]string{
+		{"tab", "focus", "w2:tG"},
+		{"agent", "start", "m1-board-view", "--kind", "codex", "--pane", "w2:p1J", "--timeout", "60000"},
+		{"agent", "prompt", "m1-board-view", "/opsx-apply m1-board-view with TDD"},
+	}
+	if !reflect.DeepEqual(calls, want) {
+		t.Errorf("want kind and prompt passed through and no notification\n got %q\nwant %q", calls, want)
 	}
 }
 

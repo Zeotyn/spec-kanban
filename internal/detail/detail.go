@@ -203,9 +203,9 @@ func (m Model) View() string {
 	// glamour does not wrap code, tables or long URLs: cut them, or the terminal wraps them and the view grows
 	fit := lipgloss.NewStyle().MaxWidth(m.width)
 	body := fit.Height(m.body()).MaxHeight(m.body()).Render(strings.Join(lines, "\n"))
-	footer := "1-4/tab tab · j/k scroll · ctrl+d/u half page · gg/G top/end · e edit · q back"
+	footer := "1-4/tab tab · j/k scroll · ctrl+d/u half page · gg/G top/end · e edit · ? help · q back"
 	if lipgloss.Width(footer) > m.width {
-		footer = "1-4 j/k ^d/^u gg/G e · q back"
+		footer = "1-4 j/k ^d/^u gg/G e · ? · q back"
 	}
 	if m.notice != "" {
 		footer = m.notice

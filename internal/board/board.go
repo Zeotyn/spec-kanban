@@ -42,6 +42,37 @@ type agentsMsg struct {
 // startedMsg reports that Start has returned.
 type startedMsg struct{ err error }
 
+// helpText lists every key by view; README's keys table says the same.
+const helpText = `Keys
+
+Board
+  h/l j/k      column, card
+  gg/G         first/last card
+  ctrl+d/u     half page down/up
+  1-5          column by number
+  enter        details
+  e            edit tasks
+  s            start the agent
+  /            filter by name
+  n/N          next/previous match
+  esc          clear the filter, else close
+  r            reload
+  ?            this help
+  q            close
+
+Filter prompt
+  enter/esc    keep/clear the filter
+  backspace    delete, close when empty
+
+Details
+  1-4, tab     switch document
+  j/k gg/G     scroll, top/end
+  ctrl+d/u     half page down/up
+  e            edit the document
+  q/esc        back to the Board
+
+any key closes`
+
 var runningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // terminal green
 
 // Model shows the Board of one Project; an empty project means none was found.
@@ -65,15 +96,19 @@ type Model struct {
 	detailOf      openspec.Change // the Change the detail shows, matched by name and archive state
 	stale         bool            // something changed while a load ran; load again when it ends
 	notice        string          // one-line message in place of the footer, cleared by the next key
+	hide          [columns]bool   // Phases whose columns are not shown
+	help          bool            // the key help is shown; the next key closes it
 	width, height int
 }
 
 // New builds the Board. A non-nil snapshot (the cached last load) is shown at once while the fresh
 // load from Init runs; nil means show a loading notice until then. agents looks up the Running agents
-// and start Starts a Change; either may be nil when not needed (no badges, s does nothing).
+// and start Starts a Change; either may be nil when not needed (no badges, s does nothing). hide marks
+// the Phases whose columns are not shown; notice replaces the footer until the first key.
 func New(project string, load func() ([]openspec.Change, error), now func() time.Time, snapshot []openspec.Change,
-	agents func() (map[string]bool, error), start func(change string) error) Model {
-	m := Model{project: project, load: load, agents: agents, start: start, now: now, loading: project != "", width: 120, height: 30}
+	agents func() (map[string]bool, error), start func(change string) error, hide [columns]bool, notice string) Model {
+	m := Model{project: project, load: load, agents: agents, start: start, now: now, hide: hide, notice: notice,
+		loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
 		m.all, m.loaded = phase.Group(snapshot), true
 		m.refilter()
@@ -105,6 +140,18 @@ func (m Model) reload() tea.Msg {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if k, ok := msg.(tea.KeyMsg); ok && m.starting == "" && !m.prompting {
+		switch {
+		case m.help && k.String() == "ctrl+c":
+			return m, tea.Quit
+		case m.help:
+			m.help = false
+			return m, nil
+		case k.String() == "?":
+			m.help, m.notice, m.nav.pendingG = true, "", false
+			return m, nil
+		}
+	}
 	if m.detail != nil {
 		switch msg.(type) {
 		case detail.CloseMsg:
@@ -236,13 +283,13 @@ func (m Model) prompt(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// refilter shows the Changes matching the filter, keeping each column's selection by name.
+// refilter shows the Changes matching the filter in the shown columns, keeping each column's selection by name.
 func (m *Model) refilter() {
 	old := m.cols
 	m.cols = [columns][]openspec.Change{}
 	for p, col := range m.all {
 		for _, c := range col {
-			if matches(c.Name, m.filter) {
+			if !m.hide[p] && matches(c.Name, m.filter) {
 				m.cols[p] = append(m.cols[p], c)
 			}
 		}
@@ -353,6 +400,9 @@ func (m Model) visible() int {
 }
 
 func (m Model) View() string {
+	if m.help {
+		return lipgloss.NewStyle().MaxWidth(m.width).MaxHeight(m.height).Render(helpText)
+	}
 	if m.detail != nil {
 		return m.detail.View()
 	}
@@ -371,9 +421,9 @@ func (m Model) View() string {
 	default:
 		body = m.columns()
 	}
-	footer := "h/l column · j/k card · ⏎ details · e edit tasks · s start · / filter · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
+	footer := "h/l column · j/k card · ⏎ details · e edit tasks · s start · / filter · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · ? help · q close"
 	if lipgloss.Width(footer) > m.width {
-		footer = "h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · q close"
+		footer = "h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q close"
 	}
 	if m.prompting {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("/" + m.filter + "█")
@@ -412,13 +462,26 @@ func (m Model) header() string {
 }
 
 func (m Model) columns() string {
-	if m.width < columns*minColWidth+columns-1 {
-		return m.column(m.nav.col, m.width, fmt.Sprintf("◀ %d/%d %s %d ▶", m.nav.col+1, columns, phase.Phase(m.nav.col), len(m.cols[m.nav.col])))
+	n := columns
+	for _, h := range m.hide {
+		if h {
+			n--
+		}
 	}
-	w := (m.width - (columns - 1)) / columns
-	parts := make([]string, 0, 2*columns-1)
+	if m.width < n*minColWidth+n-1 {
+		c := m.nav.col
+		for m.hide[c] { // only when nothing shown has Cards and focus fell back to Draft
+			c++
+		}
+		return m.column(c, m.width, fmt.Sprintf("◀ %d/%d %s %d ▶", c+1, columns, phase.Phase(c), len(m.cols[c])))
+	}
+	w := (m.width - (n - 1)) / n
+	parts := make([]string, 0, 2*n-1)
 	for i := range columns {
-		if i > 0 {
+		if m.hide[i] {
+			continue
+		}
+		if len(parts) > 0 {
 			parts = append(parts, " ")
 		}
 		parts = append(parts, m.column(i, w, fmt.Sprintf("%s %d", phase.Phase(i), len(m.cols[i]))))

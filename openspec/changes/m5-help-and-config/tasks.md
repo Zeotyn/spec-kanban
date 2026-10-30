@@ -1,26 +1,26 @@
 ## 1. Config (TDD)
 
-- [ ] 1.1 Write failing table tests for `config.Parse`: empty object gives defaults (`agent` unset); `agent` `codex` is kept; errors for `agent` `Codex`, `bash` and `""`; `prompt` alone keeps `hide` empty; `hide` alone keeps the default prompt; Phase names case-insensitive (`archived`, `IN PROGRESS`); errors for invalid JSON, unknown key (`promt`), wrong type (`"hide": "Archived"`), `prompt` without `{change}`, empty `prompt`, unknown Phase, all five Phases hidden
-- [ ] 1.2 Write failing tests for `config.Load` and `Config.PromptFor`: missing file gives defaults and no warning; unreadable file and invalid content give defaults and a warning naming the file; every `{change}` is replaced
-- [ ] 1.3 Write failing tests for `config.Dir`: `HERDR_PLUGIN_CONFIG_DIR` wins; without it the trimmed output of `herdr plugin config-dir openspec-kanban` (fake runner); runner error gives ""
-- [ ] 1.4 Implement `internal/config` until the tests pass
+- [x] 1.1 Write failing table tests for `config.Parse`: empty object gives defaults (`agent` unset); `agent` `codex` is kept; errors for `agent` `Codex`, `bash` and `""`; `prompt` alone keeps `hide` empty; `hide` alone keeps the default prompt; Phase names case-insensitive (`archived`, `IN PROGRESS`); errors for invalid JSON, unknown key (`promt`), wrong type (`"hide": "Archived"`), `prompt` without `{change}`, empty `prompt`, unknown Phase, all five Phases hidden
+- [x] 1.2 Write failing tests for `config.Load` and `Config.PromptFor`: missing file gives defaults and no warning; unreadable file and invalid content give defaults and a warning naming the file; every `{change}` is replaced
+- [x] 1.3 Write failing tests for `config.Dir`: `HERDR_PLUGIN_CONFIG_DIR` wins; without it the trimmed output of `herdr plugin config-dir openspec-kanban` (fake runner); runner error gives ""
+- [x] 1.4 Implement `internal/config` until the tests pass
 
 ## 2. Start takes kind and prompt (TDD)
 
-- [ ] 2.1 Write failing tests for `start.Kind` (fake runner): configured kind wins without calling herdr; empty pane gives `claude`; `agent get <pane>` reporting `codex` gives `codex`; `agent_not_found`, other herdr error, unparsable output and a kind outside `config.Kinds` give `claude`
-- [ ] 2.2 Change `start` tests: `Launch` runs `agent start … --kind <kind>` and sends the given prompt verbatim (default and custom); `Prepare` treats a pane whose foreground `argv0` equals the agent's reported `agent` (`codex`) as running and focuses it; with an empty `agent` field it compares with the passed kind; a foreign program's error names the program and the kind; main's `launch` test passes kind and prompt through
-- [ ] 2.3 Implement `start.Kind`, the kind and prompt parameters in `start.Launch`/`start.Prepare`/`start.Start`, `agentRunning(run, pane, kind)`, `kanban launch <change> <pane> <tab> <kind> <prompt>` and `spawnLaunch`; update the usage text and error texts that say Claude
-- [ ] 2.4 Write a failing test for `open`: a context with `focused_pane_id` adds `--env KANBAN_MAIN_PANE=<id>`, none without it; implement it
+- [x] 2.1 Write failing tests for `start.Kind` (fake runner): configured kind wins without calling herdr; empty pane gives `claude`; `agent get <pane>` reporting `codex` gives `codex`; `agent_not_found`, other herdr error, unparsable output and a kind outside `config.Kinds` give `claude`
+- [x] 2.2 Change `start` tests: `Launch` runs `agent start … --kind <kind>` and sends the given prompt verbatim (default and custom); `Prepare` treats a pane whose foreground `argv0` equals the agent's reported `agent` (`codex`) as running and focuses it; with an empty `agent` field it compares with the passed kind; a foreign program's error names the program and the kind; main's `launch` test passes kind and prompt through
+- [x] 2.3 Implement `start.Kind`, the kind and prompt parameters in `start.Launch`/`start.Prepare`/`start.Start`, `agentRunning(run, pane, kind)`, `kanban launch <change> <pane> <tab> <kind> <prompt>` and `spawnLaunch`; update the usage text and error texts that say Claude
+- [x] 2.4 Write a failing test for `open`: a context with `focused_pane_id` adds `--env KANBAN_MAIN_PANE=<id>`, none without it; implement it
 
 ## 3. Hidden Phases on the Board (TDD)
 
-- [ ] 3.1 Write failing Board tests: hidden Archived shows four columns using the full width (golden `board-hidden`); `5` does nothing; `l` from Review stays; hidden Draft with open Changes keeps the header Progress; focus fallback after a load skips hidden columns; filter and reload keep hidden columns empty; narrow mode never shows a hidden column
-- [ ] 3.2 Implement the hidden Phases in `board.New`, `refilter` and `columns()` until the tests pass
+- [x] 3.1 Write failing Board tests: hidden Archived shows four columns using the full width (golden `board-hidden`); `5` does nothing; `l` from Review stays; hidden Draft with open Changes keeps the header Progress; focus fallback after a load skips hidden columns; filter and reload keep hidden columns empty; narrow mode never shows a hidden column
+- [x] 3.2 Implement the hidden Phases in `board.New`, `refilter` and `columns()` until the tests pass
 
 ## 4. Key help (TDD)
 
-- [ ] 4.1 Write failing Board tests: `?` shows the help (golden `help-120`, and a short popup cutting it off); `q`, `j`, `s`, `esc` close the help without other effect; `ctrl+c` quits from the help; `?` in the detail view shows the help and the next key returns to the detail view at the same scroll position; `?` in the filter prompt is typed; `?` while starting is ignored; Board and detail footers show `? help`
-- [ ] 4.2 Implement the help text, `help` state, key handling and footers until the tests pass; rewrite affected goldens with `-update` and review the diff
+- [x] 4.1 Write failing Board tests: `?` shows the help (golden `help-120`, and a short popup cutting it off); `q`, `j`, `s`, `esc` close the help without other effect; `ctrl+c` quits from the help; `?` in the detail view shows the help and the next key returns to the detail view at the same scroll position; `?` in the filter prompt is typed; `?` while starting is ignored; Board and detail footers show `? help`
+- [x] 4.2 Implement the help text, `help` state, key handling and footers until the tests pass; rewrite affected goldens with `-update` and review the diff
 
 ## 5. Wiring
 

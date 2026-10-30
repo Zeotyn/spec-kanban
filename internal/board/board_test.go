@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/detail"
 	"github.com/zeotyn/openspec-kanban/internal/editor"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/phase"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -70,10 +72,20 @@ var fixture = []openspec.Change{
 	{Name: "undated-change", Archived: true},
 }
 
-// board returns a loaded Board of the fixture at the given size.
+// board returns a loaded Board of changes at the given size.
 func board(t *testing.T, w, h int, changes []openspec.Change) Model {
 	t.Helper()
-	m := New("/x/proj", func() ([]openspec.Change, error) { return changes, nil }, func() time.Time { return now }, nil, nil, nil)
+	return hiding(t, w, h, changes)
+}
+
+// hiding returns a loaded Board of changes at the given size that hides the Phases ps.
+func hiding(t *testing.T, w, h int, changes []openspec.Change, ps ...phase.Phase) Model {
+	t.Helper()
+	var hide [columns]bool
+	for _, p := range ps {
+		hide[p] = true
+	}
+	m := New("/x/proj", func() ([]openspec.Change, error) { return changes, nil }, func() time.Time { return now }, nil, nil, nil, hide, "")
 	m = send(m, tea.WindowSizeMsg{Width: w, Height: h})
 	return send(m, m.Init()())
 }
@@ -119,7 +131,7 @@ func TestQuitKeys(t *testing.T) {
 }
 
 func TestLoading(t *testing.T) {
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil)
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
 	if !strings.Contains(m.View(), "Loading changes…") {
 		t.Errorf("no loading notice before data:\n%s", m.View())
 	}
@@ -132,7 +144,7 @@ func TestLoading(t *testing.T) {
 func TestReload(t *testing.T) {
 	calls := 0
 	changes := fixture
-	m := New("/x/proj", func() ([]openspec.Change, error) { calls++; return changes, nil }, func() time.Time { return now }, nil, nil, nil)
+	m := New("/x/proj", func() ([]openspec.Change, error) { calls++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, m.Init()())
 	m = keys(m, "3") // In Progress: m1-board-view
 	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
@@ -153,7 +165,7 @@ func TestReload(t *testing.T) {
 func TestLoadError(t *testing.T) {
 	m := New("/x/proj", func() ([]openspec.Change, error) {
 		return nil, errors.New("openspec CLI not found: install it with npm i -g @fission-ai/openspec")
-	}, func() time.Time { return now }, nil, nil, nil)
+	}, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = send(m, m.Init()())
 	golden(t, "error", m.View())
@@ -163,8 +175,8 @@ func TestLoadError(t *testing.T) {
 }
 
 func TestViews(t *testing.T) {
-	golden(t, "no-project", New("", nil, time.Now, nil, nil, nil).View())
-	golden(t, "loading", New("/x/proj", nil, time.Now, nil, nil, nil).View())
+	golden(t, "no-project", New("", nil, time.Now, nil, nil, nil, [columns]bool{}, "").View())
+	golden(t, "loading", New("/x/proj", nil, time.Now, nil, nil, nil, [columns]bool{}, "").View())
 	golden(t, "board-200", board(t, 200, 30, fixture).View())
 	golden(t, "board-120", keys(board(t, 120, 30, fixture), "l", "j").View())
 	golden(t, "board-60", keys(board(t, 60, 30, fixture), "l", "l").View())
@@ -237,7 +249,7 @@ func TestHeaderProgress(t *testing.T) {
 
 func TestSnapshot(t *testing.T) {
 	fresh := append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil)
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	if v := m.View(); strings.Contains(v, "Loading changes…") || !strings.Contains(v, "refreshing…") || !strings.Contains(v, "m1-board-view") {
 		t.Fatalf("snapshot must show at once, marked refreshing:\n%s", v)
@@ -258,7 +270,7 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestSnapshotMovesFocusOffEmptyDraft(t *testing.T) {
-	m := New("/x/proj", nil, func() time.Time { return now }, []openspec.Change{{Name: "doing", Done: 1, Total: 2, Modified: now}}, nil, nil)
+	m := New("/x/proj", nil, func() time.Time { return now }, []openspec.Change{{Name: "doing", Done: 1, Total: 2, Modified: now}}, nil, nil, [columns]bool{}, "")
 	if m.nav.col != 2 {
 		t.Errorf("focus %d, want In Progress (2)", m.nav.col)
 	}
@@ -357,7 +369,7 @@ func TestEditTasksFromBoard(t *testing.T) {
 	}
 	changes := fixture
 	loads := 0
-	m := New(proj, func() ([]openspec.Change, error) { loads++; return changes, nil }, func() time.Time { return now }, nil, nil, nil)
+	m := New(proj, func() ([]openspec.Change, error) { loads++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = keys(send(m, m.Init()()), "3") // In Progress: m1-board-view 5/11
 	args := fakeEditor(t, func() {
@@ -460,7 +472,7 @@ func agents(calls *int, names ...string) func() (map[string]bool, error) {
 func TestRunningBadge(t *testing.T) {
 	calls := 0
 	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil,
-		agents(&calls, "m1-board-view", "m0-plugin-skeleton", "not-a-change"), nil)
+		agents(&calls, "m1-board-view", "m0-plugin-skeleton", "not-a-change"), nil, [columns]bool{}, "")
 	m = run(send(m, tea.WindowSizeMsg{Width: 200, Height: 30}), m.Init())
 	v := m.View()
 	if calls != 1 || !strings.Contains(v, "m1-board-view") {
@@ -484,7 +496,7 @@ func TestRunningBadgeSurvivesReloads(t *testing.T) {
 	calls := 0
 	fresh := append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
 	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture,
-		agents(&calls, "m1-board-view"), nil)
+		agents(&calls, "m1-board-view"), nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	if v := m.View(); !strings.Contains(v, "m1-board-view") || strings.Contains(v, "●") {
 		t.Fatalf("the snapshot must show before the lookup answers, without badges:\n%s", v)
@@ -740,7 +752,7 @@ func TestFilterKeepsSelectionByName(t *testing.T) {
 
 func TestFilterSurvivesReload(t *testing.T) {
 	fresh := append([]openspec.Change{{Name: "m1-new", Done: 1, Total: 2, Modified: now}}, fixture...)
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil)
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, [columns]bool{}, "")
 	m = keys(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), "/", "m", "1", "enter")
 	m = send(m, m.Init()()) // cached → fresh
 	want := []string{"m1-phase-derivation", "m1-new", "m1-board-view"}
@@ -802,6 +814,150 @@ func TestFilterNarrow(t *testing.T) {
 	for _, l := range strings.Split(v, "\n") {
 		if lipgloss.Width(l) > 60 {
 			t.Errorf("line wider than 60: %q", l)
+		}
+	}
+}
+
+func TestHiddenArchived(t *testing.T) {
+	m := hiding(t, 120, 30, fixture, phase.Archived)
+	golden(t, "board-hidden", m.View())
+	if v := m.View(); strings.Contains(v, "Archived") || strings.Contains(v, "m0-plugin-skeleton") {
+		t.Errorf("hidden Archived column drawn:\n%s", v)
+	}
+	if m = keys(m, "5"); m.nav.col != 0 {
+		t.Errorf("5 on hidden Archived moved focus to %d", m.nav.col)
+	}
+	if m = keys(m, "4", "l"); m.nav.col != 3 {
+		t.Errorf("l from Review moved focus to %d", m.nav.col)
+	}
+}
+
+func TestHiddenDraftKeepsProgress(t *testing.T) {
+	changes := []openspec.Change{
+		{Name: "draft", Total: 4, Modified: now, Planning: openspec.Incomplete}, // a Draft with tasks
+		{Name: "ready", Total: 2, Modified: now, Planning: openspec.Complete},
+	}
+	m := hiding(t, 120, 30, changes, phase.Draft)
+	if v := m.View(); strings.Contains(v, "Draft") || !strings.Contains(v, "0/6 0%") {
+		t.Errorf("hidden Draft must not be drawn but count in the Progress:\n%s", v)
+	}
+	if m = keys(m, "h"); m.nav.col != 1 {
+		t.Errorf("h from Ready moved focus to %d", m.nav.col)
+	}
+}
+
+func TestHiddenFocusFallback(t *testing.T) {
+	// only Draft and Archived have Cards; Draft is hidden, so focus goes to Archived, not Draft
+	changes := []openspec.Change{{Name: "draft", Modified: now}, {Name: "old", Archived: true}}
+	m := hiding(t, 120, 30, changes, phase.Draft)
+	if m.nav.col != 4 {
+		t.Errorf("focus %d after load, want Archived (4)", m.nav.col)
+	}
+	m = keys(m, "/", "o", "enter")
+	if len(m.cols[0]) != 0 || m.nav.col != 4 {
+		t.Errorf("filter must keep the hidden Draft empty: %q, focus %d", shown(m), m.nav.col)
+	}
+	m, cmd := pressKey(keys(m, "esc"), "r")
+	if m = send(m, cmd()); len(m.cols[0]) != 0 || m.nav.col != 4 {
+		t.Errorf("reload must keep the hidden Draft empty: %q, focus %d", shown(m), m.nav.col)
+	}
+}
+
+func TestHiddenNarrow(t *testing.T) {
+	m := hiding(t, 60, 30, fixture, phase.Draft, phase.Archived)
+	for _, k := range []string{"h", "1", "l", "l", "l", "5"} {
+		if m = keys(m, k); strings.Contains(m.View(), "Draft") || strings.Contains(m.View(), "Archived") {
+			t.Errorf("after %s a hidden column is shown:\n%s", k, m.View())
+		}
+	}
+	// nothing shown has Cards: focus falls back to Draft, the view shows the first shown column
+	m = keys(hiding(t, 60, 30, nil, phase.Draft), "/", "x")
+	if v := m.View(); strings.Contains(v, "Draft") || !strings.Contains(v, "◀ 2/5 Ready 0 ▶") {
+		t.Errorf("empty Board with hidden Draft:\n%s", v)
+	}
+}
+
+func TestInitialNotice(t *testing.T) {
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil,
+		[columns]bool{}, "config.json: unknown key promt")
+	m = send(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), m.Init()())
+	if !strings.HasSuffix(m.View(), "\nconfig.json: unknown key promt") {
+		t.Fatalf("the initial notice must replace the footer:\n%s", m.View())
+	}
+	if m = keys(m, "j"); strings.Contains(m.View(), "promt") {
+		t.Error("the next key must clear the initial notice")
+	}
+}
+
+func TestHelp(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "3", "?")
+	v := m.View()
+	golden(t, "help-120", v)
+	for _, group := range []string{"Board", "Filter prompt", "Details"} {
+		if !regexp.MustCompile(`(?m)^` + group + ` *$`).MatchString(v) {
+			t.Errorf("help lacks the group %s:\n%s", group, v)
+		}
+	}
+	short := keys(board(t, 60, 14, fixture), "?").View()
+	if lines := strings.Count(short, "\n") + 1; lines > 14 || !strings.HasPrefix(short, "Keys") {
+		t.Errorf("help in a 60x14 popup: %d lines:\n%s", lines, short)
+	}
+	for _, l := range strings.Split(short, "\n") {
+		if lipgloss.Width(l) > 60 {
+			t.Errorf("line wider than 60: %q", l)
+		}
+	}
+}
+
+func TestHelpClosesWithoutEffect(t *testing.T) {
+	want := keys(board(t, 120, 30, tall(3)), "2").View()
+	for _, k := range []tea.KeyMsg{{Type: tea.KeyRunes, Runes: []rune("q")}, {Type: tea.KeyRunes, Runes: []rune("j")},
+		{Type: tea.KeyRunes, Runes: []rune("s")}, {Type: tea.KeyEsc}} {
+		m := keys(board(t, 120, 30, tall(3)), "2", "?")
+		started := starter(&m, nil)
+		next, cmd := m.Update(k)
+		if m = next.(Model); cmd != nil || len(*started) != 0 || m.View() != want {
+			t.Errorf("%s must only close the help: cmd %v, started %q, view:\n%s", k, cmd != nil, *started, m.View())
+		}
+	}
+	m := keys(board(t, 120, 30, fixture), "?")
+	if _, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC}); cmd == nil || cmd() != tea.Quit() {
+		t.Error("ctrl+c must quit from the help")
+	}
+}
+
+func TestHelpInDetail(t *testing.T) {
+	m, _ := enter(keys(board(t, 120, 30, fixture), "3"))
+	m = keys(m, "2", "j")
+	want := m.View()
+	if m = keys(m, "?"); !strings.HasPrefix(m.View(), "Keys") {
+		t.Fatalf("? in the detail must show the help:\n%s", m.View())
+	}
+	if m = keys(m, "j"); m.View() != want {
+		t.Errorf("the next key must return to the detail at the same position:\n%s", m.View())
+	}
+}
+
+func TestHelpKeyInPromptAndWhileStarting(t *testing.T) {
+	if m := keys(board(t, 120, 30, fixture), "/", "?"); m.filter != "?" || strings.HasPrefix(m.View(), "Keys") {
+		t.Errorf("? in the prompt must be typed: filter %q", m.filter)
+	}
+	m := keys(board(t, 120, 30, fixture), "2")
+	starter(&m, nil)
+	m, _ = pressKey(m, "s")
+	if m = keys(m, "?"); strings.HasPrefix(m.View(), "Keys") || m.starting == "" {
+		t.Errorf("? while starting must be ignored:\n%s", m.View())
+	}
+}
+
+func TestFootersMentionHelp(t *testing.T) {
+	for _, w := range []int{60, 200} {
+		m := board(t, w, 30, fixture)
+		if !strings.Contains(m.View(), "· ?") {
+			t.Errorf("Board footer at width %d lacks ?:\n%s", w, m.View())
+		}
+		if m, _ = enter(m); !strings.Contains(m.View(), "· ?") {
+			t.Errorf("detail footer at width %d lacks ?:\n%s", w, m.View())
 		}
 	}
 }
