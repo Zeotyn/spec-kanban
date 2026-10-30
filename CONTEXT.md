@@ -60,8 +60,12 @@ A herdr agent session currently working on a Change; shown on its Card without c
 _Avoid_: Live session, worker
 
 **Start**:
-The Board's only action: hands a Change to a new agent session in its own tab.
+The Board's only action: hands a Change to a new agent session in its own tab, in the Change's checkout.
 _Avoid_: Move, apply button
+
+**Change checkout**:
+The git checkout whose branch is named like a Change, where Start runs its agent; usually a linked worktree.
+_Avoid_: Sandbox, clone
 
 ## Sidebar
 

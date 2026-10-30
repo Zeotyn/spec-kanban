@@ -31,11 +31,11 @@
 
 ## 6. Docs
 
-- [ ] 6.1 Write `docs/adr/0007-start-in-a-git-worktree.md` (decision, herdr worktree commands, reuse, base detection, no removal; supersedes the tab location of ADR 0005) and mark ADR 0005's location sentence as superseded
-- [ ] 6.2 CONTEXT.md: update **Start**, add **Change checkout**
-- [ ] 6.3 README: Start in a worktree (location from herdr's `[worktrees] directory`, reuse, commit planning before `s`, nothing removed automatically), settings `worktree` and `base`
+- [x] 6.1 Write `docs/adr/0007-start-in-a-git-worktree.md` (decision, herdr worktree commands, reuse, base detection, no removal; supersedes the tab location of ADR 0005) and mark ADR 0005's location sentence as superseded
+- [x] 6.2 CONTEXT.md: update **Start**, add **Change checkout**
+- [x] 6.3 README: Start in a worktree (location from herdr's `[worktrees] directory`, reuse, commit planning before `s`, nothing removed automatically), settings `worktree` and `base`
 
 ## 7. Verification
 
-- [ ] 7.1 `go test -race ./...`, `go vet ./...` and `gofmt -l .` pass; `openspec validate m6-worktree-start --strict` passes
+- [x] 7.1 `go test -race ./...`, `go vet ./...` and `gofmt -l .` pass; `openspec validate m6-worktree-start --strict` passes
 - [ ] 7.2 Smoke test in herdr with a throwaway committed test Change: `s` from the Board → worktree workspace labelled with the Change under herdr's worktree directory, agent tab focused (answers the `tab focus` open question; add the `workspace focus` fallback if needed), agent receives the prompt; ticked tasks in the worktree show on the Board after `r` and in the sidebar of the main workspace; badge shows; `s` again while running → focused; quit the agent, close the workspace, `s` → worktree reopened, no new branch; with the workspace open and the agent gone → new tab in it; uncommitted Change → error in the footer, nothing created; `{"worktree": false}` → tab in the Project; afterwards remove the test worktree and branch by hand

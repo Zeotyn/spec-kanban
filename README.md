@@ -30,7 +30,7 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `Enter` | open details | – |
 | `e` | edit `tasks.md` | edit the shown document |
 | `r` | reload | – |
-| `s` | start the Change in a new agent tab | – |
+| `s` | start the Change in a new agent tab in its worktree | – |
 | `/` | filter Cards by name | – |
 | `n` `N` | next/previous match | – |
 | `?` | key help | key help |
@@ -42,7 +42,9 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 
 `/` opens a prompt in the footer; every key typed there is text and filters the columns at once, ignoring case. `Enter` keeps the filter, `Esc` clears it, `Backspace` on an empty prompt closes it. `m1` (or `M1`) matches only the Changes with milestone badge M1, not `m10-…` or `fix-m1-…`. The filter shows in the header and stays across reloads.
 
-`s` works on Ready and In Progress Cards. It opens a new tab named after the Change and closes the Board at once; the tab then gets focus, the agent starts in it and gets the prompt (`/opsx:apply <change>` unless configured, see [Settings](#settings)). If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (agent not ready, prompt not sent) as a herdr notification. On Draft, Review and Archived Cards the footer says why not. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
+`s` works on Ready and In Progress Cards. It opens a new tab named after the Change in a git worktree of the project and closes the Board at once; the tab then gets focus, the agent starts in it and gets the prompt (`/opsx:apply <change>` unless configured, see [Settings](#settings)). If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (agent not ready, prompt not sent) as a herdr notification. On Draft, Review and Archived Cards the footer says why not. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
+
+The worktree is a checkout on a branch named like the Change, created by herdr at `<dir>/<repo>/<change>`, where `<dir>` is `[worktrees] directory` in herdr's config (default `~/.herdr/worktrees`). New branches start from the project's default branch (`origin/HEAD`, else `main`, `master` or `develop`, else the current branch), or from `base` when set. An existing checkout on that branch is reused. The Change must be committed on the start branch before you press `s`; otherwise Start reports that the Change is not on the base. The Board and the sidebar read the Change's Progress from its worktree. Nothing is removed automatically yet: delete finished worktrees yourself. Without a git repository, `s` opens the tab in the project.
 
 ## Settings
 
@@ -60,6 +62,8 @@ Settings live in `config.json` in the plugin's config directory, which `herdr pl
 | --- | --- | --- |
 | `agent` | unset | Agent kind `s` starts, one of `herdr agent start --help`'s `--kind` values (`claude`, `codex`, `gemini`, `opencode`, …) |
 | `prompt` | `/opsx:apply {change}` | Text sent to the agent; every `{change}` becomes the Change name, and it must contain one |
+| `worktree` | `true` | `false` opens the agent's tab in the project instead of a git worktree |
+| `base` | detected | Non-empty branch or ref new worktrees start from; overrides the detected default branch |
 | `hide` | `[]` | Phases whose columns the Board leaves out, ignoring case; at least one must stay |
 
 The kind `s` starts is `agent` when set, else the agent running in the pane the Board was opened from (for `kanban start`, the pane it runs in), else `claude`. OpenSpec names its commands per tool, so with a kind other than `claude` set `prompt` to the command OpenSpec installed for that tool (`openspec init --tools <tool>`).
