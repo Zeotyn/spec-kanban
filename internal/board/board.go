@@ -405,7 +405,8 @@ func (m Model) header() string {
 		return title
 	}
 	progress := fmt.Sprintf("%d/%d %d%%", done, total, (done*200+total)/(2*total)) // rounded
-	title = lipgloss.NewStyle().MaxWidth(max(0, m.width-lipgloss.Width(progress)-1)).Render(title) // a long filter must not push Progress off
+	// a long filter must not push Progress off
+	title = lipgloss.NewStyle().MaxWidth(max(0, m.width-lipgloss.Width(progress)-1)).Render(title)
 	gap := max(1, m.width-lipgloss.Width(title)-lipgloss.Width(progress))
 	return title + strings.Repeat(" ", gap) + progress
 }
