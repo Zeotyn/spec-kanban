@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
 	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 
@@ -17,7 +18,7 @@ type Watched struct {
 	Main            string // pane the Board was opened from, "" when unknown
 	Base            string // configured base, "" to detect it
 	On              bool   // Start works in the Change's checkout (config worktree)
-	Load            func() ([]openspec.Change, error)
+	Load            func() ([]work.Item, error)
 	Record          func(herdr.Session)
 }
 
@@ -109,10 +110,10 @@ func (w Watched) check(git herdr.Runner, a agent) (text string, finished bool, s
 			}
 		}
 	}
-	var open *openspec.Change
+	var open *work.Item
 	inProject := false // an archived Change may share an open one's name
 	for i, c := range changes {
-		if c.Name == w.Change && c.Archived {
+		if c.Name == w.Change && c.Phase == work.Archived {
 			inProject = true
 		} else if c.Name == w.Change {
 			open = &changes[i]

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // script answers each herdr call whose joined args start with a key with its answers in turn, the
@@ -54,15 +54,15 @@ func (s *script) run(args ...string) ([]byte, error) {
 }
 
 // loads returns the Change lists (or errors) in turn, the last one repeating.
-func loads(results ...any) func() ([]openspec.Change, error) {
+func loads(results ...any) func() ([]work.Item, error) {
 	i := 0
-	return func() ([]openspec.Change, error) {
+	return func() ([]work.Item, error) {
 		r := results[min(i, len(results)-1)]
 		i++
 		if err, ok := r.(error); ok {
 			return nil, err
 		}
-		return r.([]openspec.Change), nil
+		return r.([]work.Item), nil
 	}
 }
 
@@ -78,13 +78,13 @@ var (
 	wworking  = "agent wait " + change + " --until working"
 	wclose    = "pane close w5:p1"
 	mget      = "agent get " + mainPane
-	all7      = []openspec.Change{{Name: "other"}, {Name: change, Done: 7, Total: 7}}
+	all7      = []work.Item{{Name: "other"}, {Name: change, Done: 7, Total: 7}}
 	resumeTip = " To look into its session press s on its Card in the Board, or run in " + proj + ": claude --resume " + claudeID
 	plainText = change + " is finished (7/7 tasks). Please review it and archive it with /opsx:archive " + change + "." + resumeTip
 	cleanEnd  = []string{wclose, mget, "agent prompt " + mainPane + " " + plainText}
 )
 
-func watched(load func() ([]openspec.Change, error), rec *[]herdr.Session) Watched {
+func watched(load func() ([]work.Item, error), rec *[]herdr.Session) Watched {
 	return Watched{Project: proj, Change: change, Main: mainPane, On: true, Load: load,
 		Record: func(s herdr.Session) { *rec = append(*rec, s) }}
 }
@@ -98,7 +98,7 @@ func TestWatch(t *testing.T) {
 	tests := []struct {
 		name    string
 		answers map[string][]any
-		load    func() ([]openspec.Change, error)
+		load    func() ([]work.Item, error)
 		want    []string
 	}{
 		{"clean idle settle: handoff", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
@@ -108,16 +108,16 @@ func TestWatch(t *testing.T) {
 		{"wait for working fails: still evaluated", map[string][]any{wget: {"agent-get-watched.json"}, wready: {notFound}, mget: {"agent-get-main.json"}},
 			loads(all7), append([]string{wget, wready, wsettle, wget}, cleanEnd...)},
 		{"tasks left: notification, then handoff at the next settle", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
-			loads([]openspec.Change{{Name: change, Done: 3, Total: 7}}, all7),
+			loads([]work.Item{{Name: change, Done: 3, Total: 7}}, all7),
 			append([]string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 3/7 tasks"), wget, wworking, wsettle, wget}, cleanEnd...)},
 		{"blocked with all tasks done: waits for input", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
 			loads(all7), []string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input at 7/7 tasks"), wget, wworking}},
 		{"load error: stopped", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
 			loads(boom), []string{wget, wready, wsettle, wget, notify("stopped", "boom"), wget, wworking}},
 		{"Change neither open nor archived: not clean", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
-			loads([]openspec.Change{{Name: "other"}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" is neither open nor archived"), wget, wworking}},
+			loads([]work.Item{{Name: "other"}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" is neither open nor archived"), wget, wworking}},
 		{"no tasks: not clean", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
-			loads([]openspec.Change{{Name: change}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 0/0 tasks"), wget, wworking}},
+			loads([]work.Item{{Name: change}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 0/0 tasks"), wget, wworking}},
 		{"blocked with a load error: waits for input", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
 			loads(boom), []string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input"), wget, wworking}},
 		{"turn ended while evaluating: evaluated again at once", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json", "agent-get-watched-later.json"}, mget: {"agent-get-main.json"}},
@@ -130,7 +130,7 @@ func TestWatch(t *testing.T) {
 			loads(all7), []string{wget, wready, wsettle, wget}},
 		{"agent gone at once", map[string][]any{wget: {notFound}}, loads(all7), []string{wget}},
 		{"archived in the Project", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
-			loads([]openspec.Change{{Name: change, Archived: true, ArchivedOn: "2026-10-30"}}),
+			loads([]work.Item{{Name: change, Phase: work.Archived, ArchivedOn: "2026-10-30"}}),
 			[]string{wget, wready, wsettle, wget, wclose, mget, "agent prompt " + mainPane + " " + change + " is finished and archived. Please review it." + resumeTip}},
 	}
 	for _, tt := range tests {
@@ -153,7 +153,7 @@ func TestWatch(t *testing.T) {
 func TestWatchRecordsWhenReadyAndAtEverySettle(t *testing.T) {
 	h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
 	var rec []herdr.Session
-	Watch(watched(loads([]openspec.Change{{Name: change, Done: 3, Total: 7}}, all7), &rec), h.run, noGit)
+	Watch(watched(loads([]work.Item{{Name: change, Done: 3, Total: 7}}, all7), &rec), h.run, noGit)
 	if len(rec) != 4 {
 		t.Errorf("want 4 records (ready, two settles, after the notification), got %v", rec)
 	}
@@ -167,16 +167,16 @@ func TestWatchCheckout(t *testing.T) {
 		return change + " is finished (7/7 tasks) on branch " + change + " in " + dir + ". Please review it, merge branch " + change + " into " + into +
 			", archive it with /opsx:archive " + change + ", then remove its worktree with: git worktree remove " + dir + "." + tail
 	}
-	fromWorktree := []openspec.Change{{Name: change, Done: 7, Total: 7, Dir: dir}}
+	fromWorktree := []work.Item{{Name: change, Done: 7, Total: 7, Dir: dir}}
 	tests := []struct {
 		name, base string
-		load       []openspec.Change
+		load       []work.Item
 		archive    bool
 		want       string
 	}{
 		{"Progress from the checkout, detected base", "", fromWorktree, false, open("main")},
 		{"configured base", "release/2.x", fromWorktree, false, open("release/2.x")},
-		{"archived inside the checkout", "", []openspec.Change{{Name: change, Total: 7}}, true,
+		{"archived inside the checkout", "", []work.Item{{Name: change, Total: 7}}, true,
 			change + " is finished and archived on branch " + change + " in " + dir + ". Please review it, merge branch " + change +
 				" into main, then remove its worktree with: git worktree remove " + dir + "." + tail},
 	}
@@ -268,7 +268,7 @@ func TestWatchKinds(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &script{t: t, answers: map[string][]any{wget: {tt.fixture}, mget: {"agent-get-main.json"}}}
 			var rec []herdr.Session
-			Watch(watched(loads([]openspec.Change{{Name: change, Done: 7, Total: 7, Dir: dir}}), &rec), h.run, gitWith(nil, proj, "main", dir, change).run)
+			Watch(watched(loads([]work.Item{{Name: change, Done: 7, Total: 7, Dir: dir}}), &rec), h.run, gitWith(nil, proj, "main", dir, change).run)
 			last := h.calls[len(h.calls)-1]
 			if !strings.HasPrefix(last, "agent prompt "+mainPane+" ") {
 				t.Fatalf("want a prompt last, got %q", h.calls)
