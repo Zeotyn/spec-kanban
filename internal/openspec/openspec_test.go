@@ -335,7 +335,7 @@ func TestLoadOtherCheckouts(t *testing.T) {
 		return func(args ...string) ([]byte, error) { return nil, fmt.Errorf("unexpected call %q in %s", args, dir) }
 	}
 	others := []worktree.Checkout{{Path: wtA, Branch: "a"}, {Path: wtN, Branch: "n"}, {Path: wtOld, Branch: "old"},
-		{Path: noChange, Branch: "fix-typo"}, {Path: broken, Branch: "f"}, {Path: lacking, Branch: "g"}}
+		{Path: noChange, Branch: "fix-typo"}, {Path: broken, Branch: "f"}, {Path: lacking, Branch: "g"}, {Path: project, Branch: "b"}}
 	got, err := Load(project, cli, others, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -350,6 +350,10 @@ func TestLoadOtherCheckouts(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load\n got %+v\nwant %+v", got, want)
+	}
+	lists := slices.DeleteFunc(slices.Clone(clis[project].calls), func(c string) bool { return c != "list --json" })
+	if len(clis[wtOld].calls) != 0 || len(lists) != 1 {
+		t.Errorf("a checkout of an archived Change and the Project's own checkout must not be listed, calls %q, %q", clis[wtOld].calls, clis[project].calls)
 	}
 	if want := []string{"status --change n --json"}; !slices.Contains(clis[wtN].calls, want[0]) || slices.Contains(clis[project].calls, want[0]) {
 		t.Errorf("status of n must run in its checkout, project calls %q, worktree calls %q", clis[project].calls, clis[wtN].calls)

@@ -51,7 +51,7 @@ var dated = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})-(.+)$`)
 
 // Load returns the open Changes, read by cli(project) (the openspec CLI inside a directory), in
 // `openspec list` order, then the archived ones by folder name.
-// A checkout in others whose branch names a Change it holds supplies that Change, read there with Dir
+// A checkout in others (the Project's own skipped) whose branch names a Change it holds supplies that Change, read there with Dir
 // set: it replaces the Project's open Change of that name or is appended, unless the Project archived
 // it; a failed read leaves the Project's Changes.
 // Planning state is read only for open Changes without completed tasks, in their Dir; it is copied
@@ -64,9 +64,30 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 		out, _ := run("--version")
 		version <- strings.TrimSpace(string(out))
 	}()
+	entries, err := os.ReadDir(filepath.Join(project, "openspec", "changes", "archive"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	var archived []Change
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		c := Change{Name: e.Name(), Archived: true}
+		if m := dated.FindStringSubmatch(e.Name()); m != nil {
+			c.ArchivedOn, c.Name = m[1], m[2]
+		}
+		archived = append(archived, c)
+	}
+	isArchived := func(name string) bool {
+		return slices.ContainsFunc(archived, func(a Change) bool { return a.Name == name })
+	}
 	found := make([]*Change, len(others)) // in parallel with the Project's list too
 	var lists sync.WaitGroup
 	for i, o := range others {
+		if filepath.Clean(o.Path) == filepath.Clean(project) || isArchived(o.Branch) {
+			continue
+		}
 		if fi, err := os.Stat(filepath.Join(o.Path, "openspec", "changes", o.Branch)); err != nil || !fi.IsDir() {
 			continue
 		}
@@ -88,23 +109,8 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 		return nil, err
 	}
 
-	entries, err := os.ReadDir(filepath.Join(project, "openspec", "changes", "archive"))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	var archived []Change
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		c := Change{Name: e.Name(), Archived: true}
-		if m := dated.FindStringSubmatch(e.Name()); m != nil {
-			c.ArchivedOn, c.Name = m[1], m[2]
-		}
-		archived = append(archived, c)
-	}
 	for _, f := range found {
-		if f == nil || slices.ContainsFunc(archived, func(a Change) bool { return a.Name == f.Name }) {
+		if f == nil {
 			continue
 		}
 		if i := slices.IndexFunc(changes, func(c Change) bool { return c.Name == f.Name }); i >= 0 {
@@ -115,18 +121,19 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 	}
 
 	v := <-version
+	base := setup(project, v)
 	var wg sync.WaitGroup
 	slots := make(chan struct{}, maxParallel)
 	for i := range changes {
 		if changes[i].Done > 0 {
 			continue
 		}
-		dir := project
+		dir, stamp := project, base
 		if changes[i].Dir != "" {
-			dir = changes[i].Dir
+			dir, stamp = changes[i].Dir, setup(changes[i].Dir, v)
 		}
 		if v != "" { // without a version an upgrade would go unnoticed, so leave the fingerprint empty
-			changes[i].Files = files(filepath.Join(dir, "openspec", "changes", changes[i].Name), setup(dir, v))
+			changes[i].Files = files(filepath.Join(dir, "openspec", "changes", changes[i].Name), stamp)
 		}
 		if k, ok := known[changes[i].Name]; ok && k.Dir == changes[i].Dir && k.Planning != Unknown && !k.Modified.IsZero() &&
 			k.Modified.Equal(changes[i].Modified) && k.Files != "" && k.Files == changes[i].Files {

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -148,13 +147,7 @@ func showBoard(proj string) error {
 		notice = warn.Error()
 	}
 	git := gitCLI(proj)
-	running := func() (map[string]bool, error) { // checkouts read on each lookup, so a new worktree counts
-		dirs := []string{proj}
-		for _, c := range worktree.List(git) {
-			dirs = append(dirs, c.Path)
-		}
-		return start.Running(dirs, herdr.Exec)
-	}
+	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec, git) }
 	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
 		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, git)
@@ -210,7 +203,7 @@ func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) f
 				known[c.Name] = c
 			}
 		}
-		changes, err := openspec.Load(proj, cli, others(proj, worktree.List(git)), known)
+		changes, err := openspec.Load(proj, cli, worktree.List(git), known)
 		if err == nil {
 			_ = cache.Write(dir, proj, changes) // cache problems never break the Board
 		}
@@ -221,11 +214,6 @@ func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) f
 // syncLoad loads a Project for the sidebar through the Board's loader, so every sync warms the Board's cache.
 func syncLoad(dir string, cli, git func(proj string) herdr.Runner) func(string) ([]openspec.Change, error) {
 	return func(proj string) ([]openspec.Change, error) { return loader(dir, proj, cli, git(proj))() }
-}
-
-// others drops proj's own checkout from checkouts.
-func others(proj string, checkouts []worktree.Checkout) []worktree.Checkout {
-	return slices.DeleteFunc(checkouts, func(c worktree.Checkout) bool { return filepath.Clean(c.Path) == filepath.Clean(proj) })
 }
 
 // openspecCLI runs the openspec CLI inside proj.

@@ -63,14 +63,6 @@ func Kind(configured, pane string, run herdr.Runner) string {
 // as a worktree when there is none. An agent of that name outside project and its checkouts is
 // refused. git runs git inside project.
 func Prepare(project, change string, wt Worktree, run, git herdr.Runner) (pane, tab string, err error) {
-	var checkouts []worktree.Checkout
-	if wt.On {
-		checkouts = worktree.List(git)
-	}
-	dirs := []string{project}
-	for _, c := range checkouts {
-		dirs = append(dirs, c.Path)
-	}
 	out, err := run("agent", "get", change)
 	switch {
 	case err == nil:
@@ -86,7 +78,7 @@ func Prepare(project, change string, wt Worktree, run, git herdr.Runner) (pane, 
 		if err := json.Unmarshal(out, &got); err != nil {
 			return "", "", fmt.Errorf("agent get: %w", err)
 		}
-		if cwd := got.Result.Agent.Cwd; cwd != "" && !insideAny(cwd, dirs) { // no cwd: nothing to check against
+		if cwd := got.Result.Agent.Cwd; cwd != "" && !insideAny(cwd, dirs(project, worktree.List(git))) { // no cwd: nothing to check against
 			return "", "", fmt.Errorf("agent %s already runs in %s", change, cwd)
 		}
 		a := got.Result.Agent
@@ -100,6 +92,10 @@ func Prepare(project, change string, wt Worktree, run, git herdr.Runner) (pane, 
 		return a.PaneID, a.TabID, nil
 	case !strings.Contains(err.Error(), "agent_not_found"):
 		return "", "", fmt.Errorf("agent get: %w", err)
+	}
+	var checkouts []worktree.Checkout
+	if wt.On {
+		checkouts = worktree.List(git)
 	}
 	i := slices.IndexFunc(checkouts, func(c worktree.Checkout) bool { return c.Branch == change })
 	switch {
@@ -191,10 +187,10 @@ func Launch(change, kind, prompt, pane, tab string, run herdr.Runner) error {
 	return nil
 }
 
-// Running returns the names of the herdr agents that work in one of dirs (the Project and its
-// checkouts) or below it. Only agents started with a name count, and Start names them after their
-// Change; every agent_status counts.
-func Running(dirs []string, run herdr.Runner) (map[string]bool, error) {
+// Running returns the names of the herdr agents that work in project, one of its checkouts (read by
+// git inside project) or below them. Only agents started with a name count, and Start names them
+// after their Change; every agent_status counts.
+func Running(project string, run, git herdr.Runner) (map[string]bool, error) {
 	out, err := run("agent", "list")
 	if err != nil {
 		return nil, fmt.Errorf("agent list: %w", err)
@@ -210,13 +206,22 @@ func Running(dirs []string, run herdr.Runner) (map[string]bool, error) {
 	if err := json.Unmarshal(out, &list); err != nil {
 		return nil, fmt.Errorf("agent list: %w", err)
 	}
-	names := map[string]bool{}
+	names, d := map[string]bool{}, dirs(project, worktree.List(git))
 	for _, a := range list.Result.Agents {
-		if a.Name != "" && insideAny(a.Cwd, dirs) {
+		if a.Name != "" && insideAny(a.Cwd, d) {
 			names[a.Name] = true
 		}
 	}
 	return names, nil
+}
+
+// dirs returns project and the paths of checkouts, the directories its agents work in.
+func dirs(project string, checkouts []worktree.Checkout) []string {
+	d := []string{project}
+	for _, c := range checkouts {
+		d = append(d, c.Path)
+	}
+	return d
 }
 
 // insideAny reports whether dir is one of dirs or lies below one.

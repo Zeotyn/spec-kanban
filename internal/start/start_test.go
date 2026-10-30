@@ -377,7 +377,7 @@ func TestRunning(t *testing.T) {
 				calls = append(calls, strings.Join(args, " "))
 				return []byte(tt.out), tt.err
 			}
-			got, err := Running([]string{tt.project}, run)
+			got, err := Running(tt.project, run, noGit)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -515,6 +515,12 @@ func TestPrepareAgentInCheckout(t *testing.T) {
 			}
 		})
 	}
+	t.Run("worktree off: still focused", func(t *testing.T) {
+		h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}}
+		if _, _, err := Prepare(project, change, off, h.run, gitWith(nil, project, "main", proj, change).run); err != nil || !reflect.DeepEqual(h.calls, []string{get, info, focus}) {
+			t.Errorf("got %v, calls %q", err, h.calls)
+		}
+	})
 	t.Run("outside the Project and its checkouts: refused", func(t *testing.T) {
 		h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json"}}
 		_, _, err := Prepare(project, change, Worktree{On: true}, h.run, gitWith(nil, project, "main", wt, change).run)
@@ -530,8 +536,27 @@ func TestRunningInCheckouts(t *testing.T) {
 		t.Fatal(err)
 	}
 	run := func(...string) ([]byte, error) { return list, nil }
-	got, err := Running([]string{"/work/pro", "/work/proj"}, run) // /work/proj stands in for a linked checkout
+	got, err := Running("/work/pro", run, gitWith(nil, "/work/pro", "main", "/work/proj", "m1-board-view").run) // /work/proj stands in for a linked checkout
 	if want := map[string]bool{"m1-board-view": true, "m2-card-detail": true, "m3-sidebar-summary": true}; err != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, %v, want %v", got, err, want)
+	}
+}
+
+func TestPrepareWorktreeFails(t *testing.T) {
+	boom := errors.New("boom")
+	tests := []struct {
+		name, fail string
+		git        *fakeGit
+	}{
+		{"worktree create", "worktree create", gitWith(nil, proj, "main")},
+		{"worktree open", "worktree open", gitWith(nil, proj, "main", wt, change)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &fakeHerdr{t: t, fail: map[string]error{"agent get": notFound, tt.fail: boom}}
+			if _, _, err := Prepare(proj, change, Worktree{On: true}, h.run, tt.git.run); err == nil || !strings.Contains(err.Error(), tt.fail+": boom") {
+				t.Errorf("want %s error, got %v", tt.fail, err)
+			}
+		})
 	}
 }
