@@ -14,8 +14,8 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/detail"
 	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/phase"
 	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 type editedMsg struct{ err error }
 
 type loadedMsg struct {
-	changes []openspec.Change
+	changes []work.Item
 	err     error
 }
 
@@ -78,7 +78,7 @@ var runningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // termin
 // Model shows the Board of one Project; an empty project means none was found.
 type Model struct {
 	project       string
-	load          func() ([]openspec.Change, error)
+	load          func() ([]work.Item, error)
 	agents        func() (map[string]bool, error) // names of the Changes with a Running agent
 	start         func(change string) error
 	resumable     func(change string) (kind string, ok bool) // the recorded agent kind ("" if none) and whether it can be reopened
@@ -87,32 +87,32 @@ type Model struct {
 	loading       bool
 	loaded        bool // a load has succeeded at least once
 	err           error
-	all           [columns][]openspec.Change // every Change by Phase
-	cols          [columns][]openspec.Change // the Changes of all that match filter
+	all           [columns][]work.Item // every Change by Phase
+	cols          [columns][]work.Item // the Changes of all that match filter
 	filter        string
 	prompting     bool            // keys go to the filter prompt
 	running       map[string]bool // Changes with a Running agent, kept across loads
 	starting      string          // the Change being started; keys other than ctrl+c are ignored meanwhile
 	nav           nav
-	detail        *detail.Model   // the open detail view, nil on the Board
-	detailOf      openspec.Change // the Change the detail shows, matched by name and archive state
-	stale         bool            // something changed while a load ran; load again when it ends
-	notice        string          // one-line message in place of the footer, cleared by the next key
-	hide          [columns]bool   // Phases whose columns are not shown
-	help          bool            // the key help is shown; the next key closes it
+	detail        *detail.Model // the open detail view, nil on the Board
+	detailOf      work.Item     // the Change the detail shows, matched by name and archive state
+	stale         bool          // something changed while a load ran; load again when it ends
+	notice        string        // one-line message in place of the footer, cleared by the next key
+	hide          [columns]bool // Phases whose columns are not shown
+	help          bool          // the key help is shown; the next key closes it
 	width, height int
 }
 
 // New builds the Board. A non-nil snapshot (the cached last load) is shown while Init loads afresh.
 // agents, start, resumable and resume may be nil (no badges, s does nothing, no record to resume).
 // hide marks Phases not shown as columns; notice replaces the footer until the first key.
-func New(project string, load func() ([]openspec.Change, error), now func() time.Time, snapshot []openspec.Change,
+func New(project string, load func() ([]work.Item, error), now func() time.Time, snapshot []work.Item,
 	agents func() (map[string]bool, error), start func(change string) error,
 	resumable func(change string) (string, bool), resume func(change string) error, hide [columns]bool, notice string) Model {
 	m := Model{project: project, load: load, agents: agents, start: start, resumable: resumable, resume: resume, now: now, hide: hide, notice: notice,
 		loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
-		m.all, m.loaded = phase.Group(snapshot), true
+		m.all, m.loaded = work.Group(snapshot), true
 		m.refilter()
 	}
 	return m
@@ -186,7 +186,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case loadedMsg:
 		m.loading, m.err = false, msg.err
 		if msg.err == nil {
-			m.all, m.loaded = phase.Group(msg.changes), true
+			m.all, m.loaded = work.Group(msg.changes), true
 			m.refilter()
 			m.updateDetailHeader()
 		}
@@ -238,7 +238,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.nav.pendingG = false
 			if col := m.cols[m.nav.col]; len(col) > 0 {
 				c := col[m.nav.sel[m.nav.col]]
-				d := detail.New(m.project, c, detailHeader(c, phase.Phase(m.nav.col)), m.width, m.height)
+				d := detail.New(m.project, c, detailHeader(c, work.Phase(m.nav.col)), m.width, m.height)
 				m.detail, m.detailOf = &d, c
 			}
 		case k == "e":
@@ -249,7 +249,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case k == "s":
 			m.nav.pendingG = false
 			if col := m.cols[m.nav.col]; len(col) > 0 {
-				return m.startCard(col[m.nav.sel[m.nav.col]], phase.Phase(m.nav.col))
+				return m.startCard(col[m.nav.sel[m.nav.col]], work.Phase(m.nav.col))
 			}
 		case k == "r" && m.project != "":
 			m.nav.pendingG = false
@@ -292,7 +292,7 @@ func (m Model) prompt(msg tea.KeyMsg) (Model, tea.Cmd) {
 // refilter shows the Changes matching the filter in the shown columns, keeping each column's selection by name.
 func (m *Model) refilter() {
 	old := m.cols
-	m.cols = [columns][]openspec.Change{}
+	m.cols = [columns][]work.Item{}
 	for p, col := range m.all {
 		for _, c := range col {
 			if !m.hide[p] && matches(c.Name, m.filter) {
@@ -323,8 +323,8 @@ func (m *Model) updateDetailHeader() {
 	}
 	for p, col := range m.all {
 		for _, c := range col {
-			if c.Name == m.detailOf.Name && c.Archived == m.detailOf.Archived {
-				d := m.detail.WithHeader(detailHeader(c, phase.Phase(p)))
+			if c.Name == m.detailOf.Name && (c.Phase == work.Archived) == (m.detailOf.Phase == work.Archived) {
+				d := m.detail.WithHeader(detailHeader(c, work.Phase(p)))
 				m.detail = &d
 				return
 			}
@@ -333,9 +333,9 @@ func (m *Model) updateDetailHeader() {
 }
 
 // edit opens c's tasks.md in the editor, or explains why not.
-func (m Model) edit(c openspec.Change) (Model, tea.Cmd) {
+func (m Model) edit(c work.Item) (Model, tea.Cmd) {
 	tasks := filepath.Join(openspec.Dir(m.project, c), "tasks.md")
-	if c.Archived {
+	if c.Phase == work.Archived {
 		m.notice = "archived changes are read-only"
 		return m, nil
 	}
@@ -347,11 +347,11 @@ func (m Model) edit(c openspec.Change) (Model, tea.Cmd) {
 }
 
 // startCard Starts c in a command, or explains why its Phase p cannot be started.
-func (m Model) startCard(c openspec.Change, p phase.Phase) (Model, tea.Cmd) {
+func (m Model) startCard(c work.Item, p work.Phase) (Model, tea.Cmd) {
 	switch p {
-	case phase.Draft:
+	case work.Draft:
 		m.notice = c.Name + " is a draft: plan it first"
-	case phase.Review:
+	case work.Review:
 		kind, ok := "", false
 		if m.resumable != nil && m.resume != nil {
 			kind, ok = m.resumable(c.Name)
@@ -365,7 +365,7 @@ func (m Model) startCard(c openspec.Change, p phase.Phase) (Model, tea.Cmd) {
 		default:
 			m.notice = "all tasks of " + c.Name + " are done"
 		}
-	case phase.Archived:
+	case work.Archived:
 		m.notice = "archived changes cannot be started"
 	default:
 		if m.start == nil {
@@ -378,13 +378,13 @@ func (m Model) startCard(c openspec.Change, p phase.Phase) (Model, tea.Cmd) {
 }
 
 // detailHeader sums up a Change for the detail view: name, milestone, Progress and Phase or archive date.
-func detailHeader(c openspec.Change, p phase.Phase) string {
+func detailHeader(c work.Item, p work.Phase) string {
 	parts := []string{c.Name}
 	if b := milestone(c.Name); b != "" {
 		parts = append(parts, b)
 	}
 	switch {
-	case c.Archived:
+	case c.Phase == work.Archived:
 		parts = append(parts, strings.TrimSpace("archived "+c.ArchivedOn))
 	case c.Total > 0:
 		parts = append(parts, fmt.Sprintf("%d/%d", c.Done, c.Total), p.String())
@@ -394,7 +394,7 @@ func detailHeader(c openspec.Change, p phase.Phase) string {
 	return strings.Join(parts, "  ")
 }
 
-func names(cols [columns][]openspec.Change) [columns][]string {
+func names(cols [columns][]work.Item) [columns][]string {
 	var n [columns][]string
 	for i, col := range cols {
 		for _, c := range col {
@@ -464,7 +464,7 @@ func (m Model) header() string {
 		title += " · refreshing…"
 	}
 	var done, total int
-	for _, col := range m.all[:phase.Archived] {
+	for _, col := range m.all[:work.Archived] {
 		for _, c := range col {
 			done, total = done+c.Done, total+max(c.Total, 0)
 		}
@@ -491,7 +491,7 @@ func (m Model) columns() string {
 		for m.hide[c] { // only when nothing shown has Cards and focus fell back to Draft
 			c++
 		}
-		return m.column(c, m.width, fmt.Sprintf("◀ %d/%d %s %d ▶", c+1, columns, phase.Phase(c), len(m.cols[c])))
+		return m.column(c, m.width, fmt.Sprintf("◀ %d/%d %s %d ▶", c+1, columns, work.Phase(c), len(m.cols[c])))
 	}
 	w := (m.width - (n - 1)) / n
 	parts := make([]string, 0, 2*n-1)
@@ -502,7 +502,7 @@ func (m Model) columns() string {
 		if len(parts) > 0 {
 			parts = append(parts, " ")
 		}
-		parts = append(parts, m.column(i, w, fmt.Sprintf("%s %d", phase.Phase(i), len(m.cols[i]))))
+		parts = append(parts, m.column(i, w, fmt.Sprintf("%s %d", work.Phase(i), len(m.cols[i]))))
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
 }
@@ -519,7 +519,7 @@ func (m Model) column(i, w int, title string) string {
 	}
 	end := min(len(cards), off+vis)
 	for j := off; j < end; j++ {
-		lines = append(lines, m.card(cards[j], phase.Phase(i), w, i == m.nav.col && j == m.nav.sel[i])...)
+		lines = append(lines, m.card(cards[j], work.Phase(i), w, i == m.nav.col && j == m.nav.sel[i])...)
 	}
 	if end < len(cards) {
 		lines = append(lines, fmt.Sprintf("↓ %d more", len(cards)-end))
@@ -529,9 +529,9 @@ func (m Model) column(i, w int, title string) string {
 
 // card renders three lines and a blank one; the selected Card is marked with ▌ and bold, an open
 // Card with a Running agent with a green ● before its name.
-func (m Model) card(c openspec.Change, p phase.Phase, w int, selected bool) []string {
+func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	inner := w - 1
-	running := !c.Archived && m.running[c.Name]
+	running := c.Phase != work.Archived && m.running[c.Name]
 	firstW := inner
 	if running {
 		firstW -= 2 // "● "
@@ -548,14 +548,14 @@ func (m Model) card(c openspec.Change, p phase.Phase, w int, selected bool) []st
 	}
 	var second, third string
 	switch {
-	case c.Archived && c.ArchivedOn != "":
+	case c.Phase == work.Archived && c.ArchivedOn != "":
 		second = "archived " + c.ArchivedOn
-	case c.Archived:
+	case c.Phase == work.Archived:
 		second = "archived"
 	default:
 		second = progressBar(c.Done, c.Total, max(3, min(10, inner-8)))
 		third = age(m.now().Sub(c.Modified))
-		if p == phase.Draft || p == phase.Ready {
+		if p == work.Draft || p == work.Ready {
 			third = planMarks(c.Artifacts) + "  " + third
 		}
 	}

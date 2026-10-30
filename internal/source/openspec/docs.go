@@ -6,18 +6,20 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // Dir returns where a Change's files live: openspec/changes/<name> when open, openspec/changes/archive/<ArchivedOn>-<name>
 // when archived with a date, openspec/changes/archive/<name> when archived without one; below c.Dir
 // instead of project when set.
-func Dir(project string, c Change) string {
+func Dir(project string, c work.Item) string {
 	if c.Dir != "" {
 		project = c.Dir
 	}
 	base := filepath.Join(project, "openspec", "changes")
 	switch {
-	case !c.Archived:
+	case c.Phase != work.Archived:
 		return filepath.Join(base, c.Name)
 	case c.ArchivedOn != "":
 		return filepath.Join(base, "archive", c.ArchivedOn+"-"+c.Name)

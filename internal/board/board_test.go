@@ -18,8 +18,7 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/detail"
 	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/phase"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -57,34 +56,34 @@ func ago(d time.Duration) time.Time { return now.Add(-d) }
 var planned = map[string]string{"proposal": "done", "specs": "done", "design": "done", "tasks": "done"}
 
 // fixture is a Board with every Phase, a long name, milestone badges and an undated archive.
-var fixture = []openspec.Change{
-	{Name: "add-dark-mode", Modified: ago(48 * time.Hour), Planning: openspec.Incomplete,
+var fixture = []work.Item{
+	{Name: "add-dark-mode", Modified: ago(48 * time.Hour), Phase: work.Draft,
 		Artifacts: map[string]string{"proposal": "done", "specs": "ready", "design": "ready", "tasks": "blocked"}},
-	{Name: "m2-change-detail", Modified: ago(5 * time.Hour), Planning: openspec.Incomplete,
+	{Name: "m2-change-detail", Modified: ago(5 * time.Hour), Phase: work.Draft,
 		Artifacts: map[string]string{"proposal": "done", "specs": "ready", "design": "ready", "tasks": "blocked"}},
-	{Name: "m1-phase-derivation", Total: 6, Modified: ago(40 * time.Minute), Planning: openspec.Complete, Artifacts: planned},
-	{Name: "m5-release-pipeline-with-a-very-long-name", Total: 4, Modified: ago(20 * 24 * time.Hour), Planning: openspec.Complete,
+	{Name: "m1-phase-derivation", Total: 6, Modified: ago(40 * time.Minute), Phase: work.Ready, Artifacts: planned},
+	{Name: "m5-release-pipeline-with-a-very-long-name", Total: 4, Modified: ago(20 * 24 * time.Hour), Phase: work.Ready,
 		Artifacts: map[string]string{"proposal": "done", "specs": "skipped", "design": "done", "tasks": "done"}},
-	{Name: "m1-board-view", Done: 5, Total: 11, Modified: ago(3 * time.Hour)},
-	{Name: "m0-spike-agent-start", Done: 10, Total: 10, Modified: ago(26 * time.Hour)},
-	{Name: "m0-plugin-skeleton", Archived: true, ArchivedOn: "2026-10-29"},
-	{Name: "undated-change", Archived: true},
+	{Name: "m1-board-view", Done: 5, Total: 11, Phase: work.InProgress, Modified: ago(3 * time.Hour)},
+	{Name: "m0-spike-agent-start", Done: 10, Total: 10, Phase: work.Review, Modified: ago(26 * time.Hour)},
+	{Name: "m0-plugin-skeleton", Phase: work.Archived, ArchivedOn: "2026-10-29"},
+	{Name: "undated-change", Phase: work.Archived},
 }
 
 // board returns a loaded Board of changes at the given size.
-func board(t *testing.T, w, h int, changes []openspec.Change) Model {
+func board(t *testing.T, w, h int, changes []work.Item) Model {
 	t.Helper()
 	return hiding(t, w, h, changes)
 }
 
 // hiding returns a loaded Board of changes at the given size that hides the Phases ps.
-func hiding(t *testing.T, w, h int, changes []openspec.Change, ps ...phase.Phase) Model {
+func hiding(t *testing.T, w, h int, changes []work.Item, ps ...work.Phase) Model {
 	t.Helper()
 	var hide [columns]bool
 	for _, p := range ps {
 		hide[p] = true
 	}
-	m := New("/x/proj", func() ([]openspec.Change, error) { return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, hide, "")
+	m := New("/x/proj", func() ([]work.Item, error) { return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, hide, "")
 	m = send(m, tea.WindowSizeMsg{Width: w, Height: h})
 	return send(m, m.Init()())
 }
@@ -130,7 +129,7 @@ func TestQuitKeys(t *testing.T) {
 }
 
 func TestLoading(t *testing.T) {
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
+	m := New("/x/proj", func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	if !strings.Contains(m.View(), "Loading changes…") {
 		t.Errorf("no loading notice before data:\n%s", m.View())
 	}
@@ -143,7 +142,7 @@ func TestLoading(t *testing.T) {
 func TestReload(t *testing.T) {
 	calls := 0
 	changes := fixture
-	m := New("/x/proj", func() ([]openspec.Change, error) { calls++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
+	m := New("/x/proj", func() ([]work.Item, error) { calls++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, m.Init()())
 	m = keys(m, "3") // In Progress: m1-board-view
 	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
@@ -151,7 +150,7 @@ func TestReload(t *testing.T) {
 	if cmd == nil || !strings.Contains(m.View(), "refreshing…") {
 		t.Fatal("r must reload and show it in the header")
 	}
-	changes = append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
+	changes = append([]work.Item{{Name: "m3-new", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, fixture...)
 	m = send(m, cmd())
 	if calls != 2 {
 		t.Errorf("loader called %d times, want 2", calls)
@@ -162,7 +161,7 @@ func TestReload(t *testing.T) {
 }
 
 func TestLoadError(t *testing.T) {
-	m := New("/x/proj", func() ([]openspec.Change, error) {
+	m := New("/x/proj", func() ([]work.Item, error) {
 		return nil, errors.New("openspec CLI not found: install it with npm i -g @fission-ai/openspec")
 	}, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
@@ -186,10 +185,10 @@ func TestViews(t *testing.T) {
 }
 
 // tall is a Ready column of n Cards.
-func tall(n int) []openspec.Change {
-	cs := make([]openspec.Change, n)
+func tall(n int) []work.Item {
+	cs := make([]work.Item, n)
 	for i := range cs {
-		cs[i] = openspec.Change{Name: fmt.Sprintf("change-%02d", i), Total: 2, Planning: openspec.Complete, Modified: ago(time.Duration(i) * time.Hour)}
+		cs[i] = work.Item{Name: fmt.Sprintf("change-%02d", i), Total: 2, Phase: work.Ready, Modified: ago(time.Duration(i) * time.Hour)}
 	}
 	return cs
 }
@@ -204,7 +203,7 @@ func TestViewFitsHeight(t *testing.T) {
 		}
 	}
 	m := board(t, 60, 14, fixture)
-	m.load = func() ([]openspec.Change, error) {
+	m.load = func() ([]work.Item, error) {
 		return nil, errors.New("openspec list: " + strings.Repeat("a long and\nmulti-line error ", 20))
 	}
 	m = send(m, m.reload())
@@ -235,11 +234,11 @@ func TestReloadKeys(t *testing.T) {
 }
 
 func TestHeaderProgress(t *testing.T) {
-	m := board(t, 120, 30, []openspec.Change{{Name: "a", Done: 120, Total: 287, Modified: now}})
+	m := board(t, 120, 30, []work.Item{{Name: "a", Done: 120, Total: 287, Phase: work.InProgress, Modified: now}})
 	if !strings.Contains(m.View(), "120/287 42%") {
 		t.Errorf("want rounded 120/287 42%% in header:\n%s", m.View())
 	}
-	m.load = func() ([]openspec.Change, error) { return nil, errors.New("boom") }
+	m.load = func() ([]work.Item, error) { return nil, errors.New("boom") }
 	m = send(m, m.reload())
 	if strings.Contains(m.View(), "%") {
 		t.Errorf("error view must not show stale progress:\n%s", m.View())
@@ -247,8 +246,8 @@ func TestHeaderProgress(t *testing.T) {
 }
 
 func TestSnapshot(t *testing.T) {
-	fresh := append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, [columns]bool{}, "")
+	fresh := append([]work.Item{{Name: "m3-new", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, fixture...)
+	m := New("/x/proj", func() ([]work.Item, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	if v := m.View(); strings.Contains(v, "Loading changes…") || !strings.Contains(v, "refreshing…") || !strings.Contains(v, "m1-board-view") {
 		t.Fatalf("snapshot must show at once, marked refreshing:\n%s", v)
@@ -269,7 +268,7 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestSnapshotMovesFocusOffEmptyDraft(t *testing.T) {
-	m := New("/x/proj", nil, func() time.Time { return now }, []openspec.Change{{Name: "doing", Done: 1, Total: 2, Modified: now}}, nil, nil, nil, nil, [columns]bool{}, "")
+	m := New("/x/proj", nil, func() time.Time { return now }, []work.Item{{Name: "doing", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, nil, nil, nil, nil, [columns]bool{}, "")
 	if m.nav.col != 2 {
 		t.Errorf("focus %d, want In Progress (2)", m.nav.col)
 	}
@@ -368,11 +367,11 @@ func TestEditTasksFromBoard(t *testing.T) {
 	}
 	changes := fixture
 	loads := 0
-	m := New(proj, func() ([]openspec.Change, error) { loads++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
+	m := New(proj, func() ([]work.Item, error) { loads++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = keys(send(m, m.Init()()), "3") // In Progress: m1-board-view 5/11
 	args := fakeEditor(t, func() {
-		changes = append([]openspec.Change{{Name: "m1-board-view", Done: 6, Total: 11, Modified: now}}, fixture[:4]...)
+		changes = append([]work.Item{{Name: "m1-board-view", Done: 6, Total: 11, Phase: work.InProgress, Modified: now}}, fixture[:4]...)
 	})
 	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
 	if cmd == nil {
@@ -434,7 +433,7 @@ func TestNoticeFitsWidth(t *testing.T) {
 
 func TestDetailHeaderFollowsReload(t *testing.T) {
 	m, _ := enter(keys(board(t, 120, 30, fixture), "3")) // m1-board-view 5/11
-	fresh := append([]openspec.Change{{Name: "m1-board-view", Done: 6, Total: 11, Modified: now}}, fixture[:4]...)
+	fresh := append([]work.Item{{Name: "m1-board-view", Done: 6, Total: 11, Phase: work.InProgress, Modified: now}}, fixture[:4]...)
 	m = send(m, loadedMsg{changes: fresh})
 	if !strings.HasPrefix(m.View(), "m1-board-view  M1  6/11  In Progress") {
 		t.Errorf("detail header after reload:\n%s", m.View())
@@ -470,7 +469,7 @@ func agents(calls *int, names ...string) func() (map[string]bool, error) {
 
 func TestRunningBadge(t *testing.T) {
 	calls := 0
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil,
+	m := New("/x/proj", func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil,
 		agents(&calls, "m1-board-view", "m0-plugin-skeleton", "not-a-change"), nil, nil, nil, [columns]bool{}, "")
 	m = run(send(m, tea.WindowSizeMsg{Width: 200, Height: 30}), m.Init())
 	v := m.View()
@@ -493,8 +492,8 @@ func TestRunningBadgeLookupError(t *testing.T) {
 
 func TestRunningBadgeSurvivesReloads(t *testing.T) {
 	calls := 0
-	fresh := append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture,
+	fresh := append([]work.Item{{Name: "m3-new", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, fixture...)
+	m := New("/x/proj", func() ([]work.Item, error) { return fresh, nil }, func() time.Time { return now }, fixture,
 		agents(&calls, "m1-board-view"), nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	if v := m.View(); !strings.Contains(v, "m1-board-view") || strings.Contains(v, "●") {
@@ -823,8 +822,8 @@ func TestFilterKeepsSelectionByName(t *testing.T) {
 }
 
 func TestFilterSurvivesReload(t *testing.T) {
-	fresh := append([]openspec.Change{{Name: "m1-new", Done: 1, Total: 2, Modified: now}}, fixture...)
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, [columns]bool{}, "")
+	fresh := append([]work.Item{{Name: "m1-new", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, fixture...)
+	m := New("/x/proj", func() ([]work.Item, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, [columns]bool{}, "")
 	m = keys(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), "/", "m", "1", "enter")
 	m = send(m, m.Init()()) // cached → fresh
 	want := []string{"m1-phase-derivation", "m1-new", "m1-board-view"}
@@ -839,7 +838,7 @@ func TestFilterSurvivesReload(t *testing.T) {
 
 func TestFilteredDetailHeaderFollowsReload(t *testing.T) {
 	m := keys(board(t, 120, 30, fixture), "/", "b", "o", "a", "r", "d", "enter", "enter")
-	fresh := append([]openspec.Change{{Name: "m1-board-view", Done: 6, Total: 11, Modified: now}}, fixture[:4]...)
+	fresh := append([]work.Item{{Name: "m1-board-view", Done: 6, Total: 11, Phase: work.InProgress, Modified: now}}, fixture[:4]...)
 	m = send(m, loadedMsg{changes: fresh})
 	if !strings.HasPrefix(m.View(), "m1-board-view  M1  6/11  In Progress") {
 		t.Errorf("detail header after reload:\n%s", m.View())
@@ -891,7 +890,7 @@ func TestFilterNarrow(t *testing.T) {
 }
 
 func TestHiddenArchived(t *testing.T) {
-	m := hiding(t, 120, 30, fixture, phase.Archived)
+	m := hiding(t, 120, 30, fixture, work.Archived)
 	golden(t, "board-hidden", m.View())
 	if m = keys(m, "5"); m.nav.col != 0 {
 		t.Errorf("5 on hidden Archived moved focus to %d", m.nav.col)
@@ -902,11 +901,11 @@ func TestHiddenArchived(t *testing.T) {
 }
 
 func TestHiddenDraftKeepsProgress(t *testing.T) {
-	changes := []openspec.Change{
-		{Name: "draft", Total: 4, Modified: now, Planning: openspec.Incomplete}, // a Draft with tasks
-		{Name: "ready", Total: 2, Modified: now, Planning: openspec.Complete},
+	changes := []work.Item{
+		{Name: "draft", Total: 4, Modified: now, Phase: work.Draft}, // a Draft with tasks
+		{Name: "ready", Total: 2, Modified: now, Phase: work.Ready},
 	}
-	m := hiding(t, 120, 30, changes, phase.Draft)
+	m := hiding(t, 120, 30, changes, work.Draft)
 	if v := m.View(); strings.Contains(v, "Draft") || !strings.Contains(v, "0/6 0%") {
 		t.Errorf("hidden Draft must not be drawn but count in the Progress:\n%s", v)
 	}
@@ -917,8 +916,8 @@ func TestHiddenDraftKeepsProgress(t *testing.T) {
 
 func TestHiddenFocusFallback(t *testing.T) {
 	// only Draft and Archived have Cards; Draft is hidden, so focus goes to Archived, not Draft
-	changes := []openspec.Change{{Name: "draft", Modified: now}, {Name: "old", Archived: true}}
-	m := hiding(t, 120, 30, changes, phase.Draft)
+	changes := []work.Item{{Name: "draft", Modified: now}, {Name: "old", Phase: work.Archived}}
+	m := hiding(t, 120, 30, changes, work.Draft)
 	if m.nav.col != 4 {
 		t.Errorf("focus %d after load, want Archived (4)", m.nav.col)
 	}
@@ -933,21 +932,21 @@ func TestHiddenFocusFallback(t *testing.T) {
 }
 
 func TestHiddenNarrow(t *testing.T) {
-	m := hiding(t, 60, 30, fixture, phase.Draft, phase.Archived)
+	m := hiding(t, 60, 30, fixture, work.Draft, work.Archived)
 	for _, k := range []string{"h", "1", "l", "l", "l", "5"} {
 		if m = keys(m, k); strings.Contains(m.View(), "Draft") || strings.Contains(m.View(), "Archived") {
 			t.Errorf("after %s a hidden column is shown:\n%s", k, m.View())
 		}
 	}
 	// nothing shown has Cards: focus falls back to Draft, the view shows the first shown column
-	m = keys(hiding(t, 60, 30, nil, phase.Draft), "/", "x")
+	m = keys(hiding(t, 60, 30, nil, work.Draft), "/", "x")
 	if v := m.View(); strings.Contains(v, "Draft") || !strings.Contains(v, "◀ 2/5 Ready 0 ▶") {
 		t.Errorf("empty Board with hidden Draft:\n%s", v)
 	}
 }
 
 func TestInitialNotice(t *testing.T) {
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil,
+	m := New("/x/proj", func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil,
 		[columns]bool{}, "config.json: unknown key promt")
 	m = send(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), m.Init()())
 	if !strings.HasSuffix(m.View(), "\nconfig.json: unknown key promt") {
@@ -997,7 +996,7 @@ func TestHelpInDetail(t *testing.T) {
 	if err := os.WriteFile(proposal, []byte(strings.Repeat("line\n\n", 40)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m := New(proj, func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
+	m := New(proj, func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m, _ = enter(keys(send(m, m.Init()()), "3"))
 	top := keys(m, "2").View()

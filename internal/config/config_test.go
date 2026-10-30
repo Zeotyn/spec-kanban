@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/phase"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 func TestParse(t *testing.T) {
@@ -27,8 +27,8 @@ func TestParse(t *testing.T) {
 		{"base as a number", `{"base": 1}`, def, "base"},
 		{"agent kept", `{"agent": "codex"}`, Config{Agent: "codex", Prompt: def.Prompt, Worktree: true}, ""},
 		{"prompt alone", `{"prompt": "/opsx:apply {change} with TDD"}`, Config{Prompt: "/opsx:apply {change} with TDD", Worktree: true}, ""},
-		{"hide alone", `{"hide": ["Archived"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{phase.Archived: true}, Worktree: true}, ""},
-		{"phase names ignore case", `{"hide": ["archived", "IN PROGRESS"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{phase.Archived: true, phase.InProgress: true}, Worktree: true}, ""},
+		{"hide alone", `{"hide": ["Archived"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{work.Archived: true}, Worktree: true}, ""},
+		{"phase names ignore case", `{"hide": ["archived", "IN PROGRESS"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{work.Archived: true, work.InProgress: true}, Worktree: true}, ""},
 		{"agent with capital", `{"agent": "Codex"}`, def, `"Codex"`},
 		{"agent unknown", `{"agent": "bash"}`, def, `"bash"`},
 		{"agent empty", `{"agent": ""}`, def, `agent ""`},

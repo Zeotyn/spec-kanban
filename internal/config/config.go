@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/phase"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // Kinds: update from `herdr agent start --help`.
@@ -69,11 +69,11 @@ func Parse(b []byte) (Config, error) {
 		cfg.Prompt = *raw.Prompt
 	}
 	for _, name := range raw.Hide {
-		p := phase.Draft
-		for p <= phase.Archived && !strings.EqualFold(p.String(), name) {
+		p := work.Draft
+		for p <= work.Archived && !strings.EqualFold(p.String(), name) {
 			p++
 		}
-		if p > phase.Archived {
+		if p > work.Archived {
 			return Default(), fmt.Errorf("hide: unknown phase %q", name)
 		}
 		cfg.Hide[p] = true

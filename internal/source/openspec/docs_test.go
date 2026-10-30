@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 func write(t *testing.T, dir string, files map[string]string) {
@@ -22,13 +24,13 @@ func write(t *testing.T, dir string, files map[string]string) {
 
 func TestDir(t *testing.T) {
 	for _, tc := range []struct {
-		c    Change
+		c    work.Item
 		want string
 	}{
-		{Change{Name: "m1-board"}, "/p/openspec/changes/m1-board"},
-		{Change{Name: "m0-skel", Archived: true, ArchivedOn: "2026-10-29"}, "/p/openspec/changes/archive/2026-10-29-m0-skel"},
-		{Change{Name: "m0-skel", Archived: true}, "/p/openspec/changes/archive/m0-skel"},
-		{Change{Name: "m1-board", Dir: "/wt/m1-board"}, "/wt/m1-board/openspec/changes/m1-board"},
+		{work.Item{Name: "m1-board"}, "/p/openspec/changes/m1-board"},
+		{work.Item{Name: "m0-skel", Phase: work.Archived, ArchivedOn: "2026-10-29"}, "/p/openspec/changes/archive/2026-10-29-m0-skel"},
+		{work.Item{Name: "m0-skel", Phase: work.Archived}, "/p/openspec/changes/archive/m0-skel"},
+		{work.Item{Name: "m1-board", Dir: "/wt/m1-board"}, "/wt/m1-board/openspec/changes/m1-board"},
 	} {
 		if got := Dir("/p", tc.c); got != tc.want {
 			t.Errorf("Dir(%+v) = %q, want %q", tc.c, got, tc.want)

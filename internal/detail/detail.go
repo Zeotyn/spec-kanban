@@ -12,6 +12,7 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/editor"
 	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // Style names a glamour standard style; "" uses terminal.json, which colours only with the 16 ANSI
@@ -55,9 +56,9 @@ type Model struct {
 }
 
 // New opens the details of c in project under header (built by the Board, which owns Card formatting).
-func New(project string, c openspec.Change, header string, width, height int) Model {
+func New(project string, c work.Item, header string, width, height int) Model {
 	dir := openspec.Dir(project, c)
-	m := Model{header: header, dir: dir, archived: c.Archived, docs: openspec.Read(dir), width: width, height: height, tab: proposal}
+	m := Model{header: header, dir: dir, archived: c.Phase == work.Archived, docs: openspec.Read(dir), width: width, height: height, tab: proposal}
 	if c.Total > 0 {
 		m.tab = tasks
 	}

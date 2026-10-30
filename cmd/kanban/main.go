@@ -182,7 +182,7 @@ func showBoard(proj string) error {
 		}
 		return spawn("resume", change, pane, tab)
 	}
-	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI, git), time.Now, cache.Read(dir, proj), running, startOne,
+	_, err := tea.NewProgram(board.New(proj, asItems(loader(dir, proj, openspecCLI, git)), time.Now, openspec.Items(cache.Read(dir, proj)), running, startOne,
 		resumable, resume, cfg.Hide, notice), tea.WithAltScreen()).Run()
 	return err
 }
@@ -264,8 +264,13 @@ func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) f
 
 // syncLoad loads a Project for the sidebar through the Board's loader, so every sync warms the Board's cache.
 func syncLoad(dir string, cli, git func(proj string) herdr.Runner) func(string) ([]work.Item, error) {
-	return func(proj string) ([]work.Item, error) {
-		changes, err := loader(dir, proj, cli, git(proj))()
+	return func(proj string) ([]work.Item, error) { return asItems(loader(dir, proj, cli, git(proj)))() }
+}
+
+// asItems converts load's Changes to Items.
+func asItems(load func() ([]openspec.Change, error)) func() ([]work.Item, error) {
+	return func() ([]work.Item, error) {
+		changes, err := load()
 		return openspec.Items(changes), err
 	}
 }

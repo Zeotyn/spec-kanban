@@ -16,7 +16,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -71,9 +71,9 @@ func project(t *testing.T) string {
 	return p
 }
 
-var change = openspec.Change{Name: "m1-board-view", Done: 1, Total: 3}
+var change = work.Item{Name: "m1-board-view", Done: 1, Total: 3}
 
-func open(t *testing.T, c openspec.Change, w, h int) Model {
+func open(t *testing.T, c work.Item, w, h int) Model {
 	return New(project(t), c, "m1-board-view  M1  1/3  In Progress", w, h)
 }
 
@@ -99,7 +99,7 @@ func TestDefaultTab(t *testing.T) {
 	if m := open(t, change, 80, 24); m.tab != tasks {
 		t.Errorf("with tasks: tab %d, want Tasks", m.tab)
 	}
-	if m := open(t, openspec.Change{Name: "m1-board-view"}, 80, 24); m.tab != proposal {
+	if m := open(t, work.Item{Name: "m1-board-view"}, 80, 24); m.tab != proposal {
 		t.Errorf("without tasks: tab %d, want Proposal", m.tab)
 	}
 }
@@ -279,7 +279,7 @@ func TestEditRefused(t *testing.T) {
 	if ran || *args != nil || !strings.Contains(m.View(), "no design to edit") {
 		t.Errorf("missing design: ran %v, view:\n%s", ran, m.View())
 	}
-	archived := openspec.Change{Name: "m1-board-view", Archived: true}
+	archived := work.Item{Name: "m1-board-view", Phase: work.Archived}
 	m, ran = edit(New(t.TempDir(), archived, "h", 80, 24))
 	if ran || !strings.Contains(m.View(), "archived changes are read-only") {
 		t.Errorf("archived: ran %v, view:\n%s", ran, m.View())
