@@ -10,7 +10,7 @@ herdr agent names are unique across all Projects. When an agent named after the 
 ## MODIFIED Requirements
 
 ### Requirement: Start opens an agent session for a Change
-Starting a Change SHALL create a new herdr tab whose working directory is the Project and whose label is the Change name, focus it right away, start Claude in that tab as an agent that herdr tracks, and submit `/opsx:apply <change>` to it.
+Starting a Change SHALL create a new herdr tab whose working directory is the Project and whose label is the Change name, focus it, start Claude in that tab as an agent that herdr tracks, and submit `/opsx:apply <change>` to it.
 
 #### Scenario: Start a Ready Change
 - **WHEN** the user runs `kanban start m1-board-view` inside a Project that contains that open Change

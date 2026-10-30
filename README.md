@@ -31,7 +31,7 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 
 `e` opens `$EDITOR` (`vi` when unset) inside the popup. GUI editors need their wait flag, for example `EDITOR="code -w"`, or the Board reloads before you have saved.
 
-`s` works on Ready and In Progress Cards. It opens and focuses a new tab named after the Change and closes the Board at once; Claude then starts in that tab and runs `/opsx:apply`. If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (Claude not ready, prompt not sent) as a herdr notification. On Draft, Review and Archived Cards the footer says why not. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
+`s` works on Ready and In Progress Cards. It opens a new tab named after the Change and closes the Board at once; the tab then gets focus, Claude starts in it and runs `/opsx:apply`. If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (Claude not ready, prompt not sent) as a herdr notification. On Draft, Review and Archived Cards the footer says why not. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
 
 ## Sidebar
 

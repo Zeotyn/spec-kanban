@@ -18,17 +18,18 @@ func Start(project, change string, run, openspecRun herdr.Runner) error {
 	if err := checkOpen(project, change, openspecRun); err != nil {
 		return err
 	}
-	pane, launch, err := Prepare(project, change, run)
-	if err != nil || !launch {
+	pane, tab, err := Prepare(project, change, run)
+	if err != nil || pane == "" {
 		return err
 	}
-	return Launch(change, pane, run)
+	return Launch(change, pane, tab, run)
 }
 
-// Prepare focuses the Change's agent tab and returns the pane Claude has to be launched in. It only
-// focuses a running agent (launch false), focuses the tab of an exited one, and opens and focuses a
-// new tab otherwise. An agent of that name working outside project is refused.
-func Prepare(project, change string, run herdr.Runner) (pane string, launch bool, err error) {
+// Prepare returns the pane and tab Claude has to be launched in, both "" when there is nothing to
+// launch. It only focuses a running agent, returns the tab of an exited one, and opens a new tab
+// otherwise, both without focusing them: focus moves only in Launch. An agent of that name working
+// outside project is refused.
+func Prepare(project, change string, run herdr.Runner) (pane, tab string, err error) {
 	out, err := run("agent", "get", change)
 	switch {
 	case err == nil:
@@ -36,44 +37,61 @@ func Prepare(project, change string, run herdr.Runner) (pane string, launch bool
 			Result struct {
 				Agent struct {
 					PaneID string `json:"pane_id"`
+					TabID  string `json:"tab_id"`
 					Cwd    string `json:"cwd"`
 				} `json:"agent"`
 			} `json:"result"`
 		}
 		if err := json.Unmarshal(out, &got); err != nil {
-			return "", false, fmt.Errorf("agent get: %w", err)
+			return "", "", fmt.Errorf("agent get: %w", err)
 		}
 		if cwd := got.Result.Agent.Cwd; cwd != "" && !inside(cwd, project) { // no cwd: nothing to check against
-			return "", false, fmt.Errorf("agent %s already runs in %s", change, cwd)
+			return "", "", fmt.Errorf("agent %s already runs in %s", change, cwd)
 		}
-		pane = got.Result.Agent.PaneID
-		running, err := agentRunning(run, pane)
+		a := got.Result.Agent
+		running, err := agentRunning(run, a.PaneID)
 		if err != nil {
-			return "", false, err
+			return "", "", err
 		}
-		return pane, !running, step(run, "agent", "focus", change)
+		if running {
+			return "", "", step(run, "agent", "focus", change)
+		}
+		return a.PaneID, a.TabID, nil
 	case !strings.Contains(err.Error(), "agent_not_found"):
-		return "", false, fmt.Errorf("agent get: %w", err)
+		return "", "", fmt.Errorf("agent get: %w", err)
 	}
-	out, err = run("tab", "create", "--cwd", project, "--label", change, "--focus")
+	out, err = run("tab", "create", "--cwd", project, "--label", change, "--no-focus")
 	if err != nil {
-		return "", false, fmt.Errorf("tab create: %w", err)
+		return "", "", fmt.Errorf("tab create: %w", err)
 	}
-	var tab struct {
+	var created struct {
 		Result struct {
 			RootPane struct {
 				PaneID string `json:"pane_id"`
+				TabID  string `json:"tab_id"`
 			} `json:"root_pane"`
+			Tab struct {
+				TabID string `json:"tab_id"`
+			} `json:"tab"`
 		} `json:"result"`
 	}
-	if err := json.Unmarshal(out, &tab); err != nil || tab.Result.RootPane.PaneID == "" {
-		return "", false, fmt.Errorf("tab create: no pane id in %s", out)
+	err = json.Unmarshal(out, &created)
+	pane, tab = created.Result.RootPane.PaneID, created.Result.Tab.TabID
+	if tab == "" {
+		tab = created.Result.RootPane.TabID
 	}
-	return tab.Result.RootPane.PaneID, true, nil
+	if err != nil || pane == "" || tab == "" {
+		return "", "", fmt.Errorf("tab create: no pane or tab id in %s", out)
+	}
+	return pane, tab, nil
 }
 
-// Launch starts Claude as the agent <change> in pane, waits until it is ready and sends /opsx:apply <change>.
-func Launch(change, pane string, run herdr.Runner) error {
+// Launch focuses tab, starts Claude as the agent <change> in pane, waits until it is ready and sends
+// /opsx:apply <change>.
+func Launch(change, pane, tab string, run herdr.Runner) error {
+	if _, err := run("tab", "focus", tab); err != nil {
+		return fmt.Errorf("tab focus: %w", err)
+	}
 	if _, err := run("agent", "start", change, "--kind", "claude", "--pane", pane, "--timeout", "60000"); err != nil {
 		return fmt.Errorf("claude did not become ready in tab %q, the prompt was not sent: %w", change, err)
 	}

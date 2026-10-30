@@ -6,7 +6,7 @@
 
 ## 2. Start changes (TDD)
 
-- [x] 2.1 Write failing tests: `agent get` returns an agent whose `cwd` is another Project → no focus, no restart, no tab, error names the Change and the directory; new tab path calls `tab create … --no-focus` and ends with `agent focus <change>`
+- [x] 2.1 Write failing tests: `agent get` returns an agent whose `cwd` is another Project → no focus, no restart, no tab, error names the Change and the directory; new tab path calls `tab create … --no-focus` and ends with `agent focus <change>` (focus order superseded by 6.1)
 - [x] 2.2 Adjust the existing call-order tests to the new focus order, implement until all `internal/start` tests pass
 
 ## 3. Board: Running agent badge (TDD)
@@ -27,8 +27,9 @@
 ## 6. Close the popup at once (TDD)
 
 - [x] 6.1 Write failing tests: `Prepare` call orders (new tab `tab create … --focus`, running agent focus only, exited agent focus then `launch`); `Launch` call order and error texts; `Start` tests adapted (focus from Prepare, no trailing `agent focus`); `kanban launch` shows a herdr notification on failure and none on success
-- [x] 6.2 Split `start.Start` into `Prepare` and `Launch`, export `CheckOpen`; add the internal `kanban launch <change> <pane>`; wire the Board's start func to `CheckOpen` + `Prepare` and spawn `kanban launch` detached (`Setsid`, no stdio, not waited for)
+- [x] 6.2 Split `start.Start` into `Prepare` and `Launch`, keep `checkOpen` for `Start` only; add the internal `kanban launch <change> <pane>`; wire the Board's start func to `Prepare` and spawn `kanban launch` detached (`Setsid`, no stdio, not waited for)
 - [x] 6.3 Update design, board and agent-start spec deltas, README
+- [x] 6.4 Move focus into the detached child: `Prepare` returns pane and tab without focusing (new tab `--no-focus`, exited agent unfocused), `Launch` runs `tab focus <tab>` first, `kanban launch <change> <pane> <tab>` without the popup's `HERDR_PANE_ID`/`HERDR_TAB_ID`, so a popup that closes on focus loss cannot kill the Board before the spawn
 
 ## 7. Verification
 

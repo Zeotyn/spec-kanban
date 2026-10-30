@@ -157,23 +157,30 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 		}
 		return nil, nil
 	}
-	err := launch("m1-board-view", "w2:p1J", run)
+	err := launch("m1-board-view", "w2:p1J", "w2:tG", run)
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("want the Launch error, got %v", err)
 	}
 	want := []string{"notification", "show", "openspec-kanban: start failed", "--body", err.Error()}
-	if len(calls) != 2 || !reflect.DeepEqual(calls[1], want) {
-		t.Errorf("herdr calls %q, want agent start then %q", calls, want)
+	if len(calls) != 3 || !reflect.DeepEqual(calls[2], want) {
+		t.Errorf("herdr calls %q, want tab focus, agent start then %q", calls, want)
 	}
 }
 
 func TestLaunchSucceedsQuietly(t *testing.T) {
 	var calls []string
 	run := func(args ...string) ([]byte, error) { calls = append(calls, args[0]+" "+args[1]); return nil, nil }
-	if err := launch("m1-board-view", "w2:p1J", run); err != nil {
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", run); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(calls, []string{"agent start", "agent prompt"}) {
+	if !reflect.DeepEqual(calls, []string{"tab focus", "agent start", "agent prompt"}) {
 		t.Errorf("want no notification, got %q", calls)
+	}
+}
+
+func TestChildEnvDropsPopupIDs(t *testing.T) {
+	got := childEnv([]string{"HOME=/h", "HERDR_PANE_ID=w2:p9", "HERDR_SOCKET=/s", "HERDR_TAB_ID=w2:t9"})
+	if want := []string{"HOME=/h", "HERDR_SOCKET=/s"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }

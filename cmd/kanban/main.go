@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,8 +31,8 @@ Usage:
   kanban board      Show the Board for $KANBAN_PROJECT (set by kanban open)
   kanban start <change>
                     Run /opsx:apply <change> in a Claude tab of the current directory's project
-  kanban launch <change> <pane>
-                    Start Claude in pane and send /opsx:apply <change> (internal, spawned by the Board)
+  kanban launch <change> <pane> <tab>
+                    Focus tab, start Claude in pane and send /opsx:apply <change> (internal, spawned by the Board)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
   kanban --version  Print the version
 `
@@ -51,11 +53,11 @@ func main() {
 		}
 		err = startChange(os.Args[2])
 	case "launch":
-		if len(os.Args) != 4 {
-			fmt.Fprintf(os.Stderr, "kanban: launch needs a change name and a pane\n\n%s", usage)
+		if len(os.Args) != 5 {
+			fmt.Fprintf(os.Stderr, "kanban: launch needs a change name, a pane and a tab\n\n%s", usage)
 			os.Exit(2)
 		}
-		err = launch(os.Args[2], os.Args[3], herdr.Exec)
+		err = launch(os.Args[2], os.Args[3], os.Args[4], herdr.Exec)
 	case "board":
 		err = showBoard(os.Getenv("KANBAN_PROJECT"))
 	case "sync":
@@ -113,23 +115,25 @@ func showBoard(proj string) error {
 	dir := cache.Dir()
 	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec) }
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
-		pane, launch, err := start.Prepare(proj, change, herdr.Exec)
-		if err != nil || !launch {
+		pane, tab, err := start.Prepare(proj, change, herdr.Exec)
+		if err != nil || pane == "" {
 			return err
 		}
-		return spawnLaunch(change, pane)
+		return spawnLaunch(change, pane, tab)
 	}
 	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne), tea.WithAltScreen()).Run()
 	return err
 }
 
 // spawnLaunch runs kanban launch detached in its own session, so it outlives the Board's popup.
-func spawnLaunch(change, pane string) error {
+// Only the child moves focus, so a popup that closes on focus loss cannot kill the Board before the spawn.
+func spawnLaunch(change, pane, tab string) error {
 	self, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(self, "launch", change, pane)
+	cmd := exec.Command(self, "launch", change, pane, tab)
+	cmd.Env = childEnv(os.Environ())
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return err
@@ -137,9 +141,16 @@ func spawnLaunch(change, pane string) error {
 	return cmd.Process.Release()
 }
 
+// childEnv drops HERDR_PANE_ID and HERDR_TAB_ID from env: the popup they name is gone.
+func childEnv(env []string) []string {
+	return slices.DeleteFunc(slices.Clone(env), func(kv string) bool {
+		return strings.HasPrefix(kv, "HERDR_PANE_ID=") || strings.HasPrefix(kv, "HERDR_TAB_ID=")
+	})
+}
+
 // launch runs start.Launch and, since nobody watches its stderr, reports a failure as a herdr notification.
-func launch(change, pane string, run herdr.Runner) error {
-	err := start.Launch(change, pane, run)
+func launch(change, pane, tab string, run herdr.Runner) error {
+	err := start.Launch(change, pane, tab, run)
 	if err != nil {
 		run("notification", "show", "openspec-kanban: start failed", "--body", err.Error())
 	}
