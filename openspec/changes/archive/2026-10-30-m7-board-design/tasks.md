@@ -37,9 +37,9 @@ Prerequisite: `m7-source-seam` is merged on `main`. Names below are the post-ref
 ## 7. Goldens and docs
 
 - [x] 7.1 Run `go test ./... -update` once more and confirm it rewrites nothing (`git status '*/testdata/*'` shows only the changes of groups 2 and 6), proving colour and emphasis do not leak into the ASCII goldens
-- [ ] 7.2 Optional: README note or screenshot of the bordered, coloured Board
+- [x] 7.2 Optional: README note or screenshot of the bordered, coloured Board (skipped)
 
 ## 8. Verification
 
 - [x] 8.1 `go test -race ./...`, `go vet ./...` and `gofmt -l .` pass; `grep -rn 'lipgloss.Color("' --include='*.go' internal` shows only values `0`–`15`
-- [ ] 8.2 Smoke test in herdr against this repo, in a dark and (if available) a light terminal theme: bordered Cards, thick accent border moving with `j`/`k`/`h`/`l`, Phase colours on titles, rules and bars, bold names, magenta badges, faint meta line and footer descriptions, green `●`; shrink the popup below 13 rows (borders drop, `▌` appears) and narrow it below five columns (single column keeps borders); filter, `s` notices, the help (`?`: version matches `kanban --version`, accent group titles, faint descriptions, frame at full size, no frame in a low popup) and the detail tab bar (accent active, faint inactive); everything readable in both themes
+- [x] 8.2 Smoke test in herdr against this repo, in a dark and (if available) a light terminal theme: bordered Cards, thick accent border moving with `j`/`k`/`h`/`l`, Phase colours on titles, rules and bars, bold names, magenta badges, faint meta line and footer descriptions, green `●`; shrink the popup below 13 rows (borders drop, `▌` appears) and narrow it below five columns (single column keeps borders); filter, `s` notices, the help (`?`: version matches `kanban --version`, accent group titles, faint descriptions, frame at full size, no frame in a low popup) and the detail tab bar (accent active, faint inactive); everything readable in both themes
