@@ -5,11 +5,19 @@ A herdr plugin that shows a Project's OpenSpec Changes as a kanban Board and sum
 ## Projects and Changes
 
 **Project**:
-A directory containing `openspec/changes` in which the panes of a herdr workspace work.
+A directory a Source recognises (for OpenSpec, one containing `openspec/changes`) in which the panes of a herdr workspace work.
 _Avoid_: Repo, workspace
 
+**Source**:
+The spec tool a Project's Work items are read from, behind one adapter; today only OpenSpec.
+_Avoid_: Backend, provider, data source
+
+**Work item**:
+One piece of planned work a Source reports, shown as one Card; its kind depends on the Source.
+_Avoid_: Ticket, task, item
+
 **Change**:
-An OpenSpec change: a piece of planned work with proposal, specs, design and tasks, open or archived.
+The OpenSpec kind of Work item: a piece of planned work with proposal, specs, design and tasks, open or archived.
 _Avoid_: Spec, ticket, story
 
 **Spec**:
@@ -17,7 +25,7 @@ A main specification under `openspec/specs`; a Change carries spec deltas but is
 _Avoid_: Change
 
 **Progress**:
-The number of completed tasks of a Change relative to all its tasks.
+The number of completed tasks of a Work item relative to all its tasks.
 _Avoid_: Status, percentage
 
 **Most recently modified Change**:
@@ -27,15 +35,15 @@ _Avoid_: Active change, last spec
 ## Board
 
 **Board**:
-The view of all Changes of a Project, arranged in columns by Phase.
+The view of all Work items of a Project, arranged in columns by Phase.
 _Avoid_: List, dashboard
 
 **Card**:
-The representation of one Change on the Board.
+The representation of one Work item on the Board.
 _Avoid_: Ticket, item
 
 **Phase**:
-The state of a Change derived from its artifacts and tasks; each Phase is one column.
+The state of a Work item as its Source decides it; each Phase is one column. For a Change it is derived from its artifacts and tasks by the rules below.
 _Avoid_: Status, lane
 
 **Draft**:

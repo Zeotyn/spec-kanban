@@ -1,5 +1,7 @@
 # openspec CLI as the data source
 
+_Since [ADR 0008](0008-sources-behind-adapters.md) this is the decision of the OpenSpec Source, not of the plugin as a whole._
+
 The Board reads Changes through `openspec … --json` (`list`, `status`, `instructions apply`, `show`) instead of parsing `openspec/changes/` itself. The CLI understands schemas, stores and nested specs; a parser of our own would have to re-implement every new OpenSpec layout, which herdr-openspec (Python) and magentic (Go) already get wrong today. We read the filesystem only where the CLI offers nothing: archived Changes and the markdown content of proposal, design and specs.
 
 ## Considered Options
