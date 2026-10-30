@@ -1,30 +1,30 @@
-Keys                                       
-                                           
-Board                                      
-  h/l j/k      column, card                
-  gg/G         first/last card             
-  ctrl+d/u     half page down/up           
-  1-5          column by number            
-  enter        details                     
-  e            edit tasks                  
-  s            start the agent             
-  /            filter by name              
-  n/N          next/previous match         
-  esc          clear the filter, else close
-  r            reload                      
-  ?            this help                   
-  q            close                       
-                                           
-Filter prompt                              
-  enter/esc    keep/clear the filter       
-  backspace    delete, close when empty    
-                                           
-Details                                    
-  1-4, tab     switch document             
-  shift+tab    previous document           
-  j/k gg/G     scroll, top/end             
-  ctrl+d/u     half page down/up           
-  e            edit the document           
-  q/esc        back to the Board           
-                                           
-any key closes                             
+╭───────────────────────────────────────────╮
+│openspec-kanban test · any key closes      │
+│                                           │
+│Board                                      │
+│  h/l j/k      column, card                │
+│  gg/G         first/last card             │
+│  ctrl+d/u     half page down/up           │
+│  1-5          column by number            │
+│  enter        details                     │
+│  e            edit tasks                  │
+│  s            start the agent             │
+│  /            filter by name              │
+│  n/N          next/previous match         │
+│  esc          clear the filter, else close│
+│  r            reload                      │
+│  ?            this help                   │
+│  q            close                       │
+│                                           │
+│Filter prompt                              │
+│  enter/esc    keep/clear the filter       │
+│  backspace    delete, close when empty    │
+│                                           │
+│Details                                    │
+│  1-4, tab     switch document             │
+│  shift+tab    previous document           │
+│  j/k gg/G     scroll, top/end             │
+│  ctrl+d/u     half page down/up           │
+│  e            edit the document           │
+│  q/esc        back to the Board           │
+╰───────────────────────────────────────────╯

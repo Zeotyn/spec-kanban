@@ -29,10 +29,10 @@ Prerequisite: `m7-source-seam` is merged on `main`. Names below are the post-ref
 
 ## 6. Key help: version, styling, frame (TDD)
 
-- [ ] 6.1 Write failing tests: `board.New` takes a `version` (tests pass `"test"`); the help's first line is `openspec-kanban test · any key closes`, followed by the groups Board, Filter prompt and Details with every key of today's help; at 120×30 the help is framed by a rounded border (`╭`, `╰`) and fits the height; at 120×20 it has no border and no more than 20 lines; with ANSI256 the group titles use `theme.AccentBold`, keys no style, descriptions `theme.Faint`, the border `theme.Dim`; help from the detail view shows the same text; existing help tests (close without effect, `?` in the filter, ignored while starting) stay green
-- [ ] 6.2 Implement: help groups as data, `helpView()` with the frame only when it fits (design.md); `cmd/kanban` passes `versionString()` to `board.New`; add a `cmd/kanban` test or assertion that the Board receives the same string `--version` prints, if the existing tests reach `showBoard`, otherwise cover it in the smoke test
-- [ ] 6.3 Rewrite `help-120` and add golden `help-low` (120×20) with `go test ./internal/board -update`; review: framed help with `openspec-kanban test`, no line wider than the view, unframed help cut at 20 lines
-- [ ] 6.4 Update README's help sentence if it names the help's layout (`?` shows all keys and the version; any key closes the help)
+- [x] 6.1 Write failing tests: `board.New` takes a `version` (tests pass `"test"`); the help's first line is `openspec-kanban test · any key closes`, followed by the groups Board, Filter prompt and Details with every key of today's help; at 120×30 the help is framed by a rounded border (`╭`, `╰`) and fits the height; at 120×20 it has no border and no more than 20 lines; with ANSI256 the group titles use `theme.AccentBold`, keys no style, descriptions `theme.Faint`, the border `theme.Dim`; help from the detail view shows the same text; existing help tests (close without effect, `?` in the filter, ignored while starting) stay green
+- [x] 6.2 Implement: help groups as data, `helpView()` with the frame only when it fits (design.md); `cmd/kanban` passes `versionString()` to `board.New`; add a `cmd/kanban` test or assertion that the Board receives the same string `--version` prints, if the existing tests reach `showBoard`, otherwise cover it in the smoke test
+- [x] 6.3 Rewrite `help-120` and add golden `help-low` (120×20) with `go test ./internal/board -update`; review: framed help with `openspec-kanban test`, no line wider than the view, unframed help cut at 20 lines
+- [x] 6.4 Update README's help sentence if it names the help's layout (`?` shows all keys and the version; any key closes the help)
 
 ## 7. Goldens and docs
 

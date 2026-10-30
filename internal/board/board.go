@@ -56,37 +56,18 @@ func keyList(keys []key) string {
 	return strings.Join(parts, " · ")
 }
 
-// helpText lists every key by view; README's keys table says the same.
-const helpText = `Keys
-
-Board
-  h/l j/k      column, card
-  gg/G         first/last card
-  ctrl+d/u     half page down/up
-  1-5          column by number
-  enter        details
-  e            edit tasks
-  s            start the agent
-  /            filter by name
-  n/N          next/previous match
-  esc          clear the filter, else close
-  r            reload
-  ?            this help
-  q            close
-
-Filter prompt
-  enter/esc    keep/clear the filter
-  backspace    delete, close when empty
-
-Details
-  1-4, tab     switch document
-  shift+tab    previous document
-  j/k gg/G     scroll, top/end
-  ctrl+d/u     half page down/up
-  e            edit the document
-  q/esc        back to the Board
-
-any key closes`
+// helpGroups lists every key by view; README's keys table says the same.
+var helpGroups = []struct {
+	title string
+	keys  []key
+}{
+	{"Board", []key{{"h/l j/k", "column, card"}, {"gg/G", "first/last card"}, {"ctrl+d/u", "half page down/up"}, {"1-5", "column by number"},
+		{"enter", "details"}, {"e", "edit tasks"}, {"s", "start the agent"}, {"/", "filter by name"}, {"n/N", "next/previous match"},
+		{"esc", "clear the filter, else close"}, {"r", "reload"}, {"?", "this help"}, {"q", "close"}}},
+	{"Filter prompt", []key{{"enter/esc", "keep/clear the filter"}, {"backspace", "delete, close when empty"}}},
+	{"Details", []key{{"1-4, tab", "switch document"}, {"shift+tab", "previous document"}, {"j/k gg/G", "scroll, top/end"},
+		{"ctrl+d/u", "half page down/up"}, {"e", "edit the document"}, {"q/esc", "back to the Board"}}},
+}
 
 // Model shows the Board of one Project; an empty project means none was found.
 type Model struct {
@@ -114,17 +95,18 @@ type Model struct {
 	notice        string        // one-line message in place of the footer, cleared by the next key
 	hide          [columns]bool // Phases whose columns are not shown
 	help          bool          // the key help is shown; the next key closes it
+	version       string        // shown in the help
 	width, height int
 }
 
 // New builds the Board; docs reads an Item's documents. A non-nil snapshot (the cached last load) is shown while Init loads afresh.
 // agents, start, resumable and resume may be nil (no badges, s does nothing, no record to resume).
-// hide marks Phases not shown as columns; notice replaces the footer until the first key.
+// hide marks Phases not shown as columns; notice replaces the footer until the first key; version is shown in the help.
 func New(project string, docs func(work.Item) work.Docs, load func() ([]work.Item, error), now func() time.Time, snapshot []work.Item,
 	agents func() (map[string]bool, error), start func(change string) error,
-	resumable func(change string) (string, bool), resume func(change string) error, hide [columns]bool, notice string) Model {
+	resumable func(change string) (string, bool), resume func(change string) error, hide [columns]bool, notice, version string) Model {
 	m := Model{project: project, docs: docs, load: load, agents: agents, start: start, resumable: resumable, resume: resume, now: now, hide: hide, notice: notice,
-		loading: project != "", width: 120, height: 30}
+		version: version, loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
 		m.all, m.loaded = work.Group(snapshot), true
 		m.refilter()
@@ -445,7 +427,7 @@ func (m Model) visible() int {
 
 func (m Model) View() string {
 	if m.help {
-		return lipgloss.NewStyle().MaxWidth(m.width).MaxHeight(m.height).Render(helpText)
+		return m.helpView()
 	}
 	if m.detail != nil {
 		return m.detail.View()
@@ -479,6 +461,22 @@ func (m Model) View() string {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("starting " + m.starting + "…")
 	}
 	return m.header() + "\n\n" + body + "\n\n" + footer // no trailing newline: the view fills the height exactly
+}
+
+// helpView renders the key help, framed when the frame fits, else cut to the view.
+func (m Model) helpView() string {
+	lines := []string{"openspec-kanban " + m.version + " · any key closes"}
+	for _, g := range helpGroups {
+		lines = append(lines, "", theme.AccentBold.Render(g.title))
+		for _, k := range g.keys {
+			lines = append(lines, fmt.Sprintf("  %-13s", k.key)+theme.Faint.Render(k.desc))
+		}
+	}
+	text := strings.Join(lines, "\n")
+	if lipgloss.Height(text)+2 <= m.height && lipgloss.Width(text)+2 <= m.width {
+		return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(theme.Dim).Render(text)
+	}
+	return lipgloss.NewStyle().MaxWidth(m.width).MaxHeight(m.height).Render(text)
 }
 
 func (m Model) header() string {

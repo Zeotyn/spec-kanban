@@ -36,7 +36,7 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `?` | key help | key help |
 | `q` `Esc` | close (`Esc` first clears a filter) | back to the Board |
 
-`?` shows all keys; any key closes the help.
+`?` shows all keys and the version; any key closes the help.
 
 `e` opens `$EDITOR` (`vi` when unset) inside the popup. GUI editors need their wait flag, for example `EDITOR="code -w"`, or the Board reloads before you have saved.
 
