@@ -1,19 +1,23 @@
 ## ADDED Requirements
 
 ### Requirement: Start a Change from the Board
-`s` on the selected Card SHALL Start its Change when the Card is in Ready or In Progress. While Start runs, the footer SHALL say which Change is starting and the Board SHALL ignore every key except `ctrl+c`. When Start succeeds, the Board SHALL close, leaving the user in the focused agent tab. When Start fails, the Board SHALL stay open and show the error as a notice in the footer. On a Draft, Review or Archived Card, `s` SHALL not Start and SHALL show a notice saying why. In a column without Cards, `s` SHALL do nothing. The detail view SHALL not react to `s`.
+`s` on the selected Card SHALL Start its Change when the Card is in Ready or In Progress. While Start runs, the footer SHALL say which Change is starting and the Board SHALL ignore every key except `ctrl+c`. Once the agent tab is focused and, if needed, Claude is launched in the background, the Board SHALL close without waiting for Claude to become ready, leaving the user in the focused agent tab. When Start fails before the Board closes, the Board SHALL stay open and show the error as a notice in the footer; when it fails after the Board closed, herdr SHALL show the error as a notification. On a Draft, Review or Archived Card, `s` SHALL not Start and SHALL show a notice saying why. In a column without Cards, `s` SHALL do nothing. The detail view SHALL not react to `s`.
 
 #### Scenario: Start a Ready Card
 - **WHEN** Card `m1-board-view` is selected in Ready and the user presses `s`
-- **THEN** the footer says `m1-board-view` is starting, and once its agent tab is focused the Board closes
+- **THEN** the footer says `m1-board-view` is starting, a new tab labelled `m1-board-view` is focused and the Board closes before Claude is ready; Claude then starts in that tab and receives `/opsx:apply m1-board-view`
 
 #### Scenario: Start a Change whose agent is running
 - **WHEN** Card `m1-board-view` in In Progress has a Running agent and the user presses `s`
 - **THEN** no new tab is created, the existing agent's tab is focused, and the Board closes
 
-#### Scenario: Start fails
+#### Scenario: Start fails before the Board closes
+- **WHEN** the user presses `s` on a Ready Card and herdr cannot create the tab
+- **THEN** the Board stays open and the footer shows the error
+
+#### Scenario: Start fails after the Board closed
 - **WHEN** the user presses `s` on a Ready Card and Claude does not become ready
-- **THEN** the Board stays open and the footer shows the error, including the tab that was created
+- **THEN** herdr shows a notification `openspec-kanban: start failed` naming the tab and saying the prompt was not sent
 
 #### Scenario: Draft Card
 - **WHEN** a Draft Card is selected and the user presses `s`

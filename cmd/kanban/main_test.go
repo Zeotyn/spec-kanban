@@ -147,3 +147,33 @@ func TestSyncLoadWritesBoardCache(t *testing.T) {
 		t.Errorf("the Board's cache must hold the sync's load\n got %v\nwant %v", got, changes)
 	}
 }
+
+func TestLaunchNotifiesOnFailure(t *testing.T) {
+	var calls [][]string
+	run := func(args ...string) ([]byte, error) {
+		calls = append(calls, args)
+		if args[0] == "agent" && args[1] == "start" {
+			return nil, errors.New("timeout")
+		}
+		return nil, nil
+	}
+	err := launch("m1-board-view", "w2:p1J", run)
+	if err == nil || !strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("want the Launch error, got %v", err)
+	}
+	want := []string{"notification", "show", "openspec-kanban: start failed", "--body", err.Error()}
+	if len(calls) != 2 || !reflect.DeepEqual(calls[1], want) {
+		t.Errorf("herdr calls %q, want agent start then %q", calls, want)
+	}
+}
+
+func TestLaunchSucceedsQuietly(t *testing.T) {
+	var calls []string
+	run := func(args ...string) ([]byte, error) { calls = append(calls, args[0]+" "+args[1]); return nil, nil }
+	if err := launch("m1-board-view", "w2:p1J", run); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(calls, []string{"agent start", "agent prompt"}) {
+		t.Errorf("want no notification, got %q", calls)
+	}
+}

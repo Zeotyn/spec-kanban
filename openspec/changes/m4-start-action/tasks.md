@@ -24,7 +24,13 @@
 - [x] 5.1 Wire `start.Start` and `start.Running` into `board.New` in `cmd/kanban`; `kanban start <change>` keeps its usage and behaviour
 - [x] 5.2 README: `s` key, Phase gating, the Running agent badge
 
-## 6. Verification
+## 6. Close the popup at once (TDD)
 
-- [x] 6.1 `go test -race ./...` and `go vet ./...` pass
-- [ ] 6.2 Smoke test in herdr: rebuild; open the Board, `s` on a Ready Card → popup closes, new tab labelled with the Change runs `/opsx:apply` in the invoking workspace; reopen → Card shows `●`; `s` again → existing tab focused, no second tab; `s` on Draft/Review/Archived → notices; quit Claude in that tab, reopen the Board and note whether the badge lingers (answers the Open Question); `kanban start <change>` from a shell still works
+- [x] 6.1 Write failing tests: `Prepare` call orders (new tab `tab create … --focus`, running agent focus only, exited agent focus then `launch`); `Launch` call order and error texts; `Start` tests adapted (focus from Prepare, no trailing `agent focus`); `kanban launch` shows a herdr notification on failure and none on success
+- [x] 6.2 Split `start.Start` into `Prepare` and `Launch`, export `CheckOpen`; add the internal `kanban launch <change> <pane>`; wire the Board's start func to `CheckOpen` + `Prepare` and spawn `kanban launch` detached (`Setsid`, no stdio, not waited for)
+- [x] 6.3 Update design, board and agent-start spec deltas, README
+
+## 7. Verification
+
+- [x] 7.1 `go test -race ./...` and `go vet ./...` pass
+- [ ] 7.2 Smoke test in herdr: rebuild; open the Board, `s` on a Ready Card → popup closes at once, new tab labelled with the Change is focused and runs `/opsx:apply` in the invoking workspace; reopen → Card shows `●`; `s` again → existing tab focused, no second tab; `s` on Draft/Review/Archived → notices; quit Claude in that tab, reopen the Board and note whether the badge lingers (answers the Open Question); `kanban start <change>` from a shell still works

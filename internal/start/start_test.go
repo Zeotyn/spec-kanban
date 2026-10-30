@@ -65,7 +65,7 @@ func fakeList(names ...string) func(...string) ([]byte, error) {
 }
 
 var (
-	create = "tab create --cwd " + proj + " --label " + change + " --no-focus"
+	create = "tab create --cwd " + proj + " --label " + change + " --focus"
 	launch = "agent start " + change + " --kind claude --pane w2:p1J --timeout 60000"
 	prompt = "agent prompt " + change + " /opsx:apply " + change
 	focus  = "agent focus " + change
@@ -84,7 +84,7 @@ func TestStart(t *testing.T) {
 			name: "new tab",
 			out:  map[string]string{"tab create": "tab-create.json"},
 			fail: map[string]error{"agent get": notFound},
-			want: []string{get, create, launch, prompt, focus},
+			want: []string{get, create, launch, prompt},
 		},
 		{
 			name: "agent running: focus only",
@@ -94,7 +94,7 @@ func TestStart(t *testing.T) {
 		{
 			name: "agent exited: restart in its tab",
 			out:  map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"},
-			want: []string{get, info, launch, prompt, focus},
+			want: []string{get, info, focus, launch, prompt},
 		},
 	}
 	for _, tt := range tests {
@@ -102,6 +102,61 @@ func TestStart(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
 			if err := Start(proj, change, h.run, fakeList("other", change)); err != nil {
 				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(h.calls, tt.want) {
+				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)
+			}
+		})
+	}
+}
+
+func TestPrepare(t *testing.T) {
+	tests := []struct {
+		name       string
+		out        map[string]string
+		fail       map[string]error
+		want       []string
+		wantLaunch bool
+	}{
+		{"new tab, focused at once", map[string]string{"tab create": "tab-create.json"}, map[string]error{"agent get": notFound}, []string{get, create}, true},
+		{"agent running: focus only", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info, focus}, false},
+		{"agent exited: focus its tab", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{get, info, focus}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
+			pane, launch, err := Prepare(proj, change, h.run)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if pane != "w2:p1J" || launch != tt.wantLaunch {
+				t.Errorf("got pane %q launch %v, want w2:p1J %v", pane, launch, tt.wantLaunch)
+			}
+			if !reflect.DeepEqual(h.calls, tt.want) {
+				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)
+			}
+		})
+	}
+}
+
+func TestLaunch(t *testing.T) {
+	boom := errors.New("boom")
+	tests := []struct {
+		name  string
+		fail  map[string]error
+		want  []string
+		wants string // substring of the error, "" for none
+	}{
+		{"starts claude and sends the prompt", nil, []string{launch, prompt}, ""},
+		{"claude not ready", map[string]error{"agent start": boom}, []string{launch}, "did not become ready in tab"},
+		{"prompt", map[string]error{"agent prompt": boom}, []string{launch, prompt}, "but the prompt was not sent"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &fakeHerdr{t: t, fail: tt.fail}
+			err := Launch(change, "w2:p1J", h.run)
+			if tt.wants == "" && err != nil || tt.wants != "" && (err == nil || !strings.Contains(err.Error(), tt.wants)) {
+				t.Fatalf("want error with %q, got %v", tt.wants, err)
 			}
 			if !reflect.DeepEqual(h.calls, tt.want) {
 				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)

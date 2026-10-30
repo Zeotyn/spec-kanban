@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,6 +29,8 @@ Usage:
   kanban board      Show the Board for $KANBAN_PROJECT (set by kanban open)
   kanban start <change>
                     Run /opsx:apply <change> in a Claude tab of the current directory's project
+  kanban launch <change> <pane>
+                    Start Claude in pane and send /opsx:apply <change> (internal, spawned by the Board)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
   kanban --version  Print the version
 `
@@ -46,6 +50,12 @@ func main() {
 			os.Exit(2)
 		}
 		err = startChange(os.Args[2])
+	case "launch":
+		if len(os.Args) != 4 {
+			fmt.Fprintf(os.Stderr, "kanban: launch needs a change name and a pane\n\n%s", usage)
+			os.Exit(2)
+		}
+		err = launch(os.Args[2], os.Args[3], herdr.Exec)
 	case "board":
 		err = showBoard(os.Getenv("KANBAN_PROJECT"))
 	case "sync":
@@ -102,8 +112,37 @@ func startChange(change string) error {
 func showBoard(proj string) error {
 	dir := cache.Dir()
 	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec) }
-	startOne := func(change string) error { return start.Start(proj, change, herdr.Exec, openspecCLI(proj)) }
+	startOne := func(change string) error { // no CheckOpen: the Board only offers open Changes, and it costs ~0.65 s
+		pane, launch, err := start.Prepare(proj, change, herdr.Exec)
+		if err != nil || !launch {
+			return err
+		}
+		return spawnLaunch(change, pane)
+	}
 	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne), tea.WithAltScreen()).Run()
+	return err
+}
+
+// spawnLaunch runs kanban launch detached in its own session, so it outlives the Board's popup.
+func spawnLaunch(change, pane string) error {
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(self, "launch", change, pane)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
+}
+
+// launch runs start.Launch and, since nobody watches its stderr, reports a failure as a herdr notification.
+func launch(change, pane string, run herdr.Runner) error {
+	err := start.Launch(change, pane, run)
+	if err != nil {
+		run("notification", "show", "openspec-kanban: start failed", "--body", err.Error())
+	}
 	return err
 }
 

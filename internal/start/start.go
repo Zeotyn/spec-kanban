@@ -12,16 +12,23 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
-// Start runs /opsx:apply <change> in a herdr agent named after the Change: it focuses the agent if it
-// is running, restarts it in its tab if it exited, and opens a new tab otherwise; focus moves to the
-// agent last. An agent of that name working outside project is refused. openspecRun runs the
-// openspec CLI inside project.
+// Start runs /opsx:apply <change> in a herdr agent named after the Change: Prepare, then Launch when
+// Claude has to be started. openspecRun runs the openspec CLI inside project.
 func Start(project, change string, run, openspecRun herdr.Runner) error {
-	if err := checkOpen(project, change, openspecRun); err != nil {
+	if err := CheckOpen(project, change, openspecRun); err != nil {
 		return err
 	}
+	pane, launch, err := Prepare(project, change, run)
+	if err != nil || !launch {
+		return err
+	}
+	return Launch(change, pane, run)
+}
 
-	var pane string
+// Prepare focuses the Change's agent tab and returns the pane Claude has to be launched in. It only
+// focuses a running agent (launch false), focuses the tab of an exited one, and opens and focuses a
+// new tab otherwise. An agent of that name working outside project is refused.
+func Prepare(project, change string, run herdr.Runner) (pane string, launch bool, err error) {
 	out, err := run("agent", "get", change)
 	switch {
 	case err == nil:
@@ -34,46 +41,46 @@ func Start(project, change string, run, openspecRun herdr.Runner) error {
 			} `json:"result"`
 		}
 		if err := json.Unmarshal(out, &got); err != nil {
-			return fmt.Errorf("agent get: %w", err)
+			return "", false, fmt.Errorf("agent get: %w", err)
 		}
 		if cwd := got.Result.Agent.Cwd; cwd != "" && !inside(cwd, project) { // no cwd: nothing to check against
-			return fmt.Errorf("agent %s already runs in %s", change, cwd)
+			return "", false, fmt.Errorf("agent %s already runs in %s", change, cwd)
 		}
 		pane = got.Result.Agent.PaneID
 		running, err := agentRunning(run, pane)
 		if err != nil {
-			return err
+			return "", false, err
 		}
-		if running {
-			return step(run, "agent", "focus", change)
-		}
+		return pane, !running, step(run, "agent", "focus", change)
 	case !strings.Contains(err.Error(), "agent_not_found"):
-		return fmt.Errorf("agent get: %w", err)
-	default:
-		out, err := run("tab", "create", "--cwd", project, "--label", change, "--no-focus")
-		if err != nil {
-			return fmt.Errorf("tab create: %w", err)
-		}
-		var tab struct {
-			Result struct {
-				RootPane struct {
-					PaneID string `json:"pane_id"`
-				} `json:"root_pane"`
-			} `json:"result"`
-		}
-		if err := json.Unmarshal(out, &tab); err != nil || tab.Result.RootPane.PaneID == "" {
-			return fmt.Errorf("tab create: no pane id in %s", out)
-		}
-		pane = tab.Result.RootPane.PaneID
+		return "", false, fmt.Errorf("agent get: %w", err)
 	}
+	out, err = run("tab", "create", "--cwd", project, "--label", change, "--focus")
+	if err != nil {
+		return "", false, fmt.Errorf("tab create: %w", err)
+	}
+	var tab struct {
+		Result struct {
+			RootPane struct {
+				PaneID string `json:"pane_id"`
+			} `json:"root_pane"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(out, &tab); err != nil || tab.Result.RootPane.PaneID == "" {
+		return "", false, fmt.Errorf("tab create: no pane id in %s", out)
+	}
+	return tab.Result.RootPane.PaneID, true, nil
+}
 
+// Launch starts Claude as the agent <change> in pane, waits until it is ready and sends /opsx:apply <change>.
+func Launch(change, pane string, run herdr.Runner) error {
 	if _, err := run("agent", "start", change, "--kind", "claude", "--pane", pane, "--timeout", "60000"); err != nil {
 		return fmt.Errorf("claude did not become ready in tab %q, the prompt was not sent: %w", change, err)
 	}
 	if _, err := run("agent", "prompt", change, "/opsx:apply "+change); err != nil {
 		return fmt.Errorf("claude runs in tab %q but the prompt was not sent: %w", change, err)
 	}
-	return step(run, "agent", "focus", change)
+	return nil
 }
 
 // Running returns the names of the herdr agents that work in project or below it. Only agents
@@ -146,7 +153,8 @@ func agentRunning(run herdr.Runner, pane string) (bool, error) {
 	return false, fmt.Errorf("pane %s runs %s, not Claude: quit it and start again", pane, busy)
 }
 
-func checkOpen(project, change string, run herdr.Runner) error {
+// CheckOpen fails unless change is an open Change of project.
+func CheckOpen(project, change string, run herdr.Runner) error {
 	names, err := openspec.OpenNames(run)
 	if err != nil {
 		return err
