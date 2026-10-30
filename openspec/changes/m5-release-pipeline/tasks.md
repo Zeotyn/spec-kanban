@@ -11,7 +11,7 @@
 
 ## 3. CI
 
-- [ ] 3.1 Add `.github/workflows/ci.yml`: push and pull_request, matrix ubuntu/macos, setup-go from `go.mod`, setup-node, `npm install -g @fission-ai/openspec@1.8.0`, `openspec --version`, `gofmt -l` empty, `go vet ./...`, `go test -race ./...`, `sh scripts/build.sh`; `shellcheck scripts/build.sh` on Ubuntu
+- [x] 3.1 Add `.github/workflows/ci.yml`: push and pull_request, matrix ubuntu/macos, setup-go from `go.mod`, setup-node, `npm install -g @fission-ai/openspec@1.8.0`, `openspec --version`, `gofmt -l` empty, `go vet ./...`, `go test -race ./...`, `sh scripts/build.sh`; `shellcheck scripts/build.sh` on Ubuntu
 - [ ] 3.2 Push a branch, open a draft PR and confirm both jobs pass and the contract test ran (`go test -v -run TestContract ./internal/openspec` output in the log shows PASS, not SKIP)
 
 ## 4. Release
