@@ -25,5 +25,5 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` and `shellcheck scripts/build.sh` pass locally
+- [x] 6.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` and `shellcheck scripts/build.sh` pass locally
 - [ ] 6.2 Release smoke test by the user: tag `v0.1.0` on `main` and push it; the release workflow passes and the release has four binaries, `checksums.txt`, `commit.txt` and the changelog notes; `herdr plugin uninstall`/`unlink` the local plugin, `herdr plugin install zeotyn/openspec-kanban --ref v0.1.0` with Go hidden from PATH succeeds by download and `kanban --version` prints `0.1.0`; the Board opens; then re-link the development checkout

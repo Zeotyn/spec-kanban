@@ -13,7 +13,7 @@ A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://gi
 Install a release (see [Releases](https://github.com/zeotyn/openspec-kanban/releases)); this downloads its checksum-verified binary and needs no Go:
 
 ```sh
-herdr plugin install zeotyn/openspec-kanban --ref v0.1.0
+herdr plugin install zeotyn/openspec-kanban --ref v<version>
 ```
 
 `herdr plugin update` keeps a release pinned; to upgrade, install the new tag. Installing without `--ref` takes `main`, which builds from source with Go unless `main` is exactly a release.
