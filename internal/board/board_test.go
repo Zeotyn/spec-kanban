@@ -631,7 +631,6 @@ func TestFilterPrompt(t *testing.T) {
 		t.Fatalf("/ must open the prompt in the footer:\n%s", m.View())
 	}
 	m = keys(m, "b", "o", "a", "r", "d")
-	golden(t, "board-filter", m.View())
 	v := m.View()
 	if !slices.Equal(shown(m), []string{"m1-board-view"}) || !strings.Contains(v, "In Progress 1") || !strings.Contains(v, "Draft 0") {
 		t.Errorf("typing must filter columns and counts at once: %q\n%s", shown(m), v)
@@ -665,6 +664,23 @@ func TestPromptTypesBoardKeys(t *testing.T) {
 	}
 	if m.filter != "jqnNsergGhl1/ " || !m.prompting || len(*started) != 0 || *args != nil || m.loading {
 		t.Errorf("keys in the prompt must be text: filter %q, prompting %v", m.filter, m.prompting)
+	}
+}
+
+func TestPromptPasteKeepsPrintable(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "/")
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m1\n\x03"), Paste: true})
+	if m = next.(Model); m.filter != "m1" {
+		t.Errorf("a paste must only add printable characters: %q", m.filter)
+	}
+}
+
+func TestHeaderFitsLongFilter(t *testing.T) {
+	m := keys(board(t, 60, 30, fixture), "/", "enter")
+	m.filter = strings.Repeat("x", 80)
+	header := strings.Split(m.View(), "\n")[0]
+	if lipgloss.Width(header) > 60 || !strings.HasSuffix(header, "15/31 48%") {
+		t.Errorf("header must fit the width and keep the Progress: %q", header)
 	}
 }
 

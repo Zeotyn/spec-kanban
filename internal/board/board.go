@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -225,7 +226,11 @@ func (m Model) prompt(msg tea.KeyMsg) (Model, tea.Cmd) {
 			m.prompting = false
 		}
 	case tea.KeyRunes, tea.KeySpace:
-		m.filter += string(msg.Runes)
+		for _, r := range msg.Runes { // a paste may carry newlines and control characters
+			if unicode.IsPrint(r) {
+				m.filter += string(r)
+			}
+		}
 	}
 	m.refilter()
 	return m, nil
@@ -400,6 +405,7 @@ func (m Model) header() string {
 		return title
 	}
 	progress := fmt.Sprintf("%d/%d %d%%", done, total, (done*200+total)/(2*total)) // rounded
+	title = lipgloss.NewStyle().MaxWidth(max(0, m.width-lipgloss.Width(progress)-1)).Render(title) // a long filter must not push Progress off
 	gap := max(1, m.width-lipgloss.Width(title)-lipgloss.Width(progress))
 	return title + strings.Repeat(" ", gap) + progress
 }
