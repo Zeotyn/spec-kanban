@@ -84,7 +84,7 @@ func hiding(t *testing.T, w, h int, changes []openspec.Change, ps ...phase.Phase
 	for _, p := range ps {
 		hide[p] = true
 	}
-	m := New("/x/proj", func() ([]openspec.Change, error) { return changes, nil }, func() time.Time { return now }, nil, nil, nil, hide, "")
+	m := New("/x/proj", func() ([]openspec.Change, error) { return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, hide, "")
 	m = send(m, tea.WindowSizeMsg{Width: w, Height: h})
 	return send(m, m.Init()())
 }
@@ -130,7 +130,7 @@ func TestQuitKeys(t *testing.T) {
 }
 
 func TestLoading(t *testing.T) {
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	if !strings.Contains(m.View(), "Loading changes…") {
 		t.Errorf("no loading notice before data:\n%s", m.View())
 	}
@@ -143,7 +143,7 @@ func TestLoading(t *testing.T) {
 func TestReload(t *testing.T) {
 	calls := 0
 	changes := fixture
-	m := New("/x/proj", func() ([]openspec.Change, error) { calls++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
+	m := New("/x/proj", func() ([]openspec.Change, error) { calls++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, m.Init()())
 	m = keys(m, "3") // In Progress: m1-board-view
 	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
@@ -164,7 +164,7 @@ func TestReload(t *testing.T) {
 func TestLoadError(t *testing.T) {
 	m := New("/x/proj", func() ([]openspec.Change, error) {
 		return nil, errors.New("openspec CLI not found: install it with npm i -g @fission-ai/openspec")
-	}, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
+	}, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = send(m, m.Init()())
 	golden(t, "error", m.View())
@@ -174,8 +174,8 @@ func TestLoadError(t *testing.T) {
 }
 
 func TestViews(t *testing.T) {
-	golden(t, "no-project", New("", nil, time.Now, nil, nil, nil, [columns]bool{}, "").View())
-	golden(t, "loading", New("/x/proj", nil, time.Now, nil, nil, nil, [columns]bool{}, "").View())
+	golden(t, "no-project", New("", nil, time.Now, nil, nil, nil, nil, nil, [columns]bool{}, "").View())
+	golden(t, "loading", New("/x/proj", nil, time.Now, nil, nil, nil, nil, nil, [columns]bool{}, "").View())
 	golden(t, "board-200", board(t, 200, 30, fixture).View())
 	golden(t, "board-120", keys(board(t, 120, 30, fixture), "l", "j").View())
 	golden(t, "board-60", keys(board(t, 60, 30, fixture), "l", "l").View())
@@ -248,7 +248,7 @@ func TestHeaderProgress(t *testing.T) {
 
 func TestSnapshot(t *testing.T) {
 	fresh := append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, [columns]bool{}, "")
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	if v := m.View(); strings.Contains(v, "Loading changes…") || !strings.Contains(v, "refreshing…") || !strings.Contains(v, "m1-board-view") {
 		t.Fatalf("snapshot must show at once, marked refreshing:\n%s", v)
@@ -269,7 +269,7 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestSnapshotMovesFocusOffEmptyDraft(t *testing.T) {
-	m := New("/x/proj", nil, func() time.Time { return now }, []openspec.Change{{Name: "doing", Done: 1, Total: 2, Modified: now}}, nil, nil, [columns]bool{}, "")
+	m := New("/x/proj", nil, func() time.Time { return now }, []openspec.Change{{Name: "doing", Done: 1, Total: 2, Modified: now}}, nil, nil, nil, nil, [columns]bool{}, "")
 	if m.nav.col != 2 {
 		t.Errorf("focus %d, want In Progress (2)", m.nav.col)
 	}
@@ -368,7 +368,7 @@ func TestEditTasksFromBoard(t *testing.T) {
 	}
 	changes := fixture
 	loads := 0
-	m := New(proj, func() ([]openspec.Change, error) { loads++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
+	m := New(proj, func() ([]openspec.Change, error) { loads++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = keys(send(m, m.Init()()), "3") // In Progress: m1-board-view 5/11
 	args := fakeEditor(t, func() {
@@ -471,7 +471,7 @@ func agents(calls *int, names ...string) func() (map[string]bool, error) {
 func TestRunningBadge(t *testing.T) {
 	calls := 0
 	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil,
-		agents(&calls, "m1-board-view", "m0-plugin-skeleton", "not-a-change"), nil, [columns]bool{}, "")
+		agents(&calls, "m1-board-view", "m0-plugin-skeleton", "not-a-change"), nil, nil, nil, [columns]bool{}, "")
 	m = run(send(m, tea.WindowSizeMsg{Width: 200, Height: 30}), m.Init())
 	v := m.View()
 	if calls != 1 || !strings.Contains(v, "m1-board-view") {
@@ -495,7 +495,7 @@ func TestRunningBadgeSurvivesReloads(t *testing.T) {
 	calls := 0
 	fresh := append([]openspec.Change{{Name: "m3-new", Done: 1, Total: 2, Modified: now}}, fixture...)
 	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture,
-		agents(&calls, "m1-board-view"), nil, [columns]bool{}, "")
+		agents(&calls, "m1-board-view"), nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	if v := m.View(); !strings.Contains(v, "m1-board-view") || strings.Contains(v, "●") {
 		t.Fatalf("the snapshot must show before the lookup answers, without badges:\n%s", v)
@@ -567,6 +567,79 @@ func TestStartFailsLooksUpAgents(t *testing.T) {
 	}
 	if _, ok := cmd().(agentsMsg); !ok {
 		t.Error("want an agent lookup after a failed Start")
+	}
+}
+
+// resumer fakes the resumable and resume funcs: a record of the given kind, reopenable or not.
+func resumer(m *Model, kind string, ok bool, err error) *[]string {
+	var resumed []string
+	m.resumable = func(string) (string, bool) { return kind, ok }
+	m.resume = func(change string) error {
+		resumed = append(resumed, change)
+		return err
+	}
+	return &resumed
+}
+
+func TestResume(t *testing.T) {
+	for _, kind := range []string{"claude", "codex"} {
+		m := keys(board(t, 120, 30, fixture), "4")
+		started := starter(&m, nil)
+		resumed := resumer(&m, kind, true, nil)
+		m, cmd := pressKey(m, "s")
+		if cmd == nil || len(*resumed) != 0 || !strings.Contains(m.View(), "starting m0-spike-agent-start…") {
+			t.Fatalf("%s: s on Review must resume in a command and say so: view:\n%s", kind, m.View())
+		}
+		if _, cmd = m.Update(cmd()); !slices.Equal(*resumed, []string{"m0-spike-agent-start"}) || len(*started) != 0 || cmd == nil || cmd() != tea.Quit() {
+			t.Errorf("%s: resumed %q, started %q, want resume then quit", kind, *resumed, *started)
+		}
+	}
+}
+
+func TestResumeRunning(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "4")
+	m.running = map[string]bool{"m0-spike-agent-start": true}
+	resumed := resumer(&m, "", false, nil)
+	m, cmd := pressKey(m, "s")
+	if cmd == nil {
+		t.Fatalf("a Running badge must resume even without a record:\n%s", m.View())
+	}
+	m.Update(cmd())
+	if !slices.Equal(*resumed, []string{"m0-spike-agent-start"}) {
+		t.Errorf("resumed %q", *resumed)
+	}
+}
+
+func TestResumeFails(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "4")
+	resumer(&m, "claude", true, errors.New("no session"))
+	m, cmd := pressKey(m, "s")
+	next, quit := m.Update(cmd())
+	if m = next.(Model); quit != nil || !strings.Contains(m.View(), "start failed: no session") {
+		t.Errorf("a failed resume must keep the Board and show the error:\n%s", m.View())
+	}
+}
+
+func TestResumeRefused(t *testing.T) {
+	for kind, notice := range map[string]string{
+		"":   "all tasks of m0-spike-agent-start are done",
+		"pi": "resume not supported for pi",
+	} {
+		m := keys(board(t, 120, 30, fixture), "4")
+		resumed := resumer(&m, kind, false, nil)
+		if m, cmd := pressKey(m, "s"); cmd != nil || len(*resumed) != 0 || !strings.Contains(m.View(), notice) {
+			t.Errorf("kind %q: cmd %v, resumed %q, view:\n%s", kind, cmd != nil, *resumed, m.View())
+		}
+	}
+}
+
+func TestResumeOnlyInReview(t *testing.T) {
+	for col, notice := range map[string]string{"1": "is a draft", "5": "archived changes cannot be started"} {
+		m := keys(board(t, 120, 30, fixture), col)
+		resumed := resumer(&m, "claude", true, nil)
+		if m, cmd := pressKey(m, "s"); cmd != nil || len(*resumed) != 0 || !strings.Contains(m.View(), notice) {
+			t.Errorf("column %s: cmd %v, resumed %q, view:\n%s", col, cmd != nil, *resumed, m.View())
+		}
 	}
 }
 
@@ -751,7 +824,7 @@ func TestFilterKeepsSelectionByName(t *testing.T) {
 
 func TestFilterSurvivesReload(t *testing.T) {
 	fresh := append([]openspec.Change{{Name: "m1-new", Done: 1, Total: 2, Modified: now}}, fixture...)
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, [columns]bool{}, "")
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, [columns]bool{}, "")
 	m = keys(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), "/", "m", "1", "enter")
 	m = send(m, m.Init()()) // cached → fresh
 	want := []string{"m1-phase-derivation", "m1-new", "m1-board-view"}
@@ -874,7 +947,7 @@ func TestHiddenNarrow(t *testing.T) {
 }
 
 func TestInitialNotice(t *testing.T) {
-	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil,
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil,
 		[columns]bool{}, "config.json: unknown key promt")
 	m = send(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), m.Init()())
 	if !strings.HasSuffix(m.View(), "\nconfig.json: unknown key promt") {
@@ -924,7 +997,7 @@ func TestHelpInDetail(t *testing.T) {
 	if err := os.WriteFile(proposal, []byte(strings.Repeat("line\n\n", 40)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m := New(proj, func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
+	m := New(proj, func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m, _ = enter(keys(send(m, m.Init()()), "3"))
 	top := keys(m, "2").View()

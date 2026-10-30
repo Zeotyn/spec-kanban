@@ -82,6 +82,8 @@ type Model struct {
 	load          func() ([]openspec.Change, error)
 	agents        func() (map[string]bool, error) // names of the Changes with a Running agent
 	start         func(change string) error
+	resumable     func(change string) (kind string, ok bool) // the recorded agent kind ("" if none) and whether it can be reopened
+	resume        func(change string) error
 	now           func() time.Time
 	loading       bool
 	loaded        bool // a load has succeeded at least once
@@ -103,11 +105,12 @@ type Model struct {
 }
 
 // New builds the Board. A non-nil snapshot (the cached last load) is shown while Init loads afresh.
-// agents and start may be nil (no badges, s does nothing). hide marks Phases not shown as columns;
-// notice replaces the footer until the first key.
+// agents, start, resumable and resume may be nil (no badges, s does nothing, no record to resume).
+// hide marks Phases not shown as columns; notice replaces the footer until the first key.
 func New(project string, load func() ([]openspec.Change, error), now func() time.Time, snapshot []openspec.Change,
-	agents func() (map[string]bool, error), start func(change string) error, hide [columns]bool, notice string) Model {
-	m := Model{project: project, load: load, agents: agents, start: start, now: now, hide: hide, notice: notice,
+	agents func() (map[string]bool, error), start func(change string) error,
+	resumable func(change string) (string, bool), resume func(change string) error, hide [columns]bool, notice string) Model {
+	m := Model{project: project, load: load, agents: agents, start: start, resumable: resumable, resume: resume, now: now, hide: hide, notice: notice,
 		loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
 		m.all, m.loaded = phase.Group(snapshot), true
@@ -350,7 +353,19 @@ func (m Model) startCard(c openspec.Change, p phase.Phase) (Model, tea.Cmd) {
 	case phase.Draft:
 		m.notice = c.Name + " is a draft: plan it first"
 	case phase.Review:
-		m.notice = "all tasks of " + c.Name + " are done"
+		kind, ok := "", false
+		if m.resumable != nil && m.resume != nil {
+			kind, ok = m.resumable(c.Name)
+		}
+		switch {
+		case ok || (m.running[c.Name] && m.resume != nil):
+			m.starting = c.Name
+			return m, func() tea.Msg { return startedMsg{m.resume(c.Name)} }
+		case kind != "":
+			m.notice = "resume not supported for " + kind
+		default:
+			m.notice = "all tasks of " + c.Name + " are done"
+		}
 	case phase.Archived:
 		m.notice = "archived changes cannot be started"
 	default:
