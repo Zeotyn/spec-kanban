@@ -15,7 +15,7 @@ import (
 // Start runs /opsx:apply <change> in a herdr agent named after the Change: Prepare, then Launch when
 // Claude has to be started. openspecRun runs the openspec CLI inside project.
 func Start(project, change string, run, openspecRun herdr.Runner) error {
-	if err := CheckOpen(project, change, openspecRun); err != nil {
+	if err := checkOpen(project, change, openspecRun); err != nil {
 		return err
 	}
 	pane, launch, err := Prepare(project, change, run)
@@ -153,8 +153,8 @@ func agentRunning(run herdr.Runner, pane string) (bool, error) {
 	return false, fmt.Errorf("pane %s runs %s, not Claude: quit it and start again", pane, busy)
 }
 
-// CheckOpen fails unless change is an open Change of project.
-func CheckOpen(project, change string, run herdr.Runner) error {
+// checkOpen fails unless change is an open Change of project.
+func checkOpen(project, change string, run herdr.Runner) error {
 	names, err := openspec.OpenNames(run)
 	if err != nil {
 		return err

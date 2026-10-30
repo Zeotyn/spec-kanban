@@ -112,7 +112,7 @@ func startChange(change string) error {
 func showBoard(proj string) error {
 	dir := cache.Dir()
 	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec) }
-	startOne := func(change string) error { // no CheckOpen: the Board only offers open Changes, and it costs ~0.65 s
+	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
 		pane, launch, err := start.Prepare(proj, change, herdr.Exec)
 		if err != nil || !launch {
 			return err
