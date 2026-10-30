@@ -146,7 +146,7 @@ func startChange(change string, stderr io.Writer, src work.Source) error {
 	}
 	kind := start.Kind(cfg.Agent, os.Getenv("HERDR_PANE_ID"), herdr.Exec)
 	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
-	return start.Start(proj, change, kind, cfg.PromptFor(change, src.Prompt()), wt, herdr.Exec, src, gitCLI(proj))
+	return start.Start(proj, change, kind, cfg.PromptFor(change, src.Prompt(proj, kind)), wt, herdr.Exec, src, gitCLI(proj))
 }
 
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,
@@ -167,7 +167,7 @@ func showBoard(proj string, src work.Source) error {
 			return err
 		}
 		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
-		return spawn("launch", change, pane, tab, kind, cfg.PromptFor(change, src.Prompt()))
+		return spawn("launch", change, pane, tab, kind, cfg.PromptFor(change, src.Prompt(proj, kind)))
 	}
 	reopenable := func(change string) bool { return start.ResumeArgs(cache.ReadSession(dir, proj, change)) != nil }
 	resumable := func(change string) (string, bool) {

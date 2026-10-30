@@ -61,8 +61,8 @@ func (f *fakeHerdr) run(args ...string) ([]byte, error) {
 	return []byte(`{}`), nil
 }
 
-// fakeSource has the open Items names, or fails with err; Start needs only Open and, for a new
-// worktree, Rel, which it takes from the real Source.
+// fakeSource has the open Items names, or fails with err; Start needs only Open, Prepare and, for a
+// new worktree, Rel, which it takes from the real Source.
 type fakeSource struct {
 	work.Source
 	names []string
@@ -72,6 +72,8 @@ type fakeSource struct {
 func (f fakeSource) Open(string) ([]string, error) { return f.names, f.err }
 
 func (f fakeSource) Rel(name string) string { return src.Rel(name) }
+
+func (f fakeSource) Prepare(dir, name string) error { return src.Prepare(dir, name) }
 
 func fakeList(names ...string) fakeSource { return fakeSource{names: names} }
 
@@ -565,5 +567,73 @@ func TestPrepareWorktreeFails(t *testing.T) {
 				t.Errorf("want %s error, got %v", tt.fail, err)
 			}
 		})
+	}
+}
+
+// recorder is the OpenSpec Source recording the dirs Prepare was called with; Prepare fails with err.
+type recorder struct {
+	work.Source
+	dirs []string
+	err  error
+}
+
+func (r *recorder) Prepare(dir, name string) error {
+	if name != change {
+		panic("Prepare for " + name)
+	}
+	r.dirs = append(r.dirs, dir)
+	return r.err
+}
+
+func TestPrepareCallsSource(t *testing.T) {
+	const project = "/work/spec-kanban" // agent-get.json's cwd is proj, a linked checkout here
+	on := Worktree{On: true}
+	tests := []struct {
+		name    string
+		project string
+		wt      Worktree
+		git     *fakeGit
+		out     map[string]string
+		fail    map[string]error
+		want    []string // dirs Prepare got
+	}{
+		{"no checkouts", proj, on, &fakeGit{}, map[string]string{"tab create": "tab-create.json"}, map[string]error{"agent get": notFound}, []string{proj}},
+		{"Project on the branch", proj, on, gitWith(nil, proj, change), map[string]string{"tab create": "tab-create.json"}, map[string]error{"agent get": notFound}, []string{proj}},
+		{"worktree open", proj, on, gitWith(nil, proj, "main", wt, change), map[string]string{"worktree open": "worktree-open.json"}, map[string]error{"agent get": notFound}, []string{wt}},
+		{"worktree already open", proj, on, gitWith(nil, proj, "main", wt, change),
+			map[string]string{"worktree open": "worktree-open-already.json", "tab create": "tab-create.json"}, map[string]error{"agent get": notFound}, []string{wt}},
+		{"worktree create", proj, on, gitWith(nil, proj, "main"), map[string]string{"worktree create": "worktree-create.json"}, map[string]error{"agent get": notFound}, []string{wt}},
+		{"idle agent in the Project", proj, off, nil, map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{proj}},
+		{"idle agent in a checkout", project, on, gitWith(nil, project, "main", proj, change),
+			map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{proj}},
+		{"idle agent in a checkout below the Project", "/Users/U758014/code", on, gitWith(nil, "/Users/U758014/code", "main", proj, "other"), // longest match wins
+			map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{proj}},
+		{"idle agent without cwd", proj, off, nil, map[string]string{"agent get": "agent-get-no-cwd.json", "pane process-info": "process-info-shell.json"}, nil, []string{proj}},
+		{"busy agent: only focused", proj, off, nil, map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}, nil, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			git := noGit
+			if tt.git != nil {
+				git = tt.git.run
+			}
+			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
+			r := &recorder{Source: src}
+			if _, _, err := Prepare(tt.project, change, tt.wt, h.run, r, git); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(r.dirs, tt.want) {
+				t.Errorf("Prepare dirs %q, want %q", r.dirs, tt.want)
+			}
+		})
+	}
+}
+
+func TestPrepareSourceFails(t *testing.T) {
+	h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json"}, fail: map[string]error{"agent get": notFound}}
+	r := &recorder{Source: src, err: errors.New("disk full")}
+	pane, tab, err := Prepare(proj, change, Worktree{On: true}, h.run, r, gitWith(nil, proj, "main").run)
+	if pane != "" || tab != "" || err == nil || err.Error() != "prepare "+change+" in "+wt+": disk full" {
+		t.Errorf("got pane %q tab %q, %v", pane, tab, err)
 	}
 }

@@ -2,10 +2,10 @@ Every group ends with `go test ./...` green. OpenSpec goldens and Handoff texts 
 
 ## 1. Widen the Source interface (TDD, no behaviour change)
 
-- [ ] 1.1 Write failing tests: `openspec.Source.Prepare(dir, name)` returns nil and writes nothing; `Prompt(proj, "codex") == "/opsx:apply {change}"`; `Finish("x", "") == Finish("x", "/wt") == "archive it with /opsx:archive x"`; in `start`, `Watched.text` with a fake Source whose `Finish` returns `""` gives `X is finished (9/9 tasks). Please review it.` without a checkout and `…, merge branch X into main, then remove its worktree with: git worktree remove <path>. …` with one (existing OpenSpec text cases unchanged)
-- [ ] 1.2 Change `work.Source` (design.md: `Prepare`, `Prompt(project, kind)`, `Finish(name, checkout)`), adapt `openspec.Source`, the fake Sources in `start` tests, `Watched.text`, and the `Prompt` callers in `cmd/kanban` (pass `proj` and the resolved kind)
-- [ ] 1.3 Write failing `start.Prepare` tests with a recording fake Source: `Prepare(dir, change)` is called with the Project (no checkouts / Project on the branch), the existing worktree path (`worktree open`), `result.worktree.path` of `worktree create`, and the checkout containing an idle agent's `cwd`; not called when a busy agent is only focused; a `Prepare` error returns no pane and an error naming the change and dir
-- [ ] 1.4 Implement the calls in `start.Prepare` (read `worktree.path` in `created` or next to it); all herdr/git call sequences in existing tests unchanged
+- [x] 1.1 Write failing tests: `openspec.Source.Prepare(dir, name)` returns nil and writes nothing; `Prompt(proj, "codex") == "/opsx:apply {change}"`; `Finish("x", "") == Finish("x", "/wt") == "archive it with /opsx:archive x"`; in `start`, `Watched.text` with a fake Source whose `Finish` returns `""` gives `X is finished (9/9 tasks). Please review it.` without a checkout and `…, merge branch X into main, then remove its worktree with: git worktree remove <path>. …` with one (existing OpenSpec text cases unchanged)
+- [x] 1.2 Change `work.Source` (design.md: `Prepare`, `Prompt(project, kind)`, `Finish(name, checkout)`), adapt `openspec.Source`, the fake Sources in `start` tests, `Watched.text`, and the `Prompt` callers in `cmd/kanban` (pass `proj` and the resolved kind)
+- [x] 1.3 Write failing `start.Prepare` tests with a recording fake Source: `Prepare(dir, change)` is called with the Project (no checkouts / Project on the branch), the existing worktree path (`worktree open`), `result.worktree.path` of `worktree create`, and the checkout containing an idle agent's `cwd`; not called when a busy agent is only focused; a `Prepare` error returns no pane and an error naming the change and dir
+- [x] 1.4 Implement the calls in `start.Prepare` (read `worktree.path` in `created` or next to it); all herdr/git call sequences in existing tests unchanged
 
 ## 2. Spec Kit detection and Source choice (TDD)
 

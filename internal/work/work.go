@@ -80,6 +80,7 @@ type Source interface {
 	ArchivedIn(dir, name string) bool                                                       // archived inside the checkout dir
 	Docs(project string, it Item) Docs                                                      // the detail view's tabs
 	Rel(name string) string                                                                 // an open Item's path below a checkout
-	Prompt() string                                                                         // default Start prompt, with {change}
-	Finish(name string) string                                                              // Handoff instruction after review
+	Prepare(dir, name string) error                                                         // make the checkout dir ready for name's agent
+	Prompt(project, kind string) string                                                     // default Start prompt for an agent of kind, may hold {change}
+	Finish(name, checkout string) string                                                    // Handoff step after review; checkout "" = no linked worktree; "" = no step
 }

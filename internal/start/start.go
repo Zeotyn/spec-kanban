@@ -61,8 +61,21 @@ func Kind(configured, pane string, run herdr.Runner) string {
 // returns an idle one or opens a new one unfocused (focus moves only in Launch). With wt.On the new
 // tab is in the Change's checkout, the one on the branch named like the Change, which herdr creates
 // as a worktree when there is none. An agent of that name outside project and its checkouts is
-// refused. A new worktree's ref must hold the Change at src's Rel. git runs git inside project.
+// refused. A new worktree's ref must hold the Change at src's Rel. Before it returns a pane, src
+// prepares the checkout the agent works in. git runs git inside project.
 func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab string, err error) {
+	pane, tab, dir, err := place(project, change, wt, run, src, git)
+	if err != nil || pane == "" {
+		return "", "", err
+	}
+	if err := src.Prepare(dir, change); err != nil {
+		return "", "", fmt.Errorf("prepare %s in %s: %w", change, dir, err)
+	}
+	return pane, tab, nil
+}
+
+// place is Prepare without the Source's preparation; dir is the checkout of the returned pane.
+func place(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab, dir string, err error) {
 	out, err := run("agent", "get", change)
 	switch {
 	case err == nil:
@@ -76,22 +89,23 @@ func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 			} `json:"result"`
 		}
 		if err := json.Unmarshal(out, &got); err != nil {
-			return "", "", fmt.Errorf("agent get: %w", err)
+			return "", "", "", fmt.Errorf("agent get: %w", err)
 		}
-		if cwd := got.Result.Agent.Cwd; cwd != "" && !insideAny(cwd, dirs(project, worktree.List(git))) { // no cwd: nothing to check against
-			return "", "", fmt.Errorf("agent %s already runs in %s", change, cwd)
+		d := dirs(project, worktree.List(git))
+		if cwd := got.Result.Agent.Cwd; cwd != "" && !insideAny(cwd, d) { // no cwd: nothing to check against
+			return "", "", "", fmt.Errorf("agent %s already runs in %s", change, cwd)
 		}
 		a := got.Result.Agent
 		running, err := agentRunning(run, a.PaneID)
 		if err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 		if running {
-			return "", "", step(run, "agent", "focus", change)
+			return "", "", "", step(run, "agent", "focus", change)
 		}
-		return a.PaneID, a.TabID, nil
+		return a.PaneID, a.TabID, containing(a.Cwd, d), nil
 	case !strings.Contains(err.Error(), "agent_not_found"):
-		return "", "", fmt.Errorf("agent get: %w", err)
+		return "", "", "", fmt.Errorf("agent get: %w", err)
 	}
 	var checkouts []worktree.Checkout
 	if wt.On {
@@ -100,12 +114,13 @@ func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 	i := slices.IndexFunc(checkouts, func(c worktree.Checkout) bool { return c.Branch == change })
 	switch {
 	case len(checkouts) == 0 || i >= 0 && filepath.Clean(checkouts[i].Path) == filepath.Clean(project):
-		return newTab(run, "--cwd", project, "--label", change, "--no-focus")
+		pane, tab, err := newTab(run, "--cwd", project, "--label", change, "--no-focus")
+		return pane, tab, project, err
 	case i >= 0:
 		path := checkouts[i].Path
 		out, err := run("worktree", "open", "--cwd", project, "--path", path, "--label", change, "--no-focus")
 		if err != nil {
-			return "", "", fmt.Errorf("worktree open: %w", err)
+			return "", "", "", fmt.Errorf("worktree open: %w", err)
 		}
 		var opened struct {
 			Result struct {
@@ -116,12 +131,14 @@ func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 			} `json:"result"`
 		}
 		if err := json.Unmarshal(out, &opened); err != nil {
-			return "", "", fmt.Errorf("worktree open: %w", err)
+			return "", "", "", fmt.Errorf("worktree open: %w", err)
 		}
 		if opened.Result.AlreadyOpen { // its root pane may be in use
-			return newTab(run, "--workspace", opened.Result.Workspace.WorkspaceID, "--cwd", path, "--label", change, "--no-focus")
+			pane, tab, err := newTab(run, "--workspace", opened.Result.Workspace.WorkspaceID, "--cwd", path, "--label", change, "--no-focus")
+			return pane, tab, path, err
 		}
-		return created("worktree open", out)
+		pane, tab, err := created("worktree open", out)
+		return pane, tab, path, err
 	}
 	args := []string{"worktree", "create", "--cwd", project, "--branch", change}
 	ref := change
@@ -130,13 +147,24 @@ func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 		args = append(args, "--base", ref)
 	}
 	if _, err := git("cat-file", "-e", ref+":"+src.Rel(change)); err != nil {
-		return "", "", fmt.Errorf("%s is not on %s: commit it there or set base", change, ref)
+		return "", "", "", fmt.Errorf("%s is not on %s: commit it there or set base", change, ref)
 	}
 	out, err = run(append(args, "--label", change, "--no-focus")...)
 	if err != nil {
-		return "", "", fmt.Errorf("worktree create: %w", err)
+		return "", "", "", fmt.Errorf("worktree create: %w", err)
 	}
-	return created("worktree create", out)
+	var made struct {
+		Result struct {
+			Worktree struct {
+				Path string `json:"path"`
+			} `json:"worktree"`
+		} `json:"result"`
+	}
+	if json.Unmarshal(out, &made) != nil || made.Result.Worktree.Path == "" {
+		return "", "", "", fmt.Errorf("worktree create: no worktree path in %s", out)
+	}
+	pane, tab, err = created("worktree create", out)
+	return pane, tab, made.Result.Worktree.Path, err
 }
 
 // newTab runs tab create with args and returns its root pane and tab.
@@ -222,6 +250,17 @@ func dirs(project string, checkouts []worktree.Checkout) []string {
 		d = append(d, c.Path)
 	}
 	return d
+}
+
+// containing returns the longest of dirs that dir is or lies below, dirs[0] when none is or dir is "".
+func containing(dir string, dirs []string) string {
+	best := dirs[0]
+	for _, d := range dirs {
+		if dir != "" && insideAny(dir, []string{d}) && len(filepath.Clean(d)) > len(filepath.Clean(best)) {
+			best = d
+		}
+	}
+	return best
 }
 
 // insideAny reports whether dir is one of dirs or lies below one.

@@ -50,8 +50,11 @@ func (*Source) Rel(change string) string { return rel(change) }
 
 func rel(change string) string { return "openspec/changes/" + change }
 
-// Prompt is the default Start prompt.
-func (*Source) Prompt() string { return "/opsx:apply {change}" }
+// Prepare does nothing: OpenSpec finds the Change by its name.
+func (*Source) Prepare(string, string) error { return nil }
 
-// Finish is the Handoff instruction after review.
-func (*Source) Finish(change string) string { return "archive it with /opsx:archive " + change }
+// Prompt is the default Start prompt, the same for every agent kind.
+func (*Source) Prompt(string, string) string { return "/opsx:apply {change}" }
+
+// Finish is the Handoff instruction after review, with or without a worktree.
+func (*Source) Finish(change, _ string) string { return "archive it with /opsx:archive " + change }

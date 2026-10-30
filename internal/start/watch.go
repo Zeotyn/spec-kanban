@@ -146,16 +146,21 @@ func (w Watched) text(git herdr.Runner, checkout, progress string, archived bool
 	switch {
 	case checkout == "" && archived:
 		t = c + " is finished and archived. Please review it."
+	case checkout == "" && w.Source.Finish(c, "") == "":
+		t = fmt.Sprintf("%s is finished (%s). Please review it.", c, progress)
 	case checkout == "":
-		t = fmt.Sprintf("%s is finished (%s). Please review it and %s.", c, progress, w.Source.Finish(c))
+		t = fmt.Sprintf("%s is finished (%s). Please review it and %s.", c, progress, w.Source.Finish(c, ""))
 	default:
 		dir = checkout
 		base := worktree.Base(w.Base, git)
 		if archived {
 			t = fmt.Sprintf("%s is finished and archived on branch %s in %s. Please review it, merge branch %s into %s, then", c, c, checkout, c, base)
 		} else {
-			t = fmt.Sprintf("%s is finished (%s) on branch %s in %s. Please review it, merge branch %s into %s, %s, then",
-				c, progress, c, checkout, c, base, w.Source.Finish(c))
+			t = fmt.Sprintf("%s is finished (%s) on branch %s in %s. Please review it, merge branch %s into %s,", c, progress, c, checkout, c, base)
+			if f := w.Source.Finish(c, checkout); f != "" {
+				t += " " + f + ","
+			}
+			t += " then"
 		}
 		t += " remove its worktree with: git worktree remove " + checkout + "." +
 			" Never use --force and keep the branch; if the merge or the removal does not go through cleanly, stop and tell the user."

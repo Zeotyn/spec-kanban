@@ -41,10 +41,22 @@ func TestSourceTexts(t *testing.T) {
 	if got := src.Rel("x"); got != "openspec/changes/x" {
 		t.Errorf("Rel = %q", got)
 	}
-	if got := src.Prompt(); got != "/opsx:apply {change}" {
+	if got := src.Prompt("/p", "codex"); got != "/opsx:apply {change}" {
 		t.Errorf("Prompt = %q", got)
 	}
-	if got := src.Finish("x"); got != "archive it with /opsx:archive x" {
-		t.Errorf("Finish = %q", got)
+	for _, checkout := range []string{"", "/wt"} {
+		if got := src.Finish("x", checkout); got != "archive it with /opsx:archive x" {
+			t.Errorf("Finish(x, %q) = %q", checkout, got)
+		}
+	}
+}
+
+func TestPrepareWritesNothing(t *testing.T) {
+	dir := t.TempDir()
+	if err := New(nil).Prepare(dir, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		t.Errorf("Prepare wrote %v", entries)
 	}
 }

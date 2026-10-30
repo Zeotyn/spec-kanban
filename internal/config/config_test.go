@@ -52,7 +52,7 @@ func TestParse(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %+v, want %+v", got, tt.want)
 			}
-			if p := got.PromptFor("m1", openspec.New(nil).Prompt()); tt.wants != "" && p != "/opsx:apply m1" {
+			if p := got.PromptFor("m1", openspec.New(nil).Prompt("", "")); tt.wants != "" && p != "/opsx:apply m1" {
 				t.Errorf("an invalid file must send the Source's prompt, got %q", p)
 			}
 		})
@@ -104,11 +104,11 @@ func TestLoad(t *testing.T) {
 
 func TestPromptFor(t *testing.T) {
 	src := openspec.New(nil)
-	if got := Default().PromptFor("m1-board-view", src.Prompt()); got != "/opsx:apply m1-board-view" {
+	if got := Default().PromptFor("m1-board-view", src.Prompt("", "")); got != "/opsx:apply m1-board-view" {
 		t.Errorf("default prompt %q", got)
 	}
 	cfg := Config{Prompt: "{change}: /opsx:apply {change}"}
-	if got := cfg.PromptFor("m1", src.Prompt()); got != "m1: /opsx:apply m1" {
+	if got := cfg.PromptFor("m1", src.Prompt("", "")); got != "m1: /opsx:apply m1" {
 		t.Errorf("custom prompt %q", got)
 	}
 }
