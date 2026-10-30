@@ -1,7 +1,7 @@
 ## 1. Recorded session (TDD)
 
-- [ ] 1.1 Write failing tests for `cache.WriteSession`/`cache.ReadSession` with `herdr.Session{Agent, Kind, Value}` in a temp dir: round trip; missing or broken file → zero value; same Change name in two Projects kept apart; overwrite keeps the newest; empty dir → error on write, zero value on read
-- [ ] 1.2 Add `herdr.Session` and implement them (atomic temp file + rename under `sessions/<project hash>/`) until the tests pass
+- [x] 1.1 Write failing tests for `cache.WriteSession`/`cache.ReadSession` with `herdr.Session{Agent, Kind, Value}` in a temp dir: round trip; missing or broken file → zero value; same Change name in two Projects kept apart; overwrite keeps the newest; empty dir → error on write, zero value on read
+- [x] 1.2 Add `herdr.Session` and implement them (atomic temp file + rename under `sessions/<project hash>/`) until the tests pass
 
 ## 2. Archive check (TDD)
 

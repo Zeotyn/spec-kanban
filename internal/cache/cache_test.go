@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zeotyn/openspec-kanban/internal/herdr"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
@@ -126,5 +127,58 @@ func TestWriteUnwritable(t *testing.T) {
 func TestWriteEmptyDir(t *testing.T) {
 	if err := Write("", project, nil); err == nil {
 		t.Error(`Write(""): want error`)
+	}
+}
+
+func TestSession(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "state")
+	s := herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}
+	if got := ReadSession(dir, project, "m1"); got != (herdr.Session{}) {
+		t.Errorf("missing: got %v, want zero", got)
+	}
+	if err := WriteSession(dir, project, "m1", s); err != nil {
+		t.Fatal(err)
+	}
+	if got := ReadSession(dir, project, "m1"); got != s {
+		t.Errorf("round trip: got %v, want %v", got, s)
+	}
+	if got := ReadSession(dir, "/other", "m1"); got != (herdr.Session{}) {
+		t.Errorf("other project: got %v, want zero", got)
+	}
+	newer := herdr.Session{Agent: "codex", Kind: "id", Value: "def"}
+	if err := WriteSession(dir, "/other", "m1", newer); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteSession(dir, project, "m1", newer); err != nil {
+		t.Fatal(err)
+	}
+	if got := ReadSession(dir, project, "m1"); got != newer {
+		t.Errorf("overwrite: got %v, want %v", got, newer)
+	}
+}
+
+func TestSessionBroken(t *testing.T) {
+	dir := t.TempDir()
+	if err := WriteSession(dir, project, "m1", herdr.Session{Agent: "claude"}); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "sessions", "*", "m1"))
+	if len(files) != 1 {
+		t.Fatalf("want one session file, got %v", files)
+	}
+	if err := os.WriteFile(files[0], []byte(`{"agent":`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := ReadSession(dir, project, "m1"); got != (herdr.Session{}) {
+		t.Errorf("broken: got %v, want zero", got)
+	}
+}
+
+func TestSessionEmptyDir(t *testing.T) {
+	if err := WriteSession("", project, "m1", herdr.Session{Agent: "claude"}); err == nil {
+		t.Error(`WriteSession(""): want error`)
+	}
+	if got := ReadSession("", project, "m1"); got != (herdr.Session{}) {
+		t.Errorf(`ReadSession(""): got %v, want zero`, got)
 	}
 }

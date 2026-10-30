@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zeotyn/openspec-kanban/internal/herdr"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
 )
 
@@ -34,9 +35,11 @@ func Dir() string {
 }
 
 // name spreads Projects over files; the project field inside is the authority.
-func name(project string) string {
+func name(project string) string { return hash(project) + ".json" }
+
+func hash(project string) string {
 	sum := sha256.Sum256([]byte(project))
-	return hex.EncodeToString(sum[:])[:16] + ".json"
+	return hex.EncodeToString(sum[:])[:16]
 }
 
 // Read returns the Changes cached for project in dir, or nil when there is no valid cache:
@@ -74,6 +77,11 @@ func Write(dir, project string, changes []openspec.Change) error {
 	if err != nil {
 		return err
 	}
+	return writeAtomic(dir, name(project), data)
+}
+
+// writeAtomic writes data to dir/base atomically (temp file in dir + os.Rename), creating dir if needed.
+func writeAtomic(dir, base string, data []byte) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -89,5 +97,35 @@ func Write(dir, project string, changes []openspec.Change) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp.Name(), filepath.Join(dir, name(project)))
+	return os.Rename(tmp.Name(), filepath.Join(dir, base))
+}
+
+// sessions is where the recorded sessions of project's Changes live, one file per Change, so
+// concurrent watchers never write the same file. The Project hash keeps equally named Changes apart.
+func sessions(dir, project string) string { return filepath.Join(dir, "sessions", hash(project)) }
+
+// ReadSession returns the session recorded for change of project in dir, the zero value when there
+// is none or it is unreadable.
+func ReadSession(dir, project, change string) herdr.Session {
+	var s herdr.Session
+	if dir == "" {
+		return s
+	}
+	data, err := os.ReadFile(filepath.Join(sessions(dir, project), change))
+	if err != nil || json.Unmarshal(data, &s) != nil {
+		return herdr.Session{}
+	}
+	return s
+}
+
+// WriteSession records s for change of project in dir atomically, replacing the previous record.
+func WriteSession(dir, project, change string, s herdr.Session) error {
+	if dir == "" {
+		return errors.New("cache: no directory")
+	}
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	return writeAtomic(sessions(dir, project), change, data)
 }

@@ -33,3 +33,10 @@ func Run(bin, dir string, args ...string) ([]byte, error) {
 	}
 	return out, err
 }
+
+// Session is the agent_session herdr reports for an agent: its kind, "id" or "path", and value.
+type Session struct {
+	Agent string `json:"agent"`
+	Kind  string `json:"kind"`
+	Value string `json:"value"`
+}
