@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/spec-kanban.svg" alt="spec-kanban" width="240">
+</p>
+
 # spec-kanban
 
 A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes as a kanban board.
