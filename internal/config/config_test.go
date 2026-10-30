@@ -42,6 +42,17 @@ func TestParse(t *testing.T) {
 		{"empty prompt", `{"prompt": ""}`, def, "{change}"},
 		{"unknown phase", `{"hide": ["Done"]}`, def, `"Done"`},
 		{"all phases hidden", `{"hide": ["Draft", "Ready", "In Progress", "Review", "archived"]}`, def, "all"},
+		{"source openspec", `{"source": "openspec"}`, Config{Worktree: true, Source: "openspec"}, ""},
+		{"source speckit", `{"source": "speckit"}`, Config{Worktree: true, Source: "speckit"}, ""},
+		{"source spec-kit", `{"source": "spec-kit"}`, def, `source "spec-kit"`},
+		{"source empty", `{"source": ""}`, def, `source ""`},
+		{"source as a number", `{"source": 1}`, def, "source"},
+		{"instructions kept verbatim", `{"instructions": " with {change} "}`, Config{Worktree: true, Instructions: " with {change} "}, ""},
+		{"instructions empty", `{"instructions": ""}`, Config{Worktree: true}, ""},
+		{"instructions as a list", `{"instructions": ["with ponytail"]}`, def, "instructions"},
+		{"instructions as a number", `{"instructions": 1}`, def, "instructions"},
+		{"prompt and instructions: prompt kept", `{"prompt": "/opsx:apply {change} quickly", "instructions": "with ponytail", "hide": ["Archived"]}`,
+			Config{Prompt: "/opsx:apply {change} quickly", Hide: [5]bool{work.Archived: true}, Worktree: true}, "instructions is ignored because prompt is set"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -52,7 +63,7 @@ func TestParse(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %+v, want %+v", got, tt.want)
 			}
-			if p := got.PromptFor("m1", openspec.New(nil).Prompt("", "")); tt.wants != "" && p != "/opsx:apply m1" {
+			if p := got.PromptFor("m1", openspec.New(nil).Prompt("", "")); tt.wants != "" && got.Prompt == "" && p != "/opsx:apply m1" {
 				t.Errorf("an invalid file must send the Source's prompt, got %q", p)
 			}
 		})
@@ -90,6 +101,18 @@ func TestLoad(t *testing.T) {
 			t.Errorf("got %+v, %v", cfg, warn)
 		}
 	})
+	t.Run("prompt and instructions: settings kept, warning naming the file", func(t *testing.T) {
+		dir := write(t, `{"prompt": "/opsx:apply {change} quickly", "instructions": "with ponytail", "hide": ["archived"]}`)
+		cfg, warn := Load(dir)
+		want := Config{Prompt: "/opsx:apply {change} quickly", Hide: [5]bool{work.Archived: true}, Worktree: true}
+		if !reflect.DeepEqual(cfg, want) || warn == nil || !strings.Contains(warn.Error(), filepath.Join(dir, "config.json")) ||
+			!strings.Contains(warn.Error(), "instructions is ignored because prompt is set") || strings.Contains(warn.Error(), "defaults") {
+			t.Errorf("got %+v, %v", cfg, warn)
+		}
+		if got := cfg.PromptFor("m1", "/opsx:apply {change}"); got != "/opsx:apply m1 quickly" {
+			t.Errorf("PromptFor = %q", got)
+		}
+	})
 	t.Run("unreadable file: defaults, warning naming the file", func(t *testing.T) {
 		dir := t.TempDir()
 		if err := os.Mkdir(filepath.Join(dir, "config.json"), 0o755); err != nil { // a directory cannot be read as a file
@@ -110,6 +133,17 @@ func TestPromptFor(t *testing.T) {
 	cfg := Config{Prompt: "{change}: /opsx:apply {change}"}
 	if got := cfg.PromptFor("m1", src.Prompt("", "")); got != "m1: /opsx:apply m1" {
 		t.Errorf("custom prompt %q", got)
+	}
+	tests := []struct{ instructions, def, want string }{
+		{"with ponytail", "/opsx:apply {change}", "/opsx:apply m1 with ponytail"},
+		{"with ponytail", "/speckit.implement", "/speckit.implement with ponytail"},
+		{"", "/opsx:apply {change}", "/opsx:apply m1"},
+		{" for {change} ", "/speckit-implement", "/speckit-implement  for {change} "},
+	}
+	for _, tt := range tests {
+		if got := (Config{Instructions: tt.instructions}).PromptFor("m1", tt.def); got != tt.want {
+			t.Errorf("instructions %q, def %q: got %q, want %q", tt.instructions, tt.def, got, tt.want)
+		}
 	}
 }
 

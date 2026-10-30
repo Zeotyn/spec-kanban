@@ -21,35 +21,48 @@ import (
 var Kinds = []string{"pi", "claude", "codex", "gemini", "cursor", "devin", "agy", "cline", "omp", "mastracode", "opencode", "copilot", "kimi", "kiro", "droid", "amp", "grok", "hermes", "kilo", "qodercli", "qwen", "letta", "maki", "muse"}
 
 // Config holds the settings; an empty Agent means detect the kind from the invoking pane, Hide is
-// indexed by Phase, an empty Base means detect the base of a new worktree.
+// indexed by Phase, an empty Base means detect the base of a new worktree, an empty Source means
+// OpenSpec for a Project of both tools.
 type Config struct {
-	Agent    string
-	Prompt   string
-	Hide     [5]bool
-	Worktree bool
-	Base     string
+	Agent        string
+	Prompt       string
+	Instructions string // appended to the Source's prompt; "" when unset or Prompt is set
+	Hide         [5]bool
+	Worktree     bool
+	Base         string
+	Source       string // "", "openspec" or "speckit"
 }
 
 // Default is the config without a file; an empty Prompt means the Source's.
 func Default() Config { return Config{Worktree: true} }
 
-// PromptFor is the prompt Start sends for change; def (the Source's Prompt) when none is configured.
+// PromptFor is the prompt Start sends for change: the configured one, else def (the Source's Prompt)
+// followed by the Instructions.
 func (c Config) PromptFor(change, def string) string {
-	p := c.Prompt
-	if p == "" {
-		p = def
+	if c.Prompt != "" {
+		return strings.ReplaceAll(c.Prompt, "{change}", change)
 	}
-	return strings.ReplaceAll(p, "{change}", change)
+	p := strings.ReplaceAll(def, "{change}", change)
+	if c.Instructions != "" {
+		p += " " + c.Instructions
+	}
+	return p
 }
 
-// Parse decodes and validates a config file; on any problem it returns Default and the problem.
+// errIgnored is the one problem Parse reports with the settings kept.
+var errIgnored = errors.New("instructions is ignored because prompt is set")
+
+// Parse decodes and validates a config file; on any problem it returns Default and the problem,
+// except errIgnored, which comes with the parsed settings.
 func Parse(b []byte) (Config, error) {
 	var raw struct {
-		Agent    *string  `json:"agent"`
-		Prompt   *string  `json:"prompt"`
-		Hide     []string `json:"hide"`
-		Worktree *bool    `json:"worktree"`
-		Base     *string  `json:"base"`
+		Agent        *string  `json:"agent"`
+		Prompt       *string  `json:"prompt"`
+		Instructions *string  `json:"instructions"`
+		Hide         []string `json:"hide"`
+		Worktree     *bool    `json:"worktree"`
+		Base         *string  `json:"base"`
+		Source       *string  `json:"source"`
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
@@ -94,11 +107,24 @@ func Parse(b []byte) (Config, error) {
 		}
 		cfg.Base = *raw.Base
 	}
+	if raw.Source != nil {
+		if *raw.Source != "openspec" && *raw.Source != "speckit" {
+			return Default(), fmt.Errorf("source %q is not openspec or speckit", *raw.Source)
+		}
+		cfg.Source = *raw.Source
+	}
+	if raw.Instructions != nil && *raw.Instructions != "" {
+		if cfg.Prompt != "" {
+			return cfg, errIgnored
+		}
+		cfg.Instructions = *raw.Instructions
+	}
 	return cfg, nil
 }
 
-// Load reads config.json in dir. A missing file or an empty dir gives Default and no warning, any
-// other problem Default and a warning naming the file.
+// Load reads config.json in dir. A missing file or an empty dir gives Default and no warning,
+// errIgnored the parsed settings and a warning naming the file, any other problem Default and a
+// warning naming the file.
 func Load(dir string) (Config, error) {
 	if dir == "" {
 		return Default(), nil
@@ -110,8 +136,12 @@ func Load(dir string) (Config, error) {
 	}
 	if err == nil {
 		var cfg Config
-		if cfg, err = Parse(b); err == nil {
+		cfg, err = Parse(b)
+		switch {
+		case err == nil:
 			return cfg, nil
+		case errors.Is(err, errIgnored):
+			return cfg, fmt.Errorf("%s: %w", path, err)
 		}
 	}
 	return Default(), fmt.Errorf("%s: %w, using defaults", path, err)
