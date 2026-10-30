@@ -64,5 +64,4 @@ The manifest becomes `[[build]] command = ["sh", "scripts/build.sh"]`.
 
 ## Open Questions
 
-- The main spec `plugin-host` ("Plugin builds on install", scenario "Install without Go" aborts) no longer holds for installs of a release tag. This change is marked `skip_specs: true`, so no delta was written. Should `skip_specs` be dropped and a MODIFIED delta for that requirement added (recommended), or the spec updated at archive time?
 - Is a Go-free install only for `--ref v<version>` (and `main` exactly at a release) acceptable, or should installs of `main` download the latest release binary even when the checkout is newer? The latter risks a binary that does not match the manifest and was rejected here.

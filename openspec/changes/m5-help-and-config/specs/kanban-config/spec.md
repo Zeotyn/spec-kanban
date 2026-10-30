@@ -21,6 +21,7 @@ The plugin SHALL read its settings from `config.json` in herdr's config director
 
 ### Requirement: Settings and defaults
 The config file SHALL be a JSON object with these optional keys:
+- `agent`: a string, the agent kind Start launches, overriding the kind detected from the invoking pane. It SHALL be one of the kinds herdr's `agent start --kind` accepts (`claude`, `codex`, `gemini`, `opencode`, …), matched exactly. Default: unset.
 - `prompt`: a string, the text Start sends to the agent, in which every `{change}` is replaced by the Change name. It SHALL contain `{change}` at least once. Default: `/opsx:apply {change}`.
 - `hide`: a list of Phase names (`Draft`, `Ready`, `In Progress`, `Review`, `Archived`, ignoring case) whose columns the Board does not show. It SHALL leave at least one Phase shown. Default: empty.
 
@@ -34,8 +35,12 @@ A key that is left out SHALL have its default.
 - **WHEN** `config.json` is `{"hide": ["archived"]}`
 - **THEN** the Board shows no Archived column, and Start sends `/opsx:apply <change>`
 
+#### Scenario: Agent override
+- **WHEN** `config.json` is `{"agent": "codex", "prompt": "/opsx-apply {change}"}` and the Board was opened from a pane running Claude
+- **THEN** Start launches Codex and sends `/opsx-apply <change>`
+
 ### Requirement: Invalid config falls back to defaults with a warning
-When `config.json` cannot be read, is not valid JSON, contains an unknown key, or a setting breaks its rule (a `prompt` without `{change}`, an unknown Phase in `hide`, all Phases hidden, a value of the wrong type), all settings SHALL have their defaults. The Board SHALL show a warning naming the file and the problem in place of its footer when it opens, until the next key; `kanban start` SHALL print the warning to stderr and continue.
+When `config.json` cannot be read, is not valid JSON, contains an unknown key, or a setting breaks its rule (an `agent` herdr does not know, a `prompt` without `{change}`, an unknown Phase in `hide`, all Phases hidden, a value of the wrong type), all settings SHALL have their defaults. The Board SHALL show a warning naming the file and the problem in place of its footer when it opens, until the next key; `kanban start` SHALL print the warning to stderr and continue.
 
 #### Scenario: Typo in a key
 - **WHEN** `config.json` is `{"promt": "/opsx:apply {change} with TDD"}` and the Board opens
@@ -44,6 +49,10 @@ When `config.json` cannot be read, is not valid JSON, contains an unknown key, o
 #### Scenario: Prompt without the Change
 - **WHEN** `config.json` is `{"prompt": "go on"}` and the user runs `kanban start m1-board-view`
 - **THEN** stderr shows a warning that the prompt lacks `{change}`, and the agent receives `/opsx:apply m1-board-view`
+
+#### Scenario: Unknown agent kind
+- **WHEN** `config.json` is `{"agent": "Codex"}` and the Board opens
+- **THEN** the footer warns that `agent` `Codex` is not a herdr agent kind and defaults are used, so Start launches the kind detected from the invoking pane
 
 #### Scenario: Broken JSON
 - **WHEN** `config.json` is not valid JSON and the Board opens

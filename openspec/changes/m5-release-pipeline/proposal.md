@@ -17,7 +17,7 @@ Installing from GitHub currently requires a Go toolchain and nothing verifies ch
 
 ### Modified Capabilities
 
-No behaviour of the Board, sidebar or Start changes; this is tooling only (`skip_specs: true`). Note: the plugin-host requirement "Plugin builds on install" says an install without Go aborts, which stops being true for release installs (see design.md, Open Questions).
+- `plugin-host`: "Plugin builds on install" changes: an install of a release downloads the verified binary and needs no Go; without a matching release it builds from source and aborts without Go, as today. No behaviour of the Board, sidebar or Start changes.
 
 ## Impact
 
