@@ -16,8 +16,8 @@
 
 ## 4. Release
 
-- [ ] 4.1 Add `.github/workflows/release.yml` as in design.md: tag = `v` + manifest version check, changelog section as notes, four cross-compiled binaries with `-X main.version`, `checksums.txt`, `commit.txt`, `gh release create`, verification by running `scripts/build.sh` in the tagged checkout
-- [ ] 4.2 Add `CHANGELOG.md` with a `## 0.1.0 - <date>` section summarising M0–M5
+- [x] 4.1 Add `.github/workflows/release.yml` as in design.md: tag = `v` + manifest version check, changelog section as notes, four cross-compiled binaries with `-X main.version`, `checksums.txt`, `commit.txt`, `gh release create`, verification by running `scripts/build.sh` in the tagged checkout
+- [x] 4.2 Add `CHANGELOG.md` with a `## 0.1.0 - <date>` section summarising M0–M5
 
 ## 5. Docs
 
