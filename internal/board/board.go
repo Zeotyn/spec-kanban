@@ -14,6 +14,7 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/detail"
 	"github.com/zeotyn/openspec-kanban/internal/editor"
+	"github.com/zeotyn/openspec-kanban/internal/theme"
 	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
@@ -71,8 +72,6 @@ Details
   q/esc        back to the Board
 
 any key closes`
-
-var runningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // terminal green
 
 // Model shows the Board of one Project; an empty project means none was found.
 type Model struct {
@@ -569,7 +568,7 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 		out = append(out, mark+style.Render(l))
 	}
 	if running { // styled apart so the badge's colour reset does not end the bold name
-		out[0] = mark + runningStyle.Render("●") + style.Render(" "+first)
+		out[0] = mark + lipgloss.NewStyle().Foreground(theme.Running).Render("●") + style.Render(" "+first)
 	}
 	return append(out, "")
 }
