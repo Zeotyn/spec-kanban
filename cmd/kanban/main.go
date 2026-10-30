@@ -47,7 +47,8 @@ Usage:
   kanban open       Open the Board popup for the invoking pane's project (plugin action)
   kanban board      Show the Board for $KANBAN_PROJECT (set by kanban open)
   kanban start <change>
-                    Send the configured prompt for <change> to an agent in a new tab of the current directory's project
+                    Send the configured prompt for <change> to an agent in a new tab of the current
+                    directory's project, or in a worktree of the project on a branch named <change>
   kanban launch <change> <pane> <tab> <kind> <prompt>
                     Focus tab, start an agent of kind in pane and send prompt (internal, spawned by the Board)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
@@ -133,7 +134,8 @@ func startChange(change string, stderr io.Writer) error {
 		return fmt.Errorf("no OpenSpec project at or above %s", cwd)
 	}
 	kind := start.Kind(cfg.Agent, os.Getenv("HERDR_PANE_ID"), herdr.Exec)
-	return start.Start(proj, change, kind, cfg.PromptFor(change), herdr.Exec, openspecCLI(proj))
+	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
+	return start.Start(proj, change, kind, cfg.PromptFor(change), wt, herdr.Exec, openspecCLI(proj), gitCLI(proj))
 }
 
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,
@@ -145,16 +147,24 @@ func showBoard(proj string) error {
 	if warn != nil {
 		notice = warn.Error()
 	}
-	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec) }
+	git := gitCLI(proj)
+	running := func() (map[string]bool, error) { // checkouts read on each lookup, so a new worktree counts
+		dirs := []string{proj}
+		for _, c := range worktree.List(git) {
+			dirs = append(dirs, c.Path)
+		}
+		return start.Running(dirs, herdr.Exec)
+	}
+	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
-		pane, tab, err := start.Prepare(proj, change, herdr.Exec)
+		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, git)
 		if err != nil || pane == "" {
 			return err
 		}
 		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
 		return spawnLaunch(change, pane, tab, kind, cfg.PromptFor(change))
 	}
-	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI, gitCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne, cfg.Hide, notice), tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI, git), time.Now, cache.Read(dir, proj), running, startOne, cfg.Hide, notice), tea.WithAltScreen()).Run()
 	return err
 }
 

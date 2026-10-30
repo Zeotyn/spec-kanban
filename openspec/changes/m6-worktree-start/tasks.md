@@ -12,11 +12,11 @@
 
 ## 3. Start in the Change's checkout (TDD, fake herdr and git runners)
 
-- [ ] 3.1 Write hand-written `herdr worktree create` and `worktree open` (`already_open` true and false) results in the 0.9.5 shape into `internal/start/testdata/herdr/`
-- [ ] 3.2 Write failing `Prepare` tests for the call sequence: no checkout for the branch → `cat-file` check on the base, then `worktree create --cwd <project> --branch <change> --base <base> --label <change> --no-focus` returning its root pane and tab; existing local branch without checkout → check runs on `<change>`; Change missing on the ref → error naming Change and ref, no herdr call after `agent get`; closed linked checkout → `worktree open --path`; already open → `worktree open` then `tab create --workspace <id> --cwd <path>`; Project's own checkout on the branch, `worktree` off, or no checkouts → today's `tab create --cwd <project>`; no `--trust-repository` and no `--path` anywhere
-- [ ] 3.3 Write failing tests for the agent checks with checkouts: agent `cwd` in a linked checkout is focused when running and reused when idle; `cwd` outside the Project and all checkouts is refused as today
-- [ ] 3.4 Implement the new `Prepare` (and `Start` passing through) until the tests pass; keep `Launch` and `kanban launch` unchanged
-- [ ] 3.5 Write a failing test, then change `start.Running` to take the Project and checkout directories: agent in a linked checkout counts, agent in another Project does not
+- [x] 3.1 Write hand-written `herdr worktree create` and `worktree open` (`already_open` true and false) results in the 0.9.5 shape into `internal/start/testdata/herdr/`
+- [x] 3.2 Write failing `Prepare` tests for the call sequence: no checkout for the branch → `cat-file` check on the base, then `worktree create --cwd <project> --branch <change> --base <base> --label <change> --no-focus` returning its root pane and tab; existing local branch without checkout → check runs on `<change>`; Change missing on the ref → error naming Change and ref, no herdr call after `agent get`; closed linked checkout → `worktree open --path`; already open → `worktree open` then `tab create --workspace <id> --cwd <path>`; Project's own checkout on the branch, `worktree` off, or no checkouts → today's `tab create --cwd <project>`; no `--trust-repository` and no `--path` anywhere
+- [x] 3.3 Write failing tests for the agent checks with checkouts: agent `cwd` in a linked checkout is focused when running and reused when idle; `cwd` outside the Project and all checkouts is refused as today
+- [x] 3.4 Implement the new `Prepare` (and `Start` passing through) until the tests pass; keep `Launch` and `kanban launch` unchanged
+- [x] 3.5 Write a failing test, then change `start.Running` to take the Project and checkout directories: agent in a linked checkout counts, agent in another Project does not
 
 ## 4. Change source reads the Change's checkout (TDD, fake openspec runner per dir)
 
@@ -26,8 +26,8 @@
 
 ## 5. Wiring
 
-- [ ] 5.1 `cmd/kanban/main.go`: add a git runner like `openspecCLI`; the loader (Board and sync) passes `worktree.List` minus the Project's own checkout to `Load`; the Board's agent lookup passes the checkout directories to `Running`; Board Start and `kanban start` pass `Worktree{On, Base}` from the config and the git runner to `Prepare`/`Start`; adapt `main_test.go`
-- [ ] 5.2 Update the usage text of `kanban start` (new tab or worktree of the Change)
+- [x] 5.1 `cmd/kanban/main.go`: add a git runner like `openspecCLI`; the loader (Board and sync) passes `worktree.List` minus the Project's own checkout to `Load`; the Board's agent lookup passes the checkout directories to `Running`; Board Start and `kanban start` pass `Worktree{On, Base}` from the config and the git runner to `Prepare`/`Start`; adapt `main_test.go`
+- [x] 5.2 Update the usage text of `kanban start` (new tab or worktree of the Change)
 
 ## 6. Docs
 

@@ -11,15 +11,23 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/config"
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
 	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 
+// Worktree holds the worktree settings: whether Start works in the Change's checkout, and the
+// configured base of a new worktree ("" to detect it).
+type Worktree struct {
+	On   bool
+	Base string
+}
+
 // Start sends prompt to a herdr agent of kind named after the Change: Prepare, then Launch when the
-// agent has to be started. openspecRun runs the openspec CLI inside project.
-func Start(project, change, kind, prompt string, run, openspecRun herdr.Runner) error {
+// agent has to be started. openspecRun runs the openspec CLI inside project, git runs git there.
+func Start(project, change, kind, prompt string, wt Worktree, run, openspecRun, git herdr.Runner) error {
 	if err := checkOpen(project, change, openspecRun); err != nil {
 		return err
 	}
-	pane, tab, err := Prepare(project, change, run)
+	pane, tab, err := Prepare(project, change, wt, run, git)
 	if err != nil || pane == "" {
 		return err
 	}
@@ -50,9 +58,19 @@ func Kind(configured, pane string, run herdr.Runner) string {
 }
 
 // Prepare returns the pane and tab to launch the agent in, "" for none: it focuses a busy agent tab,
-// returns an idle one or opens a new one unfocused (focus moves only in Launch). An agent of that
-// name outside project is refused.
-func Prepare(project, change string, run herdr.Runner) (pane, tab string, err error) {
+// returns an idle one or opens a new one unfocused (focus moves only in Launch). With wt.On the new
+// tab is in the Change's checkout, the one on the branch named like the Change, which herdr creates
+// as a worktree when there is none. An agent of that name outside project and its checkouts is
+// refused. git runs git inside project.
+func Prepare(project, change string, wt Worktree, run, git herdr.Runner) (pane, tab string, err error) {
+	var checkouts []worktree.Checkout
+	if wt.On {
+		checkouts = worktree.List(git)
+	}
+	dirs := []string{project}
+	for _, c := range checkouts {
+		dirs = append(dirs, c.Path)
+	}
 	out, err := run("agent", "get", change)
 	switch {
 	case err == nil:
@@ -68,7 +86,7 @@ func Prepare(project, change string, run herdr.Runner) (pane, tab string, err er
 		if err := json.Unmarshal(out, &got); err != nil {
 			return "", "", fmt.Errorf("agent get: %w", err)
 		}
-		if cwd := got.Result.Agent.Cwd; cwd != "" && !inside(cwd, project) { // no cwd: nothing to check against
+		if cwd := got.Result.Agent.Cwd; cwd != "" && !insideAny(cwd, dirs) { // no cwd: nothing to check against
 			return "", "", fmt.Errorf("agent %s already runs in %s", change, cwd)
 		}
 		a := got.Result.Agent
@@ -83,11 +101,60 @@ func Prepare(project, change string, run herdr.Runner) (pane, tab string, err er
 	case !strings.Contains(err.Error(), "agent_not_found"):
 		return "", "", fmt.Errorf("agent get: %w", err)
 	}
-	out, err = run("tab", "create", "--cwd", project, "--label", change, "--no-focus")
+	i := slices.IndexFunc(checkouts, func(c worktree.Checkout) bool { return c.Branch == change })
+	switch {
+	case len(checkouts) == 0 || i >= 0 && filepath.Clean(checkouts[i].Path) == filepath.Clean(project):
+		return newTab(run, "--cwd", project, "--label", change, "--no-focus")
+	case i >= 0:
+		path := checkouts[i].Path
+		out, err := run("worktree", "open", "--cwd", project, "--path", path, "--label", change, "--no-focus")
+		if err != nil {
+			return "", "", fmt.Errorf("worktree open: %w", err)
+		}
+		var opened struct {
+			Result struct {
+				AlreadyOpen bool `json:"already_open"`
+				Workspace   struct {
+					WorkspaceID string `json:"workspace_id"`
+				} `json:"workspace"`
+			} `json:"result"`
+		}
+		if err := json.Unmarshal(out, &opened); err != nil {
+			return "", "", fmt.Errorf("worktree open: %w", err)
+		}
+		if opened.Result.AlreadyOpen { // its root pane may be in use
+			return newTab(run, "--workspace", opened.Result.Workspace.WorkspaceID, "--cwd", path, "--label", change, "--no-focus")
+		}
+		return created("worktree open", out)
+	}
+	args := []string{"worktree", "create", "--cwd", project, "--branch", change}
+	ref := change
+	if _, err := git("rev-parse", "--verify", "--quiet", "refs/heads/"+change); err != nil {
+		ref = worktree.Base(wt.Base, git)
+		args = append(args, "--base", ref)
+	}
+	if _, err := git("cat-file", "-e", ref+":openspec/changes/"+change); err != nil {
+		return "", "", fmt.Errorf("%s is not on %s: commit it there or set base", change, ref)
+	}
+	out, err = run(append(args, "--label", change, "--no-focus")...)
+	if err != nil {
+		return "", "", fmt.Errorf("worktree create: %w", err)
+	}
+	return created("worktree create", out)
+}
+
+// newTab runs tab create with args and returns its root pane and tab.
+func newTab(run herdr.Runner, args ...string) (pane, tab string, err error) {
+	out, err := run(append([]string{"tab", "create"}, args...)...)
 	if err != nil {
 		return "", "", fmt.Errorf("tab create: %w", err)
 	}
-	var created struct {
+	return created("tab create", out)
+}
+
+// created reads the root pane and tab from what tab create, worktree create or worktree open printed.
+func created(cmd string, out []byte) (pane, tab string, err error) {
+	var got struct {
 		Result struct {
 			RootPane struct {
 				PaneID string `json:"pane_id"`
@@ -98,13 +165,13 @@ func Prepare(project, change string, run herdr.Runner) (pane, tab string, err er
 			} `json:"tab"`
 		} `json:"result"`
 	}
-	err = json.Unmarshal(out, &created)
-	pane, tab = created.Result.RootPane.PaneID, created.Result.Tab.TabID
+	err = json.Unmarshal(out, &got)
+	pane, tab = got.Result.RootPane.PaneID, got.Result.Tab.TabID
 	if tab == "" {
-		tab = created.Result.RootPane.TabID
+		tab = got.Result.RootPane.TabID
 	}
 	if err != nil || pane == "" || tab == "" {
-		return "", "", fmt.Errorf("tab create: no pane or tab id in %s", out)
+		return "", "", fmt.Errorf("%s: no pane or tab id in %s", cmd, out)
 	}
 	return pane, tab, nil
 }
@@ -124,9 +191,10 @@ func Launch(change, kind, prompt, pane, tab string, run herdr.Runner) error {
 	return nil
 }
 
-// Running returns the names of the herdr agents that work in project or below it. Only agents
-// started with a name count, and Start names them after their Change; every agent_status counts.
-func Running(project string, run herdr.Runner) (map[string]bool, error) {
+// Running returns the names of the herdr agents that work in one of dirs (the Project and its
+// checkouts) or below it. Only agents started with a name count, and Start names them after their
+// Change; every agent_status counts.
+func Running(dirs []string, run herdr.Runner) (map[string]bool, error) {
 	out, err := run("agent", "list")
 	if err != nil {
 		return nil, fmt.Errorf("agent list: %w", err)
@@ -144,17 +212,20 @@ func Running(project string, run herdr.Runner) (map[string]bool, error) {
 	}
 	names := map[string]bool{}
 	for _, a := range list.Result.Agents {
-		if a.Name != "" && inside(a.Cwd, project) {
+		if a.Name != "" && insideAny(a.Cwd, dirs) {
 			names[a.Name] = true
 		}
 	}
 	return names, nil
 }
 
-// inside reports whether dir is project or lies below it.
-func inside(dir, project string) bool {
-	dir, project = filepath.Clean(dir), filepath.Clean(project)
-	return dir == project || strings.HasPrefix(dir, project+string(filepath.Separator))
+// insideAny reports whether dir is one of dirs or lies below one.
+func insideAny(dir string, dirs []string) bool {
+	dir = filepath.Clean(dir)
+	return slices.ContainsFunc(dirs, func(d string) bool {
+		d = filepath.Clean(d)
+		return dir == d || strings.HasPrefix(dir, d+string(filepath.Separator))
+	})
 }
 
 // agentRunning reports whether anything but the shell holds the foreground of pane: the agent, or a
