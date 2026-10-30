@@ -2,8 +2,8 @@ Prerequisite: `m7-source-seam` is merged on `main`. Names below are the post-ref
 
 ## 1. Palette (TDD)
 
-- [ ] 1.1 Write failing tests in `internal/theme`: `Accent`, `Dim`, `Milestone`, `Running` are `lipgloss.Color` values `"4"`, `"8"`, `"5"`, `"2"`; `Faint` is faint, `AccentBold` is bold with foreground `Accent`
-- [ ] 1.2 Implement `internal/theme` (design.md); replace `runningStyle` in `board` by `theme.Running`; tests green, goldens unchanged
+- [x] 1.1 Write failing tests in `internal/theme`: `Accent`, `Dim`, `Milestone`, `Running` are `lipgloss.Color` values `"4"`, `"8"`, `"5"`, `"2"`; `Faint` is faint, `AccentBold` is bold with foreground `Accent`
+- [x] 1.2 Implement `internal/theme` (design.md); replace `runningStyle` in `board` by `theme.Running`; tests green, goldens unchanged
 
 ## 2. Bordered Cards and the low-popup fallback (TDD)
 
