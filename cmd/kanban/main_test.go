@@ -12,8 +12,11 @@ import (
 	"testing"
 
 	"github.com/zeotyn/spec-kanban/internal/cache"
+	"github.com/zeotyn/spec-kanban/internal/config"
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/source/speckit"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 func TestOpen(t *testing.T) {
@@ -43,7 +46,7 @@ func TestOpen(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var got []string
 			run := func(args ...string) ([]byte, error) { got = args; return nil, nil }
-			if err := open(tt.context, run, openspec.New(nil)); err != nil {
+			if err := open(tt.context, run, openspec.New(nil).Detect); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -55,7 +58,7 @@ func TestOpen(t *testing.T) {
 
 func TestOpenHerdrError(t *testing.T) {
 	run := func(args ...string) ([]byte, error) { return nil, errors.New("ui_busy") }
-	err := open(`{}`, run, openspec.New(nil))
+	err := open(`{}`, run, openspec.New(nil).Detect)
 	if err == nil || !strings.Contains(err.Error(), "ui_busy") {
 		t.Fatalf("want herdr error, got %v", err)
 	}
@@ -146,7 +149,7 @@ func TestSyncLoadWritesBoardCache(t *testing.T) {
 			return []byte(`{"changes":[{"name":"a","completedTasks":1,"totalTasks":2}]}`), nil
 		}
 	}
-	changes, err := syncLoad(dir, openspec.New(cli), func(string) herdr.Runner { return noGit })(proj)
+	changes, err := syncLoad(dir, func(string) work.Source { return openspec.New(cli) }, func(string) herdr.Runner { return noGit })(proj)
 	if err != nil || len(changes) != 1 || ranIn != proj {
 		t.Fatalf("want one Change read in %s, got %v, %v (ran in %q)", proj, changes, err, ranIn)
 	}
@@ -165,7 +168,7 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 		}
 		return nil, nil
 	}
-	err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view", run, openspec.New(nil))
+	err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view", run)
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("want the Launch error, got %v", err)
 	}
@@ -179,7 +182,7 @@ func TestLaunchSucceedsQuietly(t *testing.T) {
 	t.Setenv("KANBAN_PROJECT", "") // not from the Board: not watched
 	var calls [][]string
 	run := func(args ...string) ([]byte, error) { calls = append(calls, args); return nil, nil }
-	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view with TDD", run, openspec.New(nil)); err != nil {
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view with TDD", run); err != nil {
 		t.Fatal(err)
 	}
 	want := [][]string{
@@ -203,7 +206,7 @@ func TestLaunchWatches(t *testing.T) {
 		}
 		return nil, nil
 	}
-	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:apply m1-board-view", run, openspec.New(nil)); err != nil {
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:apply m1-board-view", run); err != nil {
 		t.Fatal(err)
 	}
 	if want := "agent get m1-board-view"; len(calls) != 4 || calls[3] != want {
@@ -259,7 +262,7 @@ func TestStartChangeWarnsAboutBrokenConfig(t *testing.T) {
 	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
 	t.Chdir(t.TempDir()) // no project: startChange stops before herdr
 	var stderr strings.Builder
-	if err := startChange("m1-board-view", &stderr, openspec.New(nil)); err == nil || !strings.Contains(err.Error(), "no OpenSpec project") {
+	if err := startChange("m1-board-view", &stderr, nil); err == nil || !strings.Contains(err.Error(), "no OpenSpec or Spec Kit project at or above") {
 		t.Fatalf("want the no-project error, got %v", err)
 	}
 	if got := stderr.String(); !strings.Contains(got, filepath.Join(dir, "config.json")) || !strings.Contains(got, "{change}") {
@@ -302,5 +305,82 @@ func TestLoaderReadsOtherCheckouts(t *testing.T) {
 	changes, err := loader(dir, proj, openspec.New(cli), git)()
 	if err != nil || len(changes) != 1 || changes[0].Done != 2 || changes[0].Dir != wt {
 		t.Errorf("want a read in its worktree %s, got %+v, %v", wt, changes, err)
+	}
+}
+
+// mkdirs creates dirs below root.
+func mkdirs(t *testing.T, root string, dirs ...string) {
+	t.Helper()
+	for _, d := range dirs {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestSources(t *testing.T) {
+	root := t.TempDir()
+	mkdirs(t, root, "openspec/changes", "speckit/.specify", "speckit/specs", "both/openspec/changes", "both/.specify", "both/specs", "none/.specify")
+	tests := []struct {
+		dir, prefer string
+		detect      bool
+		speckit     bool // sourceFor picks Spec Kit
+	}{
+		{"", "", true, false},
+		{"speckit", "", true, true},
+		{"both", "", true, false},
+		{"both", "openspec", true, false},
+		{"both", "speckit", true, true},
+		{"", "speckit", true, false},
+		{"none", "", false, false},
+	}
+	for _, tt := range tests {
+		detect, sourceFor := sources(config.Config{Source: tt.prefer})
+		dir := filepath.Join(root, tt.dir)
+		if got := detect(dir); got != tt.detect {
+			t.Errorf("detect(%q) = %v", tt.dir, got)
+		}
+		if _, got := sourceFor(dir).(*speckit.Source); got != tt.speckit {
+			t.Errorf("sourceFor(%q) with source %q: Spec Kit %v, want %v", tt.dir, tt.prefer, got, tt.speckit)
+		}
+	}
+}
+
+func TestStartChangeKeepsPromptOverInstructions(t *testing.T) {
+	cfgDir, proj := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.json"), []byte(`{"prompt": "go {change}", "instructions": "with ponytail", "worktree": false}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirs(t, proj, ".specify", "specs/001-a")
+	if err := os.WriteFile(filepath.Join(proj, "specs/001-a/spec.md"), []byte("# A\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tab, err := os.ReadFile(filepath.Join("..", "..", "testdata", "herdr", "tab-create.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", cfgDir)
+	t.Setenv("HERDR_PANE_ID", "")
+	t.Chdir(proj)
+	var calls []string
+	run := func(args ...string) ([]byte, error) {
+		calls = append(calls, strings.Join(args, " "))
+		switch args[0] + " " + args[1] {
+		case "agent get":
+			return nil, errors.New("agent_not_found")
+		case "tab create":
+			return tab, nil
+		}
+		return nil, nil
+	}
+	var stderr strings.Builder
+	if err := startChange("001-a", &stderr, run); err != nil {
+		t.Fatal(err)
+	}
+	if got := stderr.String(); !strings.Contains(got, "instructions is ignored because prompt is set") {
+		t.Errorf("stderr %q lacks the warning", got)
+	}
+	if last := calls[len(calls)-1]; last != "agent prompt 001-a go 001-a" {
+		t.Errorf("last herdr call %q, want the configured prompt", last)
 	}
 }

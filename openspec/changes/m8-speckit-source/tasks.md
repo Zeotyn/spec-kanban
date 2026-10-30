@@ -9,49 +9,49 @@ Every group ends with `go test ./...` green. OpenSpec goldens and Handoff texts 
 
 ## 2. Spec Kit detection and Source choice (TDD)
 
-- [ ] 2.1 New package `internal/source/speckit` with `New(git func(dir string) herdr.Runner, base string) *Source` and `var _ work.Source = (*Source)(nil)`; failing tests: `Detect` true only with both `.specify/` and `specs/` directories (not `.specify` alone, not files of those names); `Rel("001-a") == "specs/001-a"`; `ArchivedIn` always false
-- [ ] 2.2 Implement `Detect`, `Rel`, `ArchivedIn`
-- [ ] 2.3 Config: failing tests for `source` (`openspec`, `speckit` accepted; `spec-kit`, `""`, a number rejected with defaults and a warning naming `source`); implement `Config.Source`
-- [ ] 2.4 Config `instructions`: failing tests for `Parse`/`Load`/`PromptFor`: `{"instructions": "with ponytail"}` → `PromptFor("m1", "/opsx:apply {change}") == "/opsx:apply m1 with ponytail"` and `PromptFor("m1", "/speckit.implement") == "/speckit.implement with ponytail"`; `""` → `/opsx:apply m1`, no trailing space, no warning; text passed verbatim (a `{change}` in it is not replaced, surrounding spaces kept); a list or number → defaults and a wrong-type warning naming `instructions`; `prompt` + `instructions` → `Load` keeps all settings (e.g. `hide`), `Instructions` empty, `PromptFor` uses `prompt`, and the warning names the file and says `instructions` is ignored because `prompt` is set; existing `prompt` cases unchanged
-- [ ] 2.5 Implement `Config.Instructions`, the append in `PromptFor`, and the kept-settings warning in `Parse`/`Load`; a `cmd/kanban` test that `kanban start` with that config prints the warning to stderr and sends the `prompt`
-- [ ] 2.6 Write failing tests in `cmd/kanban` for `sources(cfg)`: `detect` accepts either marker; `sourceFor` picks OpenSpec for an OpenSpec-only dir, Spec Kit for a Spec Kit-only dir, OpenSpec for both without preference, Spec Kit for both with `source: speckit`, and OpenSpec for an OpenSpec-only dir with `source: speckit`; implement it
+- [x] 2.1 New package `internal/source/speckit` with `New(git func(dir string) herdr.Runner, base string) *Source` and `var _ work.Source = (*Source)(nil)`; failing tests: `Detect` true only with both `.specify/` and `specs/` directories (not `.specify` alone, not files of those names); `Rel("001-a") == "specs/001-a"`; `ArchivedIn` always false
+- [x] 2.2 Implement `Detect`, `Rel`, `ArchivedIn`
+- [x] 2.3 Config: failing tests for `source` (`openspec`, `speckit` accepted; `spec-kit`, `""`, a number rejected with defaults and a warning naming `source`); implement `Config.Source`
+- [x] 2.4 Config `instructions`: failing tests for `Parse`/`Load`/`PromptFor`: `{"instructions": "with ponytail"}` → `PromptFor("m1", "/opsx:apply {change}") == "/opsx:apply m1 with ponytail"` and `PromptFor("m1", "/speckit.implement") == "/speckit.implement with ponytail"`; `""` → `/opsx:apply m1`, no trailing space, no warning; text passed verbatim (a `{change}` in it is not replaced, surrounding spaces kept); a list or number → defaults and a wrong-type warning naming `instructions`; `prompt` + `instructions` → `Load` keeps all settings (e.g. `hide`), `Instructions` empty, `PromptFor` uses `prompt`, and the warning names the file and says `instructions` is ignored because `prompt` is set; existing `prompt` cases unchanged
+- [x] 2.5 Implement `Config.Instructions`, the append in `PromptFor`, and the kept-settings warning in `Parse`/`Load`; a `cmd/kanban` test that `kanban start` with that config prints the warning to stderr and sends the `prompt`
+- [x] 2.6 Write failing tests in `cmd/kanban` for `sources(cfg)`: `detect` accepts either marker; `sourceFor` picks OpenSpec for an OpenSpec-only dir, Spec Kit for a Spec Kit-only dir, OpenSpec for both without preference, Spec Kit for both with `source: speckit`, and OpenSpec for an OpenSpec-only dir with `source: speckit`; implement it
 
 ## 3. Features, Progress and Phase (TDD)
 
-- [ ] 3.1 Add fixtures under `internal/source/speckit/testdata/` modelled on `~/code/speckit-spike` (real `spec.md` header, `tasks.md` with `## Phase N:` headings, `T001 [P] [US1]` lines, `[x]` and `[X]`): spec only; spec+plan+research; tasks none checked; some checked; all checked; folder without `spec.md`; `spec.md` with `**Status**: Draft` and all tasks checked; a timestamp-named folder
-- [ ] 3.2 Write failing `Load` tests: one Item per folder with `spec.md`, named like the folder; `Done`/`Total` from checkboxes; `Modified` = newest file at any depth; Phase per the speckit-source spec (Draft, Draft, Ready, In Progress, Review, none, Review); `Artifacts` → `planMarks` renders `- S · ·`, `- S D ·`, `- S D T`; `Stamp` empty; unreadable `specs/` → error; `Open` returns the Feature names
-- [ ] 3.3 Write failing tests for other checkouts: a checkout on branch `b` with `specs/b/spec.md` replaces the Project's `b` (Progress from there, `Dir` set) or adds it; the Project's own entry in `others`, a branch without such a folder, and a non-Feature branch are skipped
-- [ ] 3.4 Implement `Load`, `Open`, `phaseOf` and the checkbox reader (copy of the OpenSpec regex)
+- [x] 3.1 Add fixtures under `internal/source/speckit/testdata/` modelled on `~/code/speckit-spike` (real `spec.md` header, `tasks.md` with `## Phase N:` headings, `T001 [P] [US1]` lines, `[x]` and `[X]`): spec only; spec+plan+research; tasks none checked; some checked; all checked; folder without `spec.md`; `spec.md` with `**Status**: Draft` and all tasks checked; a timestamp-named folder
+- [x] 3.2 Write failing `Load` tests: one Item per folder with `spec.md`, named like the folder; `Done`/`Total` from checkboxes; `Modified` = newest file at any depth; Phase per the speckit-source spec (Draft, Draft, Ready, In Progress, Review, none, Review); `Artifacts` → `planMarks` renders `- S · ·`, `- S D ·`, `- S D T`; `Stamp` empty; unreadable `specs/` → error; `Open` returns the Feature names
+- [x] 3.3 Write failing tests for other checkouts: a checkout on branch `b` with `specs/b/spec.md` replaces the Project's `b` (Progress from there, `Dir` set) or adds it; the Project's own entry in `others`, a branch without such a folder, and a non-Feature branch are skipped
+- [x] 3.4 Implement `Load`, `Open`, `phaseOf` and the checkbox reader (copy of the OpenSpec regex)
 
 ## 4. Merged branch archives a Feature (TDD)
 
-- [ ] 4.1 Write failing tests with a fake git runner: no Review Feature → no git call at all; a Review Feature whose name `git branch --merged <base> --format=%(refname:short)` lists → Archived with empty `ArchivedOn`; not listed → Review; a Ready Feature whose branch is listed (fresh branch) → Ready; git failing → Review; configured base passed through, else `worktree.Base` detection
-- [ ] 4.2 Write one real-git test in a temp repo: branch with all tasks checked merged into `main` → Archived; unmerged branch with commits → Review; branch just created from `main` with tasks left → Ready
-- [ ] 4.3 Implement the merged rule in `Load`
+- [x] 4.1 Write failing tests with a fake git runner: no Review Feature → no git call at all; a Review Feature whose name `git branch --merged <base> --format=%(refname:short)` lists → Archived with empty `ArchivedOn`; not listed → Review; a Ready Feature whose branch is listed (fresh branch) → Ready; git failing → Review; configured base passed through, else `worktree.Base` detection
+- [x] 4.2 Write one real-git test in a temp repo: branch with all tasks checked merged into `main` → Archived; unmerged branch with commits → Review; branch just created from `main` with tasks left → Ready
+- [x] 4.3 Implement the merged rule in `Load`
 
 ## 5. Detail tabs (TDD)
 
-- [ ] 5.1 Write failing `Docs` tests: all four files → Tasks, Spec, Plan, Research with `Files` per tab, `Tasks: 0`, `First: 1`, `Next` = `next ▸ T004 …` for the first open line or `all tasks done`; spec only → Tasks (empty body, `Files` = `tasks.md` path) and Spec; plan without research → no Research tab; an Item with `Dir` reads from that checkout
-- [ ] 5.2 Implement `Docs`; a `detail` test with the Spec Kit `Docs` of a spec-only Feature: two tabs, opens on Spec, `3` does nothing, the Tasks tab says there are no tasks
+- [x] 5.1 Write failing `Docs` tests: all four files → Tasks, Spec, Plan, Research with `Files` per tab, `Tasks: 0`, `First: 1`, `Next` = `next ▸ T004 …` for the first open line or `all tasks done`; spec only → Tasks (empty body, `Files` = `tasks.md` path) and Spec; plan without research → no Research tab; an Item with `Dir` reads from that checkout
+- [x] 5.2 Implement `Docs`; a `detail` test with the Spec Kit `Docs` of a spec-only Feature: two tabs, opens on Spec, `3` does nothing, the Tasks tab says there are no tasks
 
 ## 6. Prepare, prompt and Finish (TDD)
 
-- [ ] 6.1 Write failing `Prepare` tests: writes `.specify/feature.json` = `{"feature_directory":"specs/<name>"}` in `dir`, creating `.specify/`, replacing an existing file; an unwritable `dir` returns an error naming the file
-- [ ] 6.2 Write failing `Prompt(project, kind)` tests against `integration.json` fixtures: the spike's file + `claude` → `/speckit-implement`; kind `codex` installed → `$speckit-implement`; kind not installed → the default integration's command; `gemini` with separator `.` → `/speckit.implement`; no file, broken JSON, no separator → `/speckit-implement`
-- [ ] 6.3 Write failing `Finish` tests: `Finish(n, "") == ""`; `Finish(n, "/wt") == "delete /wt/.specify/feature.json unless git tracks it"`; a `start` watch test with the Spec Kit Source asserts both Handoff texts of the speckit-source spec
-- [ ] 6.4 Implement `Prepare`, `Prompt`, `Finish`
+- [x] 6.1 Write failing `Prepare` tests: writes `.specify/feature.json` = `{"feature_directory":"specs/<name>"}` in `dir`, creating `.specify/`, replacing an existing file; an unwritable `dir` returns an error naming the file
+- [x] 6.2 Write failing `Prompt(project, kind)` tests against `integration.json` fixtures: the spike's file + `claude` → `/speckit-implement`; kind `codex` installed → `$speckit-implement`; kind not installed → the default integration's command; `gemini` with separator `.` → `/speckit.implement`; no file, broken JSON, no separator → `/speckit-implement`
+- [x] 6.3 Write failing `Finish` tests: `Finish(n, "") == ""`; `Finish(n, "/wt") == "delete /wt/.specify/feature.json unless git tracks it"`; a `start` watch test with the Spec Kit Source asserts both Handoff texts of the speckit-source spec
+- [x] 6.4 Implement `Prepare`, `Prompt`, `Finish`
 
 ## 7. Wiring and texts
 
-- [ ] 7.1 `cmd/kanban`: build `openspec.New(openspecCLI)` and `speckit.New(gitCLI, cfg.Base)` through `sources(cfg)`; `open` uses `detect`; `start`, `board`, `launch` use `sourceFor(proj)`; `sync` loads the config (warnings ignored) and passes `detect` and a `syncLoad` that picks the Source per Project; existing `main_test.go` cases unchanged
-- [ ] 7.2 No-project notice `No project here.` / `… (a directory containing openspec/changes, or .specify and specs).`, update the `no-project` golden; `kanban start` outside a Project: `no OpenSpec or Spec Kit project at or above <cwd>`
-- [ ] 7.3 Check the boundary: `grep -rn 'speckit\|\.specify\|feature\.json' --include='*.go' internal cmd` hits only `internal/source/speckit`, `internal/config` (the `source` value) and `cmd/kanban`
+- [x] 7.1 `cmd/kanban`: build `openspec.New(openspecCLI)` and `speckit.New(gitCLI, cfg.Base)` through `sources(cfg)`; `open` uses `detect`; `start`, `board`, `launch` use `sourceFor(proj)`; `sync` loads the config (warnings ignored) and passes `detect` and a `syncLoad` that picks the Source per Project; existing `main_test.go` cases unchanged
+- [x] 7.2 No-project notice `No project here.` / `… (a directory containing openspec/changes, or .specify and specs).`, update the `no-project` golden; `kanban start` outside a Project: `no OpenSpec or Spec Kit project at or above <cwd>`
+- [x] 7.3 Check the boundary: `grep -rn 'speckit\|\.specify\|feature\.json' --include='*.go' internal cmd` hits only `internal/source/speckit`, `internal/config` (the `source` value) and `cmd/kanban`
 
 ## 8. Docs
 
-- [ ] 8.1 README: section "Spec Kit" (detection and `source`, Phases and the merged-branch rule with its Review fallback, planning marks `- S D T`, tabs, `feature.json` written on `s` and deleted in the Handoff, default prompt per integration plus `instructions`, and that a configured `prompt` applies to every Project, commit `specs/<feature>` before `s`); `source` and `instructions` rows in the Settings table (`prompt` row: complete override, wins over `instructions`); the Settings example switches from `prompt` to `{"instructions": "with ponytail, TDD and review loops"}`; the `s` paragraph says `/opsx:apply <change>` plus `instructions` unless `prompt` is configured
-- [ ] 8.3 CHANGELOG `Unreleased`: Spec Kit Source; new config keys `source` and `instructions` (appended to the Source's command; `prompt` still wins)
-- [ ] 8.2 CONTEXT.md: **Feature** (Spec Kit kind of Work item), Source "OpenSpec or Spec Kit", Project with both markers, Archived also for a Feature whose branch is merged; ADR 0009 `docs/adr/0009-speckit-source.md` (merged branch counts as Archived; one Source per Project, OpenSpec wins a tie, `source` prefers; considered: Review as final column, a "Done" rename, mixing Sources)
+- [x] 8.1 README: section "Spec Kit" (detection and `source`, Phases and the merged-branch rule with its Review fallback, planning marks `- S D T`, tabs, `feature.json` written on `s` and deleted in the Handoff, default prompt per integration plus `instructions`, and that a configured `prompt` applies to every Project, commit `specs/<feature>` before `s`); `source` and `instructions` rows in the Settings table (`prompt` row: complete override, wins over `instructions`); the Settings example switches from `prompt` to `{"instructions": "with ponytail, TDD and review loops"}`; the `s` paragraph says `/opsx:apply <change>` plus `instructions` unless `prompt` is configured
+- [x] 8.3 CHANGELOG `Unreleased`: Spec Kit Source; new config keys `source` and `instructions` (appended to the Source's command; `prompt` still wins)
+- [x] 8.2 CONTEXT.md: **Feature** (Spec Kit kind of Work item), Source "OpenSpec or Spec Kit", Project with both markers, Archived also for a Feature whose branch is merged; ADR 0009 `docs/adr/0009-speckit-source.md` (merged branch counts as Archived; one Source per Project, OpenSpec wins a tie, `source` prefers; considered: Review as final column, a "Done" rename, mixing Sources)
 
 ## 9. Verification
 
