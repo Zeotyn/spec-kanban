@@ -58,3 +58,8 @@ herdr plugin log list
 ```
 
 Tests: `go test ./...` (rewrite golden views with `go test ./... -update`).
+
+## Credits
+
+- [herdr-openspec](https://github.com/FlorisKr/herdr-openspec) by FlorisKr: the original OpenSpec plugin for herdr. Its board popup and sidebar rows were the starting point for this plugin.
+- [magentic](https://github.com/MarDonhauser/magentic) by MarDonhauser: the Phase derivation and the starting of agents from the board follow its approach.
