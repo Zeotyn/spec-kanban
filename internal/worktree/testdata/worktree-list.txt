@@ -1,0 +1,17 @@
+worktree /work/proj
+HEAD 12c63b4c688c2c34bf4ee0e19e9370888898761a
+branch refs/heads/main
+
+worktree /work/wt/proj/m1-board-view
+HEAD 12c63b4c688c2c34bf4ee0e19e9370888898761a
+branch refs/heads/m1-board-view
+
+worktree /work/wt/proj/scratch
+HEAD 12c63b4c688c2c34bf4ee0e19e9370888898761a
+detached
+
+worktree /work/wt/proj/gone
+HEAD 12c63b4c688c2c34bf4ee0e19e9370888898761a
+branch refs/heads/gone
+prunable gitdir file points to non-existent location
+
