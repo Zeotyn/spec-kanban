@@ -27,9 +27,13 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `e` | edit `tasks.md` | edit the shown document |
 | `r` | reload | – |
 | `s` | start the Change in a new Claude tab | – |
-| `q` `Esc` | close | back to the Board |
+| `/` | filter Cards by name | – |
+| `n` `N` | next/previous match | – |
+| `q` `Esc` | close (`Esc` first clears a filter) | back to the Board |
 
 `e` opens `$EDITOR` (`vi` when unset) inside the popup. GUI editors need their wait flag, for example `EDITOR="code -w"`, or the Board reloads before you have saved.
+
+`/` opens a prompt in the footer; every key typed there is text and filters the columns at once, ignoring case. `Enter` keeps the filter, `Esc` clears it, `Backspace` on an empty prompt closes it. `m1` (or `M1`) matches only the Changes with milestone badge M1, not `m10-…` or `fix-m1-…`. The filter shows in the header and stays across reloads.
 
 `s` works on Ready and In Progress Cards. It opens a new tab named after the Change and closes the Board at once; the tab then gets focus, Claude starts in it and runs `/opsx:apply`. If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (Claude not ready, prompt not sent) as a herdr notification. On Draft, Review and Archived Cards the footer says why not. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
 

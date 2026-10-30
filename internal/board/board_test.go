@@ -91,6 +91,14 @@ func keys(m Model, ks ...string) Model {
 			msg = tea.KeyMsg{Type: tea.KeyCtrlD}
 		case "ctrl+u":
 			msg = tea.KeyMsg{Type: tea.KeyCtrlU}
+		case "enter":
+			msg = tea.KeyMsg{Type: tea.KeyEnter}
+		case "esc":
+			msg = tea.KeyMsg{Type: tea.KeyEsc}
+		case "backspace":
+			msg = tea.KeyMsg{Type: tea.KeyBackspace}
+		case " ":
+			msg = tea.KeyMsg{Type: tea.KeySpace, Runes: []rune(" ")}
 		}
 		m = send(m, msg)
 	}
@@ -598,5 +606,186 @@ func TestStartNotInDetail(t *testing.T) {
 	started := starter(&m, nil)
 	if m, cmd := pressKey(m, "s"); cmd != nil || m.starting != "" || len(*started) != 0 {
 		t.Error("s in the detail must do nothing")
+	}
+}
+
+// shown lists the names of the Cards on the Board, column by column.
+func shown(m Model) []string {
+	var got []string
+	for _, col := range m.cols {
+		for _, c := range col {
+			got = append(got, c.Name)
+		}
+	}
+	return got
+}
+
+func TestFilterPrompt(t *testing.T) {
+	m := board(t, 120, 30, fixture)
+	progress := "15/31 48%"
+	if !strings.Contains(m.View(), progress) {
+		t.Fatalf("fixture Progress changed:\n%s", m.View())
+	}
+	m = keys(m, "/")
+	if !m.prompting || !strings.HasSuffix(m.View(), "\n/█") {
+		t.Fatalf("/ must open the prompt in the footer:\n%s", m.View())
+	}
+	m = keys(m, "b", "o", "a", "r", "d")
+	golden(t, "board-filter", m.View())
+	v := m.View()
+	if !slices.Equal(shown(m), []string{"m1-board-view"}) || !strings.Contains(v, "In Progress 1") || !strings.Contains(v, "Draft 0") {
+		t.Errorf("typing must filter columns and counts at once: %q\n%s", shown(m), v)
+	}
+	if !strings.Contains(v, "OpenSpec Kanban · proj · /board") || !strings.Contains(v, progress) || !strings.HasSuffix(v, "\n/board█") {
+		t.Errorf("header must show the filter and keep the Progress of all Changes:\n%s", v)
+	}
+	if m = keys(m, "esc"); m.prompting || m.filter != "" || len(shown(m)) != len(fixture) || strings.Contains(m.View(), "· /") {
+		t.Errorf("Esc in the prompt must close it and clear the filter: %q\n%s", m.filter, m.View())
+	}
+}
+
+func TestFilterCaseAndMilestone(t *testing.T) {
+	if got := shown(keys(board(t, 120, 30, fixture), "/", "B", "O", "A", "R", "D")); !slices.Equal(got, []string{"m1-board-view"}) {
+		t.Errorf("/BOARD shows %q", got)
+	}
+	if got := shown(keys(board(t, 120, 30, fixture), "/", "m", "1")); !slices.Equal(got, []string{"m1-phase-derivation", "m1-board-view"}) {
+		t.Errorf("/m1 shows %q", got)
+	}
+}
+
+func TestPromptTypesBoardKeys(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "2", "/")
+	started := starter(&m, nil)
+	args := fakeEditor(t, nil)
+	for _, k := range []string{"j", "q", "n", "N", "s", "e", "r", "g", "G", "h", "l", "1", "/", " "} {
+		var cmd tea.Cmd
+		if m, cmd = pressKey(m, k); cmd != nil {
+			t.Errorf("%q in the prompt returned a command", k)
+		}
+	}
+	if m.filter != "jqnNsergGhl1/ " || !m.prompting || len(*started) != 0 || *args != nil || m.loading {
+		t.Errorf("keys in the prompt must be text: filter %q, prompting %v", m.filter, m.prompting)
+	}
+}
+
+func TestPromptBackspace(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "/", "m", "2")
+	if m = keys(m, "backspace"); m.filter != "m" || !m.prompting {
+		t.Fatalf("backspace must delete a character: %q", m.filter)
+	}
+	if m = keys(m, "backspace"); m.filter != "" || !m.prompting || len(shown(m)) != len(fixture) {
+		t.Fatalf("backspace to empty: %q, prompting %v", m.filter, m.prompting)
+	}
+	if m = keys(m, "backspace"); m.prompting {
+		t.Error("backspace on an empty prompt must close it")
+	}
+}
+
+func TestPromptEnterKeepsFilter(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "/", "m", "1", "enter")
+	if m.prompting || m.filter != "m1" || m.detail != nil {
+		t.Fatalf("Enter must close the prompt, keep the filter and open no detail: prompting %v, filter %q", m.prompting, m.filter)
+	}
+	if v := m.View(); !strings.Contains(v, "· /m1") || strings.Contains(v, "/m1█") {
+		t.Errorf("header keeps the filter, footer shows the keys again:\n%s", v)
+	}
+	if m = keys(m, "l", "enter"); m.detail == nil || !strings.HasPrefix(m.View(), "m1-board-view") {
+		t.Errorf("Enter on the filtered Board opens the selected Card:\n%s", m.View())
+	}
+}
+
+func TestPromptCtrlCQuits(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "/", "x")
+	if _, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC}); cmd == nil || cmd() != tea.Quit() {
+		t.Error("ctrl+c must quit from the prompt")
+	}
+}
+
+func TestFilterMovesFocus(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "/", "b", "o", "a", "r", "d")
+	if m.nav.col != 2 || m.cols[2][m.nav.sel[2]].Name != "m1-board-view" {
+		t.Errorf("focus %d, want In Progress with m1-board-view", m.nav.col)
+	}
+	m = keys(m, "x")
+	if v := m.View(); !strings.Contains(v, "· /boardx") || strings.Contains(v, "▌") || strings.Count(v, "nothing here") != columns {
+		t.Errorf("nothing matches: every column empty, no selection, filter in the header:\n%s", v)
+	}
+}
+
+func TestFilterKeepsSelectionByName(t *testing.T) {
+	m := keys(board(t, 120, 30, tall(6)), "2", "j", "j", "j", "/", "3")
+	if m.nav.sel[1] != 0 || m.cols[1][0].Name != "change-03" {
+		t.Fatalf("filtered: sel %d", m.nav.sel[1])
+	}
+	if m = keys(m, "backspace"); m.cols[1][m.nav.sel[1]].Name != "change-03" {
+		t.Errorf("after clearing: selected %q, want change-03", m.cols[1][m.nav.sel[1]].Name)
+	}
+}
+
+func TestFilterSurvivesReload(t *testing.T) {
+	fresh := append([]openspec.Change{{Name: "m1-new", Done: 1, Total: 2, Modified: now}}, fixture...)
+	m := New("/x/proj", func() ([]openspec.Change, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil)
+	m = keys(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), "/", "m", "1", "enter")
+	m = send(m, m.Init()()) // cached → fresh
+	want := []string{"m1-phase-derivation", "m1-new", "m1-board-view"}
+	if got := shown(m); !slices.Equal(got, want) {
+		t.Fatalf("after the swap %q, want %q", got, want)
+	}
+	m, cmd := pressKey(m, "r")
+	if m = send(m, cmd()); !slices.Equal(shown(m), want) || !strings.Contains(m.View(), "· /m1") {
+		t.Errorf("after r %q:\n%s", shown(m), m.View())
+	}
+}
+
+func TestFilteredDetailHeaderFollowsReload(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "/", "b", "o", "a", "r", "d", "enter", "enter")
+	fresh := append([]openspec.Change{{Name: "m1-board-view", Done: 6, Total: 11, Modified: now}}, fixture[:4]...)
+	m = send(m, loadedMsg{changes: fresh})
+	if !strings.HasPrefix(m.View(), "m1-board-view  M1  6/11  In Progress") {
+		t.Errorf("detail header after reload:\n%s", m.View())
+	}
+}
+
+func TestEscClearsFilter(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "/", "m", "1", "enter")
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if m = next.(Model); cmd != nil || m.filter != "" || len(shown(m)) != len(fixture) || strings.Contains(m.View(), "· /") {
+		t.Fatalf("Esc with a filter must clear it and keep the Board open:\n%s", m.View())
+	}
+	if _, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEsc}); cmd == nil || cmd() != tea.Quit() {
+		t.Error("Esc without a filter must close the Board")
+	}
+}
+
+func TestMatchKeys(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "2")
+	if m = keys(m, "n"); m.nav.col != 1 || m.nav.sel[1] != 0 {
+		t.Errorf("n without a filter moved to col %d sel %d", m.nav.col, m.nav.sel[1])
+	}
+	if m = keys(m, "N"); m.nav.col != 1 || m.nav.sel[1] != 0 {
+		t.Errorf("N without a filter moved to col %d sel %d", m.nav.col, m.nav.sel[1])
+	}
+	m = keys(m, "/", "m", "1", "enter") // Ready: m1-phase-derivation, In Progress: m1-board-view
+	if m = keys(m, "n"); m.nav.col != 2 {
+		t.Errorf("n: col %d, want In Progress", m.nav.col)
+	}
+	if m = keys(m, "n"); m.nav.col != 1 {
+		t.Errorf("n past the last match: col %d, want Ready", m.nav.col)
+	}
+	if m = keys(m, "N"); m.nav.col != 2 {
+		t.Errorf("N before the first match: col %d, want In Progress", m.nav.col)
+	}
+}
+
+func TestFilterNarrow(t *testing.T) {
+	m := keys(board(t, 60, 30, fixture), "/", "m", "0", "enter")
+	v := m.View()
+	if !strings.Contains(v, "◀ 4/5 Review 1 ▶") || !strings.HasSuffix(v, "q close") {
+		t.Errorf("narrow filtered Board:\n%s", v)
+	}
+	for _, l := range strings.Split(v, "\n") {
+		if lipgloss.Width(l) > 60 {
+			t.Errorf("line wider than 60: %q", l)
+		}
 	}
 }

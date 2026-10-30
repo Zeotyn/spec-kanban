@@ -181,3 +181,53 @@ func TestKeepClampsWhenGone(t *testing.T) {
 		t.Fatalf("empty: sel %d off %d, want 0 0", n.sel[0], n.off[0])
 	}
 }
+
+func TestNavMatch(t *testing.T) {
+	counts := [columns]int{0, 2, 0, 3, 0}
+	tests := []struct {
+		name     string
+		dir      int
+		col, sel int
+		wantCol  int
+		wantSel  int
+	}{
+		{"next within a column", 1, 3, 0, 3, 1},
+		{"next skips empty columns", 1, 1, 1, 3, 0},
+		{"next wraps to the first Card", 1, 3, 2, 1, 0},
+		{"previous within a column", -1, 3, 2, 3, 1},
+		{"previous goes to the last Card of the previous column", -1, 3, 0, 1, 1},
+		{"previous wraps to the last Card", -1, 1, 0, 3, 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := nav{col: tt.col}
+			n.sel[tt.col] = tt.sel
+			n.match(tt.dir, counts, 5)
+			if n.col != tt.wantCol || n.sel[n.col] != tt.wantSel {
+				t.Errorf("col %d sel %d, want %d %d", n.col, n.sel[n.col], tt.wantCol, tt.wantSel)
+			}
+		})
+	}
+}
+
+func TestNavMatchSingleAndEmpty(t *testing.T) {
+	n := nav{col: 2}
+	for _, dir := range []int{1, -1} {
+		if n.match(dir, [columns]int{2: 1}, 5); n.col != 2 || n.sel[2] != 0 {
+			t.Errorf("single Card, dir %d: col %d sel %d, want 2 0", dir, n.col, n.sel[2])
+		}
+	}
+	n = nav{col: 1, pendingG: true}
+	if n.match(1, [columns]int{}, 5); n.col != 1 || n.sel != [columns]int{} || n.pendingG {
+		t.Errorf("empty Board: col %d sel %v pendingG %v", n.col, n.sel, n.pendingG)
+	}
+}
+
+func TestNavMatchScrolls(t *testing.T) {
+	counts := [columns]int{10, 4}
+	n := nav{col: 1}
+	n.match(-1, counts, 3) // wraps backwards to the last Card of Draft
+	if n.col != 0 || n.sel[0] != 9 || n.off[0] != 7 {
+		t.Fatalf("col %d sel %d off %d, want 0 9 7", n.col, n.sel[0], n.off[0])
+	}
+}

@@ -11,4 +11,4 @@ Draft 2                                 Ready 2                                 
  P · · ·  2d                             P - D T  2w                                                                                                                                                   
                                                                                                                                                                                                        
 
-h/l column · j/k card · ⏎ details · e edit tasks · s start · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close
+h/l column · j/k card · ⏎ details · e edit tasks · s start · / filter · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close

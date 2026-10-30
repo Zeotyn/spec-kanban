@@ -4,4 +4,4 @@ openspec CLI not found: install it with npm i -g @fission-ai/openspec
 
 r retry · q close
 
-h/l j/k ⏎ e s gg/G ^d/^u 1-5 · r · q close
+h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · q close

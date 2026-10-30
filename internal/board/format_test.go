@@ -99,3 +99,28 @@ func TestProgressBar(t *testing.T) {
 		}
 	}
 }
+
+func TestMatches(t *testing.T) {
+	for _, c := range []struct {
+		name, filter string
+		want         bool
+	}{
+		{"m1-board-view", "board", true},
+		{"f1-instant-board-open", "board", true},
+		{"m2-change-detail", "board", false},
+		{"m1-board-view", "BOARD", true},
+		{"m1-board-view", "", true},
+		{"m1-board-view", "m1", true},
+		{"m10-cleanup", "m1", false},
+		{"fix-m1-typo", "m1", false},
+		{"m1-board-view", "M1", true},
+		{"m10-cleanup", "M1", false},
+		{"add-dark-mode", "m", true},
+		{"fix-m1-typo", "m1-", true},
+		{"m10-cleanup", "m1-", false},
+	} {
+		if got := matches(c.name, c.filter); got != c.want {
+			t.Errorf("matches(%q, %q) = %v, want %v", c.name, c.filter, got, c.want)
+		}
+	}
+}

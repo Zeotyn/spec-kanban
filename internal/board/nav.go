@@ -48,6 +48,27 @@ func (n *nav) key(k string, counts [columns]int, visible int) {
 	n.fit(n.col, counts[n.col], visible)
 }
 
+// match selects the next Card in reading order (dir 1) or the previous one (dir -1): along the focused
+// column, then into the nearest column with Cards, wrapping around the Board.
+func (n *nav) match(dir int, counts [columns]int, visible int) {
+	n.pendingG = false
+	if i := n.sel[n.col] + dir; i >= 0 && i < counts[n.col] {
+		n.sel[n.col] = i
+	} else {
+		for step := 1; step <= columns; step++ {
+			c := (n.col + step*dir + columns) % columns
+			if counts[c] > 0 {
+				n.col, n.sel[c] = c, 0
+				if dir < 0 {
+					n.sel[c] = counts[c] - 1
+				}
+				break
+			}
+		}
+	}
+	n.fit(n.col, counts[n.col], visible)
+}
+
 // keep restores each column's selection by Change name after a reload, clamping the index if the name is gone.
 func (n *nav) keep(old, fresh [columns][]string, visible int) {
 	for c := range columns {

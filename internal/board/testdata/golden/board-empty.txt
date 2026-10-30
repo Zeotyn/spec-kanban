@@ -4,4 +4,4 @@ Draft 0                 Ready 0                 In Progress 0           Review 0
 ─────────────────────── ─────────────────────── ─────────────────────── ─────────────────────── ───────────────────────
 nothing here            nothing here            nothing here            nothing here            nothing here           
 
-h/l j/k ⏎ e s gg/G ^d/^u 1-5 · r · q close
+h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · q close

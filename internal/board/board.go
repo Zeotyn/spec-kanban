@@ -53,7 +53,10 @@ type Model struct {
 	loading       bool
 	loaded        bool // a load has succeeded at least once
 	err           error
-	cols          [columns][]openspec.Change
+	all           [columns][]openspec.Change // every Change by Phase
+	cols          [columns][]openspec.Change // the Changes of all that match filter
+	filter        string
+	prompting     bool            // keys go to the filter prompt
 	running       map[string]bool // Changes with a Running agent, kept across loads
 	starting      string          // the Change being started; keys other than ctrl+c are ignored meanwhile
 	nav           nav
@@ -71,8 +74,8 @@ func New(project string, load func() ([]openspec.Change, error), now func() time
 	agents func() (map[string]bool, error), start func(change string) error) Model {
 	m := Model{project: project, load: load, agents: agents, start: start, now: now, loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
-		m.cols, m.loaded = phase.Group(snapshot), true
-		m.nav.keep([columns][]string{}, names(m.cols), m.visible())
+		m.all, m.loaded = phase.Group(snapshot), true
+		m.refilter()
 	}
 	return m
 }
@@ -129,9 +132,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case loadedMsg:
 		m.loading, m.err = false, msg.err
 		if msg.err == nil {
-			old := m.cols
-			m.cols, m.loaded = phase.Group(msg.changes), true
-			m.nav.keep(names(old), names(m.cols), m.visible())
+			m.all, m.loaded = phase.Group(msg.changes), true
+			m.refilter()
 			m.updateDetailHeader()
 		}
 		if m.stale {
@@ -163,9 +165,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.notice = ""
+		if m.prompting {
+			return m.prompt(msg)
+		}
 		switch k := msg.String(); {
+		case k == "esc" && m.filter != "":
+			m.nav.pendingG, m.filter = false, ""
+			m.refilter()
 		case k == "q" || k == "esc" || k == "ctrl+c":
 			return m, tea.Quit
+		case k == "/":
+			m.nav.pendingG, m.prompting = false, true
+		case k == "n" && m.filter != "":
+			m.nav.match(1, m.counts(), m.visible())
+		case k == "N" && m.filter != "":
+			m.nav.match(-1, m.counts(), m.visible())
 		case k == "enter":
 			m.nav.pendingG = false
 			if col := m.cols[m.nav.col]; len(col) > 0 {
@@ -194,6 +208,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// prompt applies a key to the filter prompt: text is typed, Backspace deletes or closes the empty
+// prompt, Enter closes it keeping the filter, Esc closes it clearing the filter.
+func (m Model) prompt(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyCtrlC:
+		return m, tea.Quit
+	case tea.KeyEnter:
+		m.prompting = false
+	case tea.KeyEsc:
+		m.prompting, m.filter = false, ""
+	case tea.KeyBackspace:
+		if r := []rune(m.filter); len(r) > 0 {
+			m.filter = string(r[:len(r)-1])
+		} else {
+			m.prompting = false
+		}
+	case tea.KeyRunes, tea.KeySpace:
+		m.filter += string(msg.Runes)
+	}
+	m.refilter()
+	return m, nil
+}
+
+// refilter shows the Changes matching the filter, keeping each column's selection by name.
+func (m *Model) refilter() {
+	old := m.cols
+	m.cols = [columns][]openspec.Change{}
+	for p, col := range m.all {
+		for _, c := range col {
+			if matches(c.Name, m.filter) {
+				m.cols[p] = append(m.cols[p], c)
+			}
+		}
+	}
+	m.nav.keep(names(old), names(m.cols), m.visible())
+}
+
 // refresh starts a load unless one is running, so an older result cannot overwrite a newer one.
 func (m Model) refresh() (Model, tea.Cmd) {
 	if m.loading {
@@ -212,7 +263,7 @@ func (m *Model) updateDetailHeader() {
 	if m.detail == nil {
 		return
 	}
-	for p, col := range m.cols {
+	for p, col := range m.all {
 		for _, c := range col {
 			if c.Name == m.detailOf.Name && c.Archived == m.detailOf.Archived {
 				d := m.detail.WithHeader(detailHeader(c, phase.Phase(p)))
@@ -315,9 +366,12 @@ func (m Model) View() string {
 	default:
 		body = m.columns()
 	}
-	footer := "h/l column · j/k card · ⏎ details · e edit tasks · s start · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
+	footer := "h/l column · j/k card · ⏎ details · e edit tasks · s start · / filter · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
 	if lipgloss.Width(footer) > m.width {
-		footer = "h/l j/k ⏎ e s gg/G ^d/^u 1-5 · r · q close"
+		footer = "h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · q close"
+	}
+	if m.prompting {
+		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("/" + m.filter + "█")
 	}
 	if m.notice != "" {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(m.notice)
@@ -330,11 +384,14 @@ func (m Model) View() string {
 
 func (m Model) header() string {
 	title := "OpenSpec Kanban · " + filepath.Base(m.project)
+	if m.filter != "" {
+		title += " · /" + m.filter
+	}
 	if m.loading && m.loaded { // before the first load the body says so
 		title += " · refreshing…"
 	}
 	var done, total int
-	for _, col := range m.cols[:phase.Archived] {
+	for _, col := range m.all[:phase.Archived] {
 		for _, c := range col {
 			done, total = done+c.Done, total+max(c.Total, 0)
 		}

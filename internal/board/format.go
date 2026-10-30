@@ -44,6 +44,15 @@ func milestone(name string) string {
 	return "M" + name[1:1+n]
 }
 
+// matches reports whether name contains filter, ignoring case; a filter "m<N>" (either case) instead
+// matches exactly the names with milestone badge "M<N>".
+func matches(name, filter string) bool {
+	if b := strings.ToUpper(filter); b != "" && milestone(strings.ToLower(filter)+"-") == b {
+		return milestone(name) == b
+	}
+	return strings.Contains(strings.ToLower(name), strings.ToLower(filter))
+}
+
 // planMarks renders proposal, specs, design, tasks as "P S D T", "-" for skipped, "·" otherwise.
 func planMarks(artifacts map[string]string) string {
 	marks := make([]string, 4)
