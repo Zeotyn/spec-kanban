@@ -24,13 +24,13 @@
 
 ## 5. Wiring
 
-- [ ] 5.1 `showBoard` loads the config, passes hidden Phases and the warning as initial notice to `board.New`; on `s` the Board resolves the kind with `start.Kind(cfg.Agent, KANBAN_MAIN_PANE)` and passes it with the rendered prompt to `Prepare` and `spawnLaunch`; `startChange` loads the config, prints a warning to stderr and uses `start.Kind(cfg.Agent, HERDR_PANE_ID)` and the prompt; test the stderr warning with a broken config in a temp dir
+- [x] 5.1 `showBoard` loads the config, passes hidden Phases and the warning as initial notice to `board.New`; on `s` the Board resolves the kind with `start.Kind(cfg.Agent, KANBAN_MAIN_PANE)` and passes it with the rendered prompt to `Prepare` and `spawnLaunch`; `startChange` loads the config, prints a warning to stderr and uses `start.Kind(cfg.Agent, HERDR_PANE_ID)` and the prompt; test the stderr warning with a broken config in a temp dir
 
 ## 6. Docs
 
-- [ ] 6.1 README: `?` in the keys table and the Keys section; a Settings section with the path (`herdr plugin config-dir openspec-kanban`), a full `config.json` example, all three keys with defaults, the invalid-config behaviour, how the kind is chosen (config, invoking pane, `claude`), and that another kind needs a `prompt` naming the command OpenSpec installed for that tool (`openspec init --tools <tool>`); texts that say Claude where any kind is meant say "the agent"
+- [x] 6.1 README: `?` in the keys table and the Keys section; a Settings section with the path (`herdr plugin config-dir openspec-kanban`), a full `config.json` example, all three keys with defaults, the invalid-config behaviour, how the kind is chosen (config, invoking pane, `claude`), and that another kind needs a `prompt` naming the command OpenSpec installed for that tool (`openspec init --tools <tool>`); texts that say Claude where any kind is meant say "the agent"
 
 ## 7. Verification
 
-- [ ] 7.1 `go test -race ./...`, `go vet ./...` and `gofmt -l .` pass
+- [x] 7.1 `go test -race ./...`, `go vet ./...` and `gofmt -l .` pass
 - [ ] 7.2 Smoke test in herdr: rebuild; `?` on the Board and in the detail view shows the help, any key closes it; write `config.json` with `"hide": ["Archived"]` and a custom prompt, reopen the Board: four columns, `s` on a Ready Card sends the custom prompt; break the JSON, reopen: five columns and a footer warning; `kanban start` from a shell prints the warning; open the Board from a plain shell pane and start: Claude; set `"agent": "gemini"` with a matching prompt, start, then `s` again on the same Card: the running Gemini agent is focused (checks its `argv0`; if it shows another name, record it in design.md); remove the file again

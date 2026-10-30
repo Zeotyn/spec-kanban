@@ -26,16 +26,41 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `Enter` | open details | – |
 | `e` | edit `tasks.md` | edit the shown document |
 | `r` | reload | – |
-| `s` | start the Change in a new Claude tab | – |
+| `s` | start the Change in a new agent tab | – |
 | `/` | filter Cards by name | – |
 | `n` `N` | next/previous match | – |
+| `?` | key help | key help |
 | `q` `Esc` | close (`Esc` first clears a filter) | back to the Board |
+
+`?` shows all keys; any key closes the help.
 
 `e` opens `$EDITOR` (`vi` when unset) inside the popup. GUI editors need their wait flag, for example `EDITOR="code -w"`, or the Board reloads before you have saved.
 
 `/` opens a prompt in the footer; every key typed there is text and filters the columns at once, ignoring case. `Enter` keeps the filter, `Esc` clears it, `Backspace` on an empty prompt closes it. `m1` (or `M1`) matches only the Changes with milestone badge M1, not `m10-…` or `fix-m1-…`. The filter shows in the header and stays across reloads.
 
-`s` works on Ready and In Progress Cards. It opens a new tab named after the Change and closes the Board at once; the tab then gets focus, Claude starts in it and runs `/opsx:apply`. If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (Claude not ready, prompt not sent) as a herdr notification. On Draft, Review and Archived Cards the footer says why not. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
+`s` works on Ready and In Progress Cards. It opens a new tab named after the Change and closes the Board at once; the tab then gets focus, the agent starts in it and gets the prompt (`/opsx:apply <change>` unless configured, see [Settings](#settings)). If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (agent not ready, prompt not sent) as a herdr notification. On Draft, Review and Archived Cards the footer says why not. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
+
+## Settings
+
+Settings live in `config.json` in the plugin's config directory, which `herdr plugin config-dir openspec-kanban` prints. The file is optional; every key is too:
+
+```json
+{
+  "agent": "codex",
+  "prompt": "/opsx:apply {change} with TDD and review loops",
+  "hide": ["Archived"]
+}
+```
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `agent` | unset | Agent kind `s` starts, one of `herdr agent start --help`'s `--kind` values (`claude`, `codex`, `gemini`, `opencode`, …) |
+| `prompt` | `/opsx:apply {change}` | Text sent to the agent; every `{change}` becomes the Change name, and it must contain one |
+| `hide` | `[]` | Phases whose columns the Board leaves out, ignoring case; at least one must stay |
+
+The kind `s` starts is `agent` when set, else the agent running in the pane the Board was opened from (for `kanban start`, the pane it runs in), else `claude`. OpenSpec names its commands per tool, so with a kind other than `claude` set `prompt` to the command OpenSpec installed for that tool (`openspec init --tools <tool>`).
+
+The file is read when the Board opens or `kanban start` runs. If it is broken (invalid JSON, an unknown key, a value breaking the rules above), all settings fall back to their defaults: the Board shows the problem in its footer until the next key, and `kanban start` prints it to stderr.
 
 ## Sidebar
 

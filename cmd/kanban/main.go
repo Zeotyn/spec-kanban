@@ -4,6 +4,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"slices"
@@ -31,7 +32,7 @@ Usage:
   kanban open       Open the Board popup for the invoking pane's project (plugin action)
   kanban board      Show the Board for $KANBAN_PROJECT (set by kanban open)
   kanban start <change>
-                    Run /opsx:apply <change> in an agent tab of the current directory's project
+                    Send the configured prompt for <change> to an agent in a new tab of the current directory's project
   kanban launch <change> <pane> <tab> <kind> <prompt>
                     Focus tab, start an agent of kind in pane and send prompt (internal, spawned by the Board)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
@@ -52,7 +53,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "kanban: start needs exactly one change name\n\n%s", usage)
 			os.Exit(2)
 		}
-		err = startChange(os.Args[2])
+		err = startChange(os.Args[2], os.Stderr)
 	case "launch":
 		if len(os.Args) != 7 {
 			fmt.Fprintf(os.Stderr, "kanban: launch needs a change name, a pane, a tab, an agent kind and a prompt\n\n%s", usage)
@@ -102,7 +103,12 @@ func open(contextJSON string, run herdr.Runner) error {
 	return err
 }
 
-func startChange(change string) error {
+// startChange starts change from a shell; a config warning goes to stderr and Start goes on with defaults.
+func startChange(change string, stderr io.Writer) error {
+	cfg, warn := config.Load(config.Dir(herdr.Exec))
+	if warn != nil {
+		fmt.Fprintln(stderr, "kanban:", warn)
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -111,22 +117,33 @@ func startChange(change string) error {
 	if proj == "" {
 		return fmt.Errorf("no OpenSpec project at or above %s", cwd)
 	}
-	return start.Start(proj, change, "claude", config.Default().PromptFor(change), herdr.Exec, openspecCLI(proj))
+	kind := start.Kind(cfg.Agent, os.Getenv("HERDR_PANE_ID"), herdr.Exec)
+	return start.Start(proj, change, kind, cfg.PromptFor(change), herdr.Exec, openspecCLI(proj))
 }
 
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,
 // which is itself an OpenSpec project.
 func showBoard(proj string) error {
 	dir := cache.Dir()
+	cfg, warn := config.Load(config.Dir(herdr.Exec))
+	var hide [5]bool
+	for _, p := range cfg.Hide {
+		hide[p] = true
+	}
+	notice := ""
+	if warn != nil {
+		notice = warn.Error()
+	}
 	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec) }
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
-		pane, tab, err := start.Prepare(proj, change, "claude", herdr.Exec)
+		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
+		pane, tab, err := start.Prepare(proj, change, kind, herdr.Exec)
 		if err != nil || pane == "" {
 			return err
 		}
-		return spawnLaunch(change, pane, tab, "claude", config.Default().PromptFor(change))
+		return spawnLaunch(change, pane, tab, kind, cfg.PromptFor(change))
 	}
-	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne, [5]bool{}, ""), tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne, hide, notice), tea.WithAltScreen()).Run()
 	return err
 }
 

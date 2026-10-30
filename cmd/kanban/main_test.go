@@ -191,3 +191,19 @@ func TestChildEnvDropsPopupIDs(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestStartChangeWarnsAboutBrokenConfig(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"prompt": "go on"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
+	t.Chdir(t.TempDir()) // no project: startChange stops before herdr
+	var stderr strings.Builder
+	if err := startChange("m1-board-view", &stderr); err == nil || !strings.Contains(err.Error(), "no OpenSpec project") {
+		t.Fatalf("want the no-project error, got %v", err)
+	}
+	if got := stderr.String(); !strings.Contains(got, filepath.Join(dir, "config.json")) || !strings.Contains(got, "{change}") {
+		t.Errorf("stderr %q lacks the warning naming the file and the problem", got)
+	}
+}
