@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 - 2026-10-30
+
+- Worktrees: `s` starts the agent in its own git worktree on a branch named after the Change, based on the repository's default branch, so work in the main checkout goes on in parallel; the Board and the sidebar read Progress from the worktree. The `worktree` and `base` settings turn this off or pick the base.
+- Handoff: once an agent started from the Board has finished all tasks, its pane closes and the agent in the pane the Board was opened from is asked to review, merge, archive and remove the worktree; otherwise a herdr notification shows the Progress.
+- Resume: `s` on a Review Card reopens the recorded session of claude, copilot, codex, opencode, cursor or gemini.
+
 ## 0.1.0 - 2026-10-30
 
 First release.

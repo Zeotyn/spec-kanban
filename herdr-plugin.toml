@@ -1,6 +1,6 @@
 id = "openspec-kanban"
 name = "openspec-kanban"
-version = "0.1.0"
+version = "0.2.0"
 description = "Kanban board for OpenSpec changes"
 min_herdr_version = "0.9.3"
 platforms = ["macos", "linux"]
