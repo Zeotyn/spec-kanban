@@ -24,6 +24,7 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/sidebar"
 	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/start"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 
@@ -262,8 +263,11 @@ func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) f
 }
 
 // syncLoad loads a Project for the sidebar through the Board's loader, so every sync warms the Board's cache.
-func syncLoad(dir string, cli, git func(proj string) herdr.Runner) func(string) ([]openspec.Change, error) {
-	return func(proj string) ([]openspec.Change, error) { return loader(dir, proj, cli, git(proj))() }
+func syncLoad(dir string, cli, git func(proj string) herdr.Runner) func(string) ([]work.Item, error) {
+	return func(proj string) ([]work.Item, error) {
+		changes, err := loader(dir, proj, cli, git(proj))()
+		return openspec.Items(changes), err
+	}
 }
 
 // openspecCLI runs the openspec CLI inside proj.

@@ -7,25 +7,24 @@ import (
 	"strings"
 
 	"github.com/zeotyn/openspec-kanban/internal/board"
-	"github.com/zeotyn/openspec-kanban/internal/phase"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // width is the longest value a token may have; it fits sidebar_width = 34.
 const width = 28
 
-var labels = [...]string{phase.Draft: "draft", phase.Ready: "ready", phase.InProgress: "wip", phase.Review: "review"}
+var labels = [...]string{work.Draft: "draft", work.Ready: "ready", work.InProgress: "wip", work.Review: "review"}
 
 // Summary returns the Most recently modified Change with its Progress ("" when there is no open
 // Change) and the open Changes per Phase.
-func Summary(changes []openspec.Change) (change, phases string) {
-	var latest *openspec.Change
+func Summary(changes []work.Item) (change, phases string) {
+	var latest *work.Item
 	var counts [len(labels)]int
 	for i, c := range changes {
-		if c.Archived {
+		if c.Phase == work.Archived {
 			continue
 		}
-		counts[phase.Of(c)]++
+		counts[c.Phase]++
 		if latest == nil || cmp.Or(c.Modified.Compare(latest.Modified), cmp.Compare(latest.Name, c.Name)) > 0 {
 			latest = &changes[i]
 		}

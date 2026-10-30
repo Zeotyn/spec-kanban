@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
 	"github.com/zeotyn/openspec-kanban/internal/project"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // maxLoads bounds concurrent Project loads; with cold caches each may start 8 openspec processes.
@@ -17,7 +17,7 @@ const maxLoads = 4
 // Sync runs one pass: it reports the summary of every herdr workspace's Project, clears it for
 // workspaces without one and leaves workspaces alone whose Project fails to load. It returns
 // herdr's error when it cannot list workspaces or panes, else the joined load and report errors.
-func Sync(run herdr.Runner, load func(project string) ([]openspec.Change, error)) error {
+func Sync(run herdr.Runner, load func(project string) ([]work.Item, error)) error {
 	var workspaces struct {
 		Result struct {
 			Workspaces []struct {
@@ -60,7 +60,7 @@ func Sync(run herdr.Runner, load func(project string) ([]openspec.Change, error)
 	}
 
 	type result struct {
-		changes []openspec.Change
+		changes []work.Item
 		err     error
 	}
 	results := map[string]*result{}

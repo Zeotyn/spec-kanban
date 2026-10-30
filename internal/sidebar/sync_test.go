@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // projects creates Projects with the given names in a temp dir and returns their paths by name.
@@ -76,10 +76,10 @@ const report = "workspace report-metadata "
 
 func TestSync(t *testing.T) {
 	p := projects(t, "kanban", "magentic", "empty", "broken")
-	open := []openspec.Change{{Name: "m1-board-view", Done: 3, Total: 6}}
+	open := []work.Item{{Name: "m1-board-view", Done: 3, Total: 6, Phase: work.InProgress}}
 	var mu sync.Mutex // Sync loads Projects in parallel
 	loads := map[string]int{}
-	load := func(proj string) ([]openspec.Change, error) {
+	load := func(proj string) ([]work.Item, error) {
 		mu.Lock()
 		loads[proj]++
 		mu.Unlock()
@@ -87,7 +87,7 @@ func TestSync(t *testing.T) {
 		case p["kanban"], p["magentic"]:
 			return open, nil
 		case p["empty"]:
-			return []openspec.Change{{Name: "old", Archived: true}}, nil
+			return []work.Item{{Name: "old", Phase: work.Archived}}, nil
 		}
 		return nil, errors.New("openspec list: boom")
 	}
@@ -135,7 +135,7 @@ func TestSyncHerdrError(t *testing.T) {
 				panes:      []pane{{ws: "w1", cwd: p["kanban"]}},
 				fail:       map[string]error{call: errors.New("herdr: connection refused")},
 			}
-			load := func(string) ([]openspec.Change, error) { return nil, nil }
+			load := func(string) ([]work.Item, error) { return nil, nil }
 			if err := Sync(h.run, load); err == nil || !strings.Contains(err.Error(), "connection refused") {
 				t.Errorf("want herdr's error, got %v", err)
 			}
@@ -157,7 +157,7 @@ func TestSyncLoadsAtMostFourAtOnce(t *testing.T) {
 	}
 	var running, peak atomic.Int32
 	var mu sync.Mutex
-	load := func(string) ([]openspec.Change, error) {
+	load := func(string) ([]work.Item, error) {
 		n := running.Add(1)
 		mu.Lock()
 		peak.Store(max(peak.Load(), n))
@@ -187,8 +187,8 @@ func TestSyncFocusedPanePerWorkspace(t *testing.T) {
 			{ws: "w3", cwd: p["a"]},
 		},
 	}
-	load := func(proj string) ([]openspec.Change, error) {
-		return []openspec.Change{{Name: filepath.Base(proj)}}, nil
+	load := func(proj string) ([]work.Item, error) {
+		return []work.Item{{Name: filepath.Base(proj)}}, nil
 	}
 	if err := Sync(h.run, load); err != nil {
 		t.Fatal(err)

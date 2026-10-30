@@ -14,7 +14,7 @@ Every group ends with `go test ./...` green and no golden file changed (`git sta
 
 ## 3. Switch consumers one at a time
 
-- [ ] 3.1 `sidebar`: `Summary` and `Sync` take `[]work.Item`, count `c.Phase`, skip `Phase == work.Archived`; `syncLoad` in `cmd/kanban` converts with `openspec.Items`; summary tests build Items with `Phase` set
+- [x] 3.1 `sidebar`: `Summary` and `Sync` take `[]work.Item`, count `c.Phase`, skip `Phase == work.Archived`; `syncLoad` in `cmd/kanban` converts with `openspec.Items`; summary tests build Items with `Phase` set
 - [ ] 3.2 `board` and `config`: `board.New`, `load`, snapshot, columns and Cards use `work.Item`/`work.Group`/`work.Phase`; `config.Hide` is indexed by `work.Phase`; `cmd/kanban` converts snapshot and loads; board tests set `Phase` instead of `Planning`/`Archived`
 - [ ] 3.3 Write a failing `detail` test with a three-tab fake `work.Docs` (tab bar, `1-3` footer, first tab choice from `Tasks`/`First`, `next ▸` on the tasks tab, `e` opens the tab's `Files`, empty tab notice); add `openspec.ReadDocs(project string, it work.Item) work.Docs` (Tasks, Proposal, Design, Specs; Tasks 0, First 1) with tests ported from `docs_test.go`
 - [ ] 3.4 `detail.New(read func() work.Docs, it work.Item, header, w, h)` renders `Tabs`, re-calls `read` after the editor; `Dir` and `Read` become unexported; `board.edit` opens `Tabs[Tasks].Files[0]` with the existing stat check; detail and board goldens unchanged
