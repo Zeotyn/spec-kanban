@@ -25,7 +25,7 @@ Every group ends with `go test ./...` green. OpenSpec goldens and Handoff texts 
 
 ## 4. Merged branch archives a Feature (TDD)
 
-- [x] 4.1 Write failing tests with a fake git runner: no Review Feature → no git call at all; a Review Feature whose name `git branch --merged <base> --format=%(refname:short)` lists → Archived with empty `ArchivedOn`; not listed → Review; a Ready Feature whose branch is listed (fresh branch) → Ready; a merged branch still checked out → Review; git failing → Review; configured base passed through, else `worktree.Base` detection
+- [x] 4.1 Write failing tests with a fake git runner: no Review Feature → no git call at all; a Review Feature whose name `git branch --merged <base> --format=%(refname:short) %(worktreepath)` lists unchecked-out → Archived with empty `ArchivedOn`; not listed → Review; a Ready Feature whose branch is listed (fresh branch) → Ready; a merged branch still checked out → Review; git failing → Review; configured base passed through, else `worktree.Base` detection
 - [x] 4.2 Write one real-git test in a temp repo: branch with all tasks checked merged into `main` → Archived; unmerged branch with commits → Review; branch just created from `main` with tasks left → Ready; a worktree on a fresh branch with all tasks checked but not committed → Review
 - [x] 4.3 Implement the merged rule in `Load`
 
