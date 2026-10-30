@@ -41,6 +41,7 @@ herdr 0.9.5 facts (`--help`, `herdr --skill`, `herdr api schema`, herdr docs):
 ```go
 type Watched struct {
 	Project, Change, Main, Base string           // Main from KANBAN_MAIN_PANE, Base = config base ("" detects)
+	On     bool                                  // config worktree: without it no checkout is looked at
 	Load   func() ([]openspec.Change, error)     // main.go's loader for the Project
 	Record func(herdr.Session)                   // cache.WriteSession for Project and Change
 }
@@ -51,8 +52,8 @@ type Watched struct {
 0. `agent get <change>` → record the session (the agent is ready now). `agent wait <change> --until working --timeout 60000`; any error falls through, so an agent that finished its turn before the wait started is still evaluated.
 1. `agent wait <change>` (settled).
 2. `agent get <change>` → status, pane, session; record the session.
-3. Clean = status `idle` or `done`, and the Change is finished (below) → Handoff, return.
-4. Otherwise → notification `openspec-kanban: <change> stopped` with `3/7 tasks` or `waits for input` (or the load error), then `agent wait <change> --until working`, back to 1.
+3. A status other than `idle`, `done` or `blocked` (its next turn began before it was read) → back to 1, no notification. Clean = status `idle` or `done`, and the Change is finished (below) → Handoff, return.
+4. Otherwise → notification `openspec-kanban: <change> stopped` with `3/7 tasks` or `waits for input` (or the load error), then `agent get <change>` again: its `state_change_seq` changed (it moved on while being checked, maybe through a whole turn) → back to 1; else `agent wait <change> --until working`, back to 1. With `worktree` off the loader gets no other checkouts, so a leftover checkout of the Change does not supply its Progress.
 5. `agent_not_found` (or any other error) from `wait`/`get` → return nil silently: the agent exited, its pane/tab was closed, or herdr went away.
 
 Launch keeps `agent prompt` without `--wait`, so `kanban start` and its tests do not change. The loop lives in `internal/start`; `launch` in `main.go` is a thin caller. Alternatives: `agent prompt --wait` inside Launch (would block `kanban start` in the shell or need a flag); a `pane.agent_status_changed` event hook (would have to re-derive which agent belongs to which Main agent and debounce bursts); polling `agent list`.

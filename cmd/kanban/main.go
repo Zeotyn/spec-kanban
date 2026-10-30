@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -220,9 +221,12 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 		return nil
 	}
 	cfg, _ := config.Load(config.Dir(run)) // a broken config was already shown by the Board
-	dir, git := cache.Dir(), gitCLI(proj)
+	dir, git, loadGit := cache.Dir(), gitCLI(proj), gitCLI(proj)
+	if !cfg.Worktree { // the agent works in the Project: a leftover checkout of the Change must not supply its Progress
+		loadGit = func(...string) ([]byte, error) { return nil, errors.New("worktree off") }
+	}
 	start.Watch(start.Watched{Project: proj, Change: change, Main: os.Getenv("KANBAN_MAIN_PANE"), Base: cfg.Base, On: cfg.Worktree,
-		Load:   loader(dir, proj, openspecCLI, git),
+		Load:   loader(dir, proj, openspecCLI, loadGit),
 		Record: func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
 	}, run, git)
 	return nil

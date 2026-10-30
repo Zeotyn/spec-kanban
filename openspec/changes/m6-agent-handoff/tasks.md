@@ -34,5 +34,5 @@
 
 ## 7. Verification
 
-- [ ] 7.1 `go test -race ./...`, `go vet ./...` and `gofmt -l .` pass
+- [x] 7.1 `go test -race ./...`, `go vet ./...` and `gofmt -l .` pass
 - [ ] 7.2 Smoke test in herdr with a tiny test Change committed on the base: open the Board from a Claude pane, `s` → worktree workspace, agent finishes → pane closes (check whether the worktree workspace closes with it), that Claude receives the worktree Handoff prompt, merges, archives and `git worktree remove` succeeds, branch kept; leave an uncommitted file in a worktree → removal refused, nothing lost; let an agent archive its Change in the worktree → "finished and archived" text with merge; `worktree: false` → old text; repeat from a shell pane → notification; stop an agent with tasks left → notification, tab open; close a watched tab by hand and check with `ps` that its `kanban launch` exits; prompt the Main agent while it is working and check the text is queued; `s` on the Review Card → worktree reopened (or recreated after removal), session resumed, not closed again; if `copilot` or another mapped kind is installed, repeat with `agent` set to it and check its `agent_session` shape and resume
