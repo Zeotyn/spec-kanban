@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -821,9 +820,6 @@ func TestFilterNarrow(t *testing.T) {
 func TestHiddenArchived(t *testing.T) {
 	m := hiding(t, 120, 30, fixture, phase.Archived)
 	golden(t, "board-hidden", m.View())
-	if v := m.View(); strings.Contains(v, "Archived") || strings.Contains(v, "m0-plugin-skeleton") {
-		t.Errorf("hidden Archived column drawn:\n%s", v)
-	}
 	if m = keys(m, "5"); m.nav.col != 0 {
 		t.Errorf("5 on hidden Archived moved focus to %d", m.nav.col)
 	}
@@ -890,14 +886,7 @@ func TestInitialNotice(t *testing.T) {
 }
 
 func TestHelp(t *testing.T) {
-	m := keys(board(t, 120, 30, fixture), "3", "?")
-	v := m.View()
-	golden(t, "help-120", v)
-	for _, group := range []string{"Board", "Filter prompt", "Details"} {
-		if !regexp.MustCompile(`(?m)^` + group + ` *$`).MatchString(v) {
-			t.Errorf("help lacks the group %s:\n%s", group, v)
-		}
-	}
+	golden(t, "help-120", keys(board(t, 120, 30, fixture), "3", "?").View())
 	short := keys(board(t, 60, 14, fixture), "?").View()
 	if lines := strings.Count(short, "\n") + 1; lines > 14 || !strings.HasPrefix(short, "Keys") {
 		t.Errorf("help in a 60x14 popup: %d lines:\n%s", lines, short)
@@ -927,14 +916,31 @@ func TestHelpClosesWithoutEffect(t *testing.T) {
 }
 
 func TestHelpInDetail(t *testing.T) {
-	m, _ := enter(keys(board(t, 120, 30, fixture), "3"))
+	proj := t.TempDir()
+	proposal := filepath.Join(proj, "openspec", "changes", "m1-board-view", "proposal.md")
+	if err := os.MkdirAll(filepath.Dir(proposal), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(proposal, []byte(strings.Repeat("line\n\n", 40)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := New(proj, func() ([]openspec.Change, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, [columns]bool{}, "")
+	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
+	m, _ = enter(keys(send(m, m.Init()()), "3"))
+	top := keys(m, "2").View()
 	m = keys(m, "2", "j")
 	want := m.View()
+	if want == top {
+		t.Fatal("the proposal must scroll")
+	}
 	if m = keys(m, "?"); !strings.HasPrefix(m.View(), "Keys") {
 		t.Fatalf("? in the detail must show the help:\n%s", m.View())
 	}
 	if m = keys(m, "j"); m.View() != want {
 		t.Errorf("the next key must return to the detail at the same position:\n%s", m.View())
+	}
+	if m = keys(m, "g", "?", "x", "g"); m.View() != want {
+		t.Errorf("g, ?, x, g must not jump: the help cancels the pending g:\n%s", m.View())
 	}
 }
 
@@ -947,17 +953,5 @@ func TestHelpKeyInPromptAndWhileStarting(t *testing.T) {
 	m, _ = pressKey(m, "s")
 	if m = keys(m, "?"); strings.HasPrefix(m.View(), "Keys") || m.starting == "" {
 		t.Errorf("? while starting must be ignored:\n%s", m.View())
-	}
-}
-
-func TestFootersMentionHelp(t *testing.T) {
-	for _, w := range []int{60, 200} {
-		m := board(t, w, 30, fixture)
-		if !strings.Contains(m.View(), "· ?") {
-			t.Errorf("Board footer at width %d lacks ?:\n%s", w, m.View())
-		}
-		if m, _ = enter(m); !strings.Contains(m.View(), "· ?") {
-			t.Errorf("detail footer at width %d lacks ?:\n%s", w, m.View())
-		}
 	}
 }

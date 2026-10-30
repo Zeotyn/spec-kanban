@@ -24,7 +24,7 @@ Starting a Change SHALL create a new herdr tab whose working directory is the Pr
 - **THEN** `herdr agent list` shows an agent for that Change, so its status appears in the herdr sidebar
 
 ### Requirement: Start does not duplicate a running session
-When an agent for the Change is already running, Start SHALL focus that agent instead of creating another tab or agent. Whether it still runs SHALL be decided by the kind herdr reports for that agent, whatever kind Start would launch now. When it has exited, Start SHALL start the chosen kind again in its tab. When another program holds that tab's pane, Start SHALL fail naming that program.
+When an agent for the Change is already running, Start SHALL focus that agent instead of creating another tab or agent. The agent SHALL count as running while anything but the shell holds the foreground of its pane, whatever its kind and whatever kind Start would launch now. Only when the shell is idle again SHALL Start start the chosen kind again in that tab. A program other than the agent in the foreground SHALL be treated like a running agent: its tab is focused and nothing is started.
 
 #### Scenario: Start twice
 - **WHEN** the user starts `m1-board-view` and then starts it again while the first agent is still running
@@ -38,6 +38,10 @@ When an agent for the Change is already running, Start SHALL focus that agent in
 - **WHEN** the agent for `m1-board-view` has exited but its tab is still open, and the user starts the Change again
 - **THEN** no second tab is created; the tab is focused, then the chosen agent kind is started again in it and receives the configured prompt
 
+#### Scenario: Agent shown as node
+- **WHEN** a Gemini agent `m1-board-view` is running and its process shows as `node`
+- **THEN** no second tab is created and the Gemini agent's tab is focused
+
 #### Scenario: Another program in the tab
 - **WHEN** the agent for `m1-board-view` has exited and `vim` runs in its tab
-- **THEN** Start creates no tab, starts no agent, and reports that the pane runs `vim`
+- **THEN** Start creates no tab, starts no agent, and focuses that tab

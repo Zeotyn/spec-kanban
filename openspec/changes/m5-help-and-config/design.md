@@ -46,15 +46,15 @@ So a user working with Codex who opens the Board from that pane gets Codex witho
 ### The prompt stays `/opsx:apply {change}`
 OpenSpec installs its commands per tool (`openspec init --tools claude,codex,…`), and their names and syntax differ by tool. The plugin does not map kinds to commands: the default prompt stays the Claude command, and the README says that with another agent kind, detected or configured, the `prompt` has to name the command OpenSpec installed for that tool. Alternative: a built-in kind→command table; it would go stale with every OpenSpec release and still be wrong for users with their own prompt. No warning for a non-Claude kind with the default prompt either: the plugin cannot know which commands a tool has.
 
-### Still-running check: foreground argv0 against the kind
-`agentRunning(run, pane, kind)` keeps the `pane process-info` logic and compares `argv0` with `kind` instead of `"claude"`. `kind` is the `agent` field of the `agent get <change>` that `Prepare` already makes (the kind herdr detected for that agent, so a config change or another invoking pane since it started does not turn a running agent into "another program"), and the kind from `start.Kind` when that field is empty. A restart after exit uses the kind from `start.Kind`. The error for a foreign program names the kind: `pane w2:p1 runs vim, not codex: quit it and start again`. Alternatives:
+### Still-running check: is the shell idle
+`agentRunning(run, pane)` keeps the `pane process-info` call but ignores `argv0`: the agent counts as running whenever the foreground process group is not the shell (`foreground_process_group_id != shell_pid`), and Start restarts only when the shell is idle, which is also what `herdr agent start` requires. Node-based kinds (`gemini`, `copilot`, `opencode`, …) show `argv0` `node`, so comparing `argv0` with the kind would call a running agent "another program". `Prepare` no longer needs a kind; the Board resolves it with `start.Kind` only when something has to be launched. Alternatives:
 - `agent_status` / `interactive_ready` from `agent get` or `agent list`: no extra call, but herdr keeps an exited agent registered with status `done`, which also means "finished a turn", and `interactive_ready` is not documented as cleared on exit. Not reliable.
 - `agent explain`: screen-detection rules per kind; it reports a state, not whether the process lives. Not reliable either.
-- A per-kind executable table: `--kind` is already the canonical executable, so the table would be the identity for every kind we can verify.
-Trade-off: an agent whose process shows a different `argv0` (e.g. a Node launcher showing `node`) is reported as "another program" while it runs, so `s` errors instead of focusing it; nothing is restarted over it. Verified for `claude`; the smoke test checks one other kind. If a kind shows up wrong, accept a second `argv0` for it then.
+- `argv0` against the kind: fails for node-based kinds, and a per-kind alias table would need verifying every kind.
+Trade-off: a program other than the agent in the foreground (e.g. `vim`) is treated like a running agent: `s` focuses its tab and starts nothing, so nothing is typed into that program.
 
 ### Kind and prompt flow as arguments
-`start.Launch(change, kind, prompt, pane, tab, run)` runs `agent start <change> --kind <kind>` and sends `prompt` verbatim; `start.Start` and `start.Prepare` take `kind` too. The Board process loads the config once and passes kind and rendered prompt to the child: `kanban launch <change> <pane> <tab> <kind> <prompt>` (exec argv, no shell quoting issues). Error texts say "the agent" or the kind instead of "Claude". The child does not read the config again, so the kind and prompt configured when the Board opened are the ones used, and a config warning has exactly one place to appear. `kanban start` loads the config itself and prints a warning to stderr.
+`start.Launch(change, kind, prompt, pane, tab, run)` runs `agent start <change> --kind <kind>` and sends `prompt` verbatim (herdr reads the text positionally, even with a leading `-`, and rejects `--`); `start.Start` takes `kind` too. The Board process loads the config once and passes kind and rendered prompt to the child: `kanban launch <change> <pane> <tab> <kind> <prompt>` (exec argv, no shell quoting issues). Error texts say "the agent" or the kind instead of "Claude". The child does not read the config again, so the kind and prompt configured when the Board opened are the ones used, and a config warning has exactly one place to appear. `kanban start` loads the config itself and prints a warning to stderr.
 
 ### Running badge stays as is
 `start.Running` matches agents by `name` and `cwd` only, never by kind, so the badge works for every kind without change.
@@ -67,7 +67,7 @@ Trade-off: an agent whose process shows a different `argv0` (e.g. a Node launche
 
 ## Risks / Trade-offs
 
-- [An agent's process shows another `argv0` than its kind] → `s` reports "another program" instead of focusing; nothing is overwritten. Smoke test with a second kind; add an alias for that kind if needed.
+- [Another program holds the agent's tab] → `s` only focuses that tab; the user quits the program and presses `s` again.
 - [herdr adds or renames kinds] → `config.Kinds` rejects new ones with a warning naming the value; updating the list is a one-line change.
 - [Another kind with the default `/opsx:apply` prompt] → that tool may not know the command; the README says so next to `agent`.
 

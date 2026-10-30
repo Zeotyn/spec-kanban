@@ -21,6 +21,7 @@ Filter prompt
                                            
 Details                                    
   1-4, tab     switch document             
+  shift+tab    previous document           
   j/k gg/G     scroll, top/end             
   ctrl+d/u     half page down/up           
   e            edit the document           

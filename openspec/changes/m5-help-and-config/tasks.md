@@ -8,8 +8,8 @@
 ## 2. Start takes kind and prompt (TDD)
 
 - [x] 2.1 Write failing tests for `start.Kind` (fake runner): configured kind wins without calling herdr; empty pane gives `claude`; `agent get <pane>` reporting `codex` gives `codex`; `agent_not_found`, other herdr error, unparsable output and a kind outside `config.Kinds` give `claude`
-- [x] 2.2 Change `start` tests: `Launch` runs `agent start … --kind <kind>` and sends the given prompt verbatim (default and custom); `Prepare` treats a pane whose foreground `argv0` equals the agent's reported `agent` (`codex`) as running and focuses it; with an empty `agent` field it compares with the passed kind; a foreign program's error names the program and the kind; main's `launch` test passes kind and prompt through
-- [x] 2.3 Implement `start.Kind`, the kind and prompt parameters in `start.Launch`/`start.Prepare`/`start.Start`, `agentRunning(run, pane, kind)`, `kanban launch <change> <pane> <tab> <kind> <prompt>` and `spawnLaunch`; update the usage text and error texts that say Claude
+- [x] 2.2 Change `start` tests: `Launch` runs `agent start … --kind <kind>` and sends the given prompt verbatim (default and custom); `Prepare` treats a pane whose foreground is not the shell as running and focuses it, also for a `node` process or `vim`; main's `launch` test passes kind and prompt through
+- [x] 2.3 Implement `start.Kind`, the kind and prompt parameters in `start.Launch`/`start.Start`, `agentRunning(run, pane)` checking only whether the shell is idle, `kanban launch <change> <pane> <tab> <kind> <prompt>` and `spawnLaunch`; update the usage text and error texts that say Claude
 - [x] 2.4 Write a failing test for `open`: a context with `focused_pane_id` adds `--env KANBAN_MAIN_PANE=<id>`, none without it; implement it
 
 ## 3. Hidden Phases on the Board (TDD)
@@ -24,7 +24,7 @@
 
 ## 5. Wiring
 
-- [x] 5.1 `showBoard` loads the config, passes hidden Phases and the warning as initial notice to `board.New`; on `s` the Board resolves the kind with `start.Kind(cfg.Agent, KANBAN_MAIN_PANE)` and passes it with the rendered prompt to `Prepare` and `spawnLaunch`; `startChange` loads the config, prints a warning to stderr and uses `start.Kind(cfg.Agent, HERDR_PANE_ID)` and the prompt; test the stderr warning with a broken config in a temp dir
+- [x] 5.1 `showBoard` loads the config, passes hidden Phases and the warning as initial notice to `board.New`; on `s` the Board resolves the kind with `start.Kind(cfg.Agent, KANBAN_MAIN_PANE)` and passes it with the rendered prompt to `spawnLaunch`; `startChange` loads the config, prints a warning to stderr and uses `start.Kind(cfg.Agent, HERDR_PANE_ID)` and the prompt; test the stderr warning with a broken config in a temp dir
 
 ## 6. Docs
 
@@ -33,4 +33,4 @@
 ## 7. Verification
 
 - [x] 7.1 `go test -race ./...`, `go vet ./...` and `gofmt -l .` pass
-- [ ] 7.2 Smoke test in herdr: rebuild; `?` on the Board and in the detail view shows the help, any key closes it; write `config.json` with `"hide": ["Archived"]` and a custom prompt, reopen the Board: four columns, `s` on a Ready Card sends the custom prompt; break the JSON, reopen: five columns and a footer warning; `kanban start` from a shell prints the warning; open the Board from a plain shell pane and start: Claude; set `"agent": "gemini"` with a matching prompt, start, then `s` again on the same Card: the running Gemini agent is focused (checks its `argv0`; if it shows another name, record it in design.md); remove the file again
+- [ ] 7.2 Smoke test in herdr: rebuild; `?` on the Board and in the detail view shows the help, any key closes it; write `config.json` with `"hide": ["Archived"]` and a custom prompt, reopen the Board: four columns, `s` on a Ready Card sends the custom prompt; break the JSON, reopen: five columns and a footer warning; `kanban start` from a shell prints the warning; open the Board from a plain shell pane and start: Claude; set `"agent": "gemini"` with a matching prompt, start, then `s` again on the same Card: the running Gemini agent is focused; remove the file again

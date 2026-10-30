@@ -123,12 +123,13 @@ func TestPrepare(t *testing.T) {
 		{"new tab, not focused", map[string]string{"tab create": "tab-create.json"}, map[string]error{"agent get": notFound}, []string{get, create}, "w2:p1J", "w2:tG"},
 		{"agent running: focus only", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info, focus}, "", ""},
 		{"agent exited: its tab, not focused", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{get, info}, "w2:p1J", "w2:tG"},
-		{"agent of its reported kind running: focus only", map[string]string{"agent get": "agent-get-codex.json", "pane process-info": "process-info-codex.json"}, nil, []string{get, info, focus}, "", ""},
+		{"node-based agent running: focus only", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-node.json"}, nil, []string{get, info, focus}, "", ""},
+		{"other program in the foreground: focus only", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-other.json"}, nil, []string{get, info, focus}, "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			pane, tab, err := Prepare(proj, change, "claude", h.run) // the reported kind wins over the one passed
+			pane, tab, err := Prepare(proj, change, h.run)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -139,25 +140,6 @@ func TestPrepare(t *testing.T) {
 				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)
 			}
 		})
-	}
-}
-
-func TestPrepareWithoutReportedKind(t *testing.T) {
-	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get-no-kind.json", "pane process-info": "process-info-codex.json"}}
-	pane, _, err := Prepare(proj, change, "codex", h.run)
-	if err != nil || pane != "" || !reflect.DeepEqual(h.calls, []string{get, info, focus}) {
-		t.Fatalf("want the passed kind compared and the agent focused, got pane %q, %v, %q", pane, err, h.calls)
-	}
-	h = &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get-no-kind.json", "pane process-info": "process-info-codex.json"}}
-	if _, _, err := Prepare(proj, change, "claude", h.run); err == nil || !strings.Contains(err.Error(), "runs codex, not claude") {
-		t.Fatalf("want an error naming the program and the kind, got %v", err)
-	}
-}
-
-func TestPrepareForeignProgramNamesKind(t *testing.T) {
-	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get-codex.json", "pane process-info": "process-info-other.json"}}
-	if _, _, err := Prepare(proj, change, "claude", h.run); err == nil || !strings.Contains(err.Error(), "pane w2:p1J runs vim, not codex") {
-		t.Fatalf("want an error naming vim and codex, got %v", err)
 	}
 }
 
@@ -205,6 +187,17 @@ func TestLaunchKindAndPrompt(t *testing.T) {
 	want := []string{tfocus, "agent start " + change + " --kind codex --pane w2:p1J --timeout 60000", "agent prompt " + change + " /opsx-apply " + change + " with TDD"}
 	if !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
+	}
+}
+
+func TestLaunchPromptWithLeadingDash(t *testing.T) { // herdr reads the text positionally and rejects --
+	var last []string
+	run := func(args ...string) ([]byte, error) { last = args; return nil, nil }
+	if err := Launch(change, "claude", "-x "+change, "w2:p1J", "w2:tG", run); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"agent", "prompt", change, "-x " + change}; !reflect.DeepEqual(last, want) {
+		t.Errorf("got %q, want %q", last, want)
 	}
 }
 
@@ -314,7 +307,6 @@ func TestStartWithUnexpectedPaneState(t *testing.T) {
 		fail  map[string]error
 		wants string
 	}{
-		{"other program in the foreground", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-other.json"}, nil, "vim"},
 		{"process-info fails", map[string]string{"agent get": "agent-get.json"}, map[string]error{"pane process-info": errors.New("pane_not_found")}, "pane_not_found"},
 		{"process-info without shell pid", map[string]string{"agent get": "agent-get.json"}, nil, "process-info"},
 	}

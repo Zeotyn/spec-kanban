@@ -66,6 +66,7 @@ Filter prompt
 
 Details
   1-4, tab     switch document
+  shift+tab    previous document
   j/k gg/G     scroll, top/end
   ctrl+d/u     half page down/up
   e            edit the document
@@ -101,10 +102,9 @@ type Model struct {
 	width, height int
 }
 
-// New builds the Board. A non-nil snapshot (the cached last load) is shown at once while the fresh
-// load from Init runs; nil means show a loading notice until then. agents looks up the Running agents
-// and start Starts a Change; either may be nil when not needed (no badges, s does nothing). hide marks
-// the Phases whose columns are not shown; notice replaces the footer until the first key.
+// New builds the Board. A non-nil snapshot (the cached last load) is shown while Init loads afresh.
+// agents and start may be nil (no badges, s does nothing). hide marks Phases not shown as columns;
+// notice replaces the footer until the first key.
 func New(project string, load func() ([]openspec.Change, error), now func() time.Time, snapshot []openspec.Change,
 	agents func() (map[string]bool, error), start func(change string) error, hide [columns]bool, notice string) Model {
 	m := Model{project: project, load: load, agents: agents, start: start, now: now, hide: hide, notice: notice,
@@ -149,6 +149,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case k.String() == "?":
 			m.help, m.notice, m.nav.pendingG = true, "", false
+			if m.detail != nil { // ? is no detail key: it only clears the detail's pending g and notice
+				d, _ := m.detail.Update(k)
+				m.detail = &d
+			}
 			return m, nil
 		}
 	}

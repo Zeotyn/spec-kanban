@@ -126,24 +126,20 @@ func startChange(change string, stderr io.Writer) error {
 func showBoard(proj string) error {
 	dir := cache.Dir()
 	cfg, warn := config.Load(config.Dir(herdr.Exec))
-	var hide [5]bool
-	for _, p := range cfg.Hide {
-		hide[p] = true
-	}
 	notice := ""
 	if warn != nil {
 		notice = warn.Error()
 	}
 	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec) }
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
-		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
-		pane, tab, err := start.Prepare(proj, change, kind, herdr.Exec)
+		pane, tab, err := start.Prepare(proj, change, herdr.Exec)
 		if err != nil || pane == "" {
 			return err
 		}
+		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
 		return spawnLaunch(change, pane, tab, kind, cfg.PromptFor(change))
 	}
-	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne, hide, notice), tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne, cfg.Hide, notice), tea.WithAltScreen()).Run()
 	return err
 }
 
@@ -170,7 +166,7 @@ func childEnv(env []string) []string {
 	})
 }
 
-// launch runs start.Launch and, since nobody watches its stderr, reports a failure as a herdr notification.
+// launch runs start.Launch and reports a failure as a herdr notification: nobody reads its stderr.
 func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 	err := start.Launch(change, kind, prompt, pane, tab, run)
 	if err != nil {

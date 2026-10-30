@@ -19,7 +19,7 @@ func Start(project, change, kind, prompt string, run, openspecRun herdr.Runner) 
 	if err := checkOpen(project, change, openspecRun); err != nil {
 		return err
 	}
-	pane, tab, err := Prepare(project, change, kind, run)
+	pane, tab, err := Prepare(project, change, run)
 	if err != nil || pane == "" {
 		return err
 	}
@@ -49,19 +49,16 @@ func Kind(configured, pane string, run herdr.Runner) string {
 	return got.Result.Agent.Agent
 }
 
-// Prepare returns the pane and tab the agent has to be launched in, both "" when there is nothing to
-// launch. It only focuses a running agent, returns the tab of an exited one, and opens a new tab
-// otherwise, both without focusing them: focus moves only in Launch. An agent of that name working
-// outside project is refused. Whether it runs is judged by the kind herdr reports for it, by kind
-// when herdr reports none.
-func Prepare(project, change, kind string, run herdr.Runner) (pane, tab string, err error) {
+// Prepare returns the pane and tab to launch the agent in, "" for none: it focuses a busy agent tab,
+// returns an idle one or opens a new one unfocused (focus moves only in Launch). An agent of that
+// name outside project is refused.
+func Prepare(project, change string, run herdr.Runner) (pane, tab string, err error) {
 	out, err := run("agent", "get", change)
 	switch {
 	case err == nil:
 		var got struct {
 			Result struct {
 				Agent struct {
-					Agent  string `json:"agent"`
 					PaneID string `json:"pane_id"`
 					TabID  string `json:"tab_id"`
 					Cwd    string `json:"cwd"`
@@ -75,10 +72,7 @@ func Prepare(project, change, kind string, run herdr.Runner) (pane, tab string, 
 			return "", "", fmt.Errorf("agent %s already runs in %s", change, cwd)
 		}
 		a := got.Result.Agent
-		if a.Agent != "" {
-			kind = a.Agent
-		}
-		running, err := agentRunning(run, a.PaneID, kind)
+		running, err := agentRunning(run, a.PaneID)
 		if err != nil {
 			return "", "", err
 		}
@@ -163,9 +157,10 @@ func inside(dir, project string) bool {
 	return dir == project || strings.HasPrefix(dir, project+string(filepath.Separator))
 }
 
-// agentRunning reports whether the agent of kind runs in the foreground of pane. It is false when only
-// the shell is left (the agent exited) and an error when another program holds the pane.
-func agentRunning(run herdr.Runner, pane, kind string) (bool, error) {
+// agentRunning reports whether anything but the shell holds the foreground of pane: the agent, or a
+// program the user started there, which is focused rather than overwritten. Its argv0 says nothing,
+// since node-based agents show up as node.
+func agentRunning(run herdr.Runner, pane string) (bool, error) {
 	out, err := run("pane", "process-info", "--pane", pane)
 	if err != nil {
 		return false, fmt.Errorf("pane process-info: %w", err)
@@ -173,31 +168,15 @@ func agentRunning(run herdr.Runner, pane, kind string) (bool, error) {
 	var info struct {
 		Result struct {
 			ProcessInfo struct {
-				ShellPID   int `json:"shell_pid"`
-				Group      int `json:"foreground_process_group_id"`
-				Foreground []struct {
-					Argv0 string `json:"argv0"`
-				} `json:"foreground_processes"`
+				ShellPID int `json:"shell_pid"`
+				Group    int `json:"foreground_process_group_id"`
 			} `json:"process_info"`
 		} `json:"result"`
 	}
 	if err := json.Unmarshal(out, &info); err != nil || info.Result.ProcessInfo.ShellPID == 0 {
 		return false, fmt.Errorf("pane process-info: unexpected output %s", out)
 	}
-	p := info.Result.ProcessInfo
-	for _, proc := range p.Foreground {
-		if proc.Argv0 == kind {
-			return true, nil
-		}
-	}
-	if p.Group == p.ShellPID {
-		return false, nil
-	}
-	busy := "another program"
-	if len(p.Foreground) > 0 {
-		busy = p.Foreground[0].Argv0
-	}
-	return false, fmt.Errorf("pane %s runs %s, not %s: quit it and start again", pane, busy, kind)
+	return info.Result.ProcessInfo.Group != info.Result.ProcessInfo.ShellPID, nil
 }
 
 // checkOpen fails unless change is an open Change of project.

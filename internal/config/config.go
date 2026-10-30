@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -16,14 +17,15 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/phase"
 )
 
-// Kinds are the values herdr 0.9.5 accepts for agent start --kind.
+// Kinds: update from `herdr agent start --help`.
 var Kinds = []string{"pi", "claude", "codex", "gemini", "cursor", "devin", "agy", "cline", "omp", "mastracode", "opencode", "copilot", "kimi", "kiro", "droid", "amp", "grok", "hermes", "kilo", "qodercli", "qwen", "letta", "maki", "muse"}
 
-// Config holds the settings; an empty Agent means detect the kind from the invoking pane.
+// Config holds the settings; an empty Agent means detect the kind from the invoking pane, Hide is
+// indexed by Phase.
 type Config struct {
 	Agent  string
 	Prompt string
-	Hide   []phase.Phase
+	Hide   [5]bool
 }
 
 // Default is the config without a file.
@@ -46,6 +48,9 @@ func Parse(b []byte) (Config, error) {
 	if err := dec.Decode(&raw); err != nil {
 		return Default(), err
 	}
+	if dec.Decode(new(any)) != io.EOF {
+		return Default(), errors.New("data after the JSON object")
+	}
 	cfg := Default()
 	if raw.Agent != nil {
 		if !slices.Contains(Kinds, *raw.Agent) {
@@ -59,7 +64,6 @@ func Parse(b []byte) (Config, error) {
 		}
 		cfg.Prompt = *raw.Prompt
 	}
-	var hidden [phase.Archived + 1]bool
 	for _, name := range raw.Hide {
 		p := phase.Draft
 		for p <= phase.Archived && !strings.EqualFold(p.String(), name) {
@@ -68,10 +72,9 @@ func Parse(b []byte) (Config, error) {
 		if p > phase.Archived {
 			return Default(), fmt.Errorf("hide: unknown phase %q", name)
 		}
-		hidden[p] = true
-		cfg.Hide = append(cfg.Hide, p)
+		cfg.Hide[p] = true
 	}
-	if !slices.Contains(hidden[:], false) {
+	if !slices.Contains(cfg.Hide[:], false) {
 		return Default(), errors.New("hide: all phases hidden")
 	}
 	return cfg, nil
