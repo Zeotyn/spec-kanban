@@ -136,7 +136,7 @@ When the Changes cannot be read, the Board SHALL show the error message in place
 
 #### Scenario: Start a Ready Card
 - **WHEN** Card `m1-board-view` is selected in Ready and the user presses `s`
-- **THEN** the footer says `m1-board-view` is starting, a new tab labelled `m1-board-view` is created and the Board closes before Claude is ready; the tab is then focused, Claude starts in it and receives `/opsx:apply m1-board-view`
+- **THEN** the footer says `m1-board-view` is starting, a worktree workspace labelled `m1-board-view` is opened and the Board closes before Claude is ready; its tab is then focused, Claude starts in it and receives `/opsx:apply m1-board-view`
 
 #### Scenario: Start a Change whose agent is running
 - **WHEN** Card `m1-board-view` in In Progress has a Running agent and the user presses `s`
@@ -167,11 +167,15 @@ When the Changes cannot be read, the Board SHALL show the error message in place
 - **THEN** the Board does not change and the Start continues
 
 ### Requirement: Running agent badge
-An open Card SHALL show a Running agent badge when herdr reports an agent named after the Change whose working directory lies in the Project. The badge SHALL use a terminal colour, not change the Card's Phase or column, and not appear on Archived Cards. Looking up Running agents SHALL not delay showing the Board: the Cards SHALL appear without badges and gain them when herdr answers. `r` SHALL look them up again. When herdr cannot be asked, the Board SHALL show no badges and no error.
+An open Card SHALL show a Running agent badge when herdr reports an agent named after the Change whose working directory lies in the Project or in another checkout of the Project's git repository. The badge SHALL use a terminal colour, not change the Card's Phase or column, and not appear on Archived Cards. Looking up Running agents SHALL not delay showing the Board: the Cards SHALL appear without badges and gain them when herdr answers. `r` SHALL look them up again. When herdr cannot be asked, the Board SHALL show no badges and no error.
 
 #### Scenario: Agent working on a Change
 - **WHEN** herdr reports an agent named `m1-board-view` working in the Project and the Board opens
 - **THEN** Card `m1-board-view` shows the Running agent badge and stays in its Phase column
+
+#### Scenario: Agent working in a worktree
+- **WHEN** herdr reports an agent named `m1-board-view` working in a linked worktree of the Project's repository
+- **THEN** Card `m1-board-view` shows the Running agent badge
 
 #### Scenario: Same name in another Project
 - **WHEN** herdr reports an agent named `m1-board-view` whose working directory is another Project
