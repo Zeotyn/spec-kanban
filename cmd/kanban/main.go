@@ -221,7 +221,7 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 	}
 	cfg, _ := config.Load(config.Dir(run)) // a broken config was already shown by the Board
 	dir, git := cache.Dir(), gitCLI(proj)
-	start.Watch(start.Watched{Project: proj, Change: change, Main: os.Getenv("KANBAN_MAIN_PANE"), Base: cfg.Base,
+	start.Watch(start.Watched{Project: proj, Change: change, Main: os.Getenv("KANBAN_MAIN_PANE"), Base: cfg.Base, On: cfg.Worktree,
 		Load:   loader(dir, proj, openspecCLI, git),
 		Record: func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
 	}, run, git)

@@ -16,6 +16,7 @@ type Watched struct {
 	Project, Change string
 	Main            string // pane the Board was opened from, "" when unknown
 	Base            string // configured base, "" to detect it
+	On              bool   // Start works in the Change's checkout (config worktree)
 	Load            func() ([]openspec.Change, error)
 	Record          func(herdr.Session)
 }
@@ -25,6 +26,7 @@ type agent struct {
 	Agent   string         `json:"agent"`
 	Status  string         `json:"agent_status"`
 	Pane    string         `json:"pane_id"`
+	Seq     int            `json:"state_change_seq"`
 	Session *herdr.Session `json:"agent_session"`
 }
 
@@ -60,12 +62,20 @@ func Watch(w Watched, run, git herdr.Runner) {
 		if err != nil {
 			return
 		}
+		if a.Status != "idle" && a.Status != "done" && a.Status != "blocked" {
+			continue // its next turn began before it was read
+		}
 		text, finished, stopped := w.check(git, a)
-		if finished && a.Status != "blocked" {
+		if finished {
 			w.handoff(run, a.Pane, text)
 			return
 		}
 		run("notification", "show", "openspec-kanban: "+w.Change+" stopped", "--body", stopped)
+		if b, err := w.get(run); err != nil {
+			return
+		} else if b.Seq != a.Seq {
+			continue // it moved on while being checked, maybe through a whole turn
+		}
 		if _, err := run("agent", "wait", w.Change, "--until", "working"); err != nil {
 			return
 		}
@@ -81,17 +91,22 @@ func (w Watched) get(run herdr.Runner) (agent, error) {
 	return a, err
 }
 
-// check tells whether the Change is finished, and returns the Handoff text for it and the
-// notification body for when the agent stopped without finishing it.
+// check tells whether the Change of the settled agent a is finished, and returns the Handoff text
+// for it and the notification body for when the agent stopped without finishing it.
 func (w Watched) check(git herdr.Runner, a agent) (text string, finished bool, stopped string) {
 	changes, err := w.Load()
-	if err != nil {
+	switch {
+	case err != nil && a.Status == "blocked":
+		return "", false, w.Change + " waits for input"
+	case err != nil:
 		return "", false, err.Error()
 	}
 	checkout := ""
-	for _, c := range worktree.List(git) {
-		if c.Branch == w.Change && filepath.Clean(c.Path) != filepath.Clean(w.Project) {
-			checkout = c.Path
+	if w.On {
+		for _, c := range worktree.List(git) {
+			if c.Branch == w.Change && filepath.Clean(c.Path) != filepath.Clean(w.Project) {
+				checkout = c.Path
+			}
 		}
 	}
 	var open *openspec.Change
@@ -203,7 +218,10 @@ func ResumeCommand(s herdr.Session) string {
 // reopening s; no prompt is sent.
 func Resume(change string, s herdr.Session, pane, tab string, run herdr.Runner) error {
 	args := ResumeArgs(s)
-	if args == nil {
+	switch {
+	case s.Agent == "":
+		return fmt.Errorf("no reopenable session for %s", change)
+	case args == nil:
 		return fmt.Errorf("resume not supported for %s", s.Agent)
 	}
 	if _, err := run("tab", "focus", tab); err != nil {

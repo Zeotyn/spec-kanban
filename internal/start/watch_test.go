@@ -85,7 +85,7 @@ var (
 )
 
 func watched(load func() ([]openspec.Change, error), rec *[]herdr.Session) Watched {
-	return Watched{Project: proj, Change: change, Main: mainPane, Load: load,
+	return Watched{Project: proj, Change: change, Main: mainPane, On: true, Load: load,
 		Record: func(s herdr.Session) { *rec = append(*rec, s) }}
 }
 
@@ -109,15 +109,21 @@ func TestWatch(t *testing.T) {
 			loads(all7), append([]string{wget, wready, wsettle, wget}, cleanEnd...)},
 		{"tasks left: notification, then handoff at the next settle", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
 			loads([]openspec.Change{{Name: change, Done: 3, Total: 7}}, all7),
-			append([]string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 3/7 tasks"), wworking, wsettle, wget}, cleanEnd...)},
-		{"blocked with all tasks done: waits for input", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wworking: {"agent-get-watched.json", notFound}},
-			loads(all7), []string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input at 7/7 tasks"), wworking}},
-		{"load error: stopped", map[string][]any{wget: {"agent-get-watched.json"}, wworking: {"agent-get-watched.json", notFound}},
-			loads(boom), []string{wget, wready, wsettle, wget, notify("stopped", "boom"), wworking}},
-		{"Change neither open nor archived: not clean", map[string][]any{wget: {"agent-get-watched.json"}, wworking: {"agent-get-watched.json", notFound}},
-			loads([]openspec.Change{{Name: "other"}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" is neither open nor archived"), wworking}},
-		{"no tasks: not clean", map[string][]any{wget: {"agent-get-watched.json"}, wworking: {"agent-get-watched.json", notFound}},
-			loads([]openspec.Change{{Name: change}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 0/0 tasks"), wworking}},
+			append([]string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 3/7 tasks"), wget, wworking, wsettle, wget}, cleanEnd...)},
+		{"blocked with all tasks done: waits for input", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
+			loads(all7), []string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input at 7/7 tasks"), wget, wworking}},
+		{"load error: stopped", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
+			loads(boom), []string{wget, wready, wsettle, wget, notify("stopped", "boom"), wget, wworking}},
+		{"Change neither open nor archived: not clean", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
+			loads([]openspec.Change{{Name: "other"}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" is neither open nor archived"), wget, wworking}},
+		{"no tasks: not clean", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
+			loads([]openspec.Change{{Name: change}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 0/0 tasks"), wget, wworking}},
+		{"blocked with a load error: waits for input", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
+			loads(boom), []string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input"), wget, wworking}},
+		{"turn ended while evaluating: evaluated again at once", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json", "agent-get-watched-later.json"}, mget: {"agent-get-main.json"}},
+			loads(all7), append([]string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input at 7/7 tasks"), wget, wsettle, wget}, cleanEnd...)},
+		{"working again when read: no handoff, no notification", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-working.json", "agent-get-watched.json"}, mget: {"agent-get-main.json"}},
+			loads(all7), append([]string{wget, wready, wsettle, wget, wsettle, wget}, cleanEnd...)},
 		{"agent gone while settling", map[string][]any{wget: {"agent-get-watched.json"}, wsettle: {notFound}},
 			loads(all7), []string{wget, wready, wsettle}},
 		{"agent gone after settling", map[string][]any{wget: {"agent-get-watched.json", notFound}},
@@ -148,8 +154,8 @@ func TestWatchRecordsWhenReadyAndAtEverySettle(t *testing.T) {
 	h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
 	var rec []herdr.Session
 	Watch(watched(loads([]openspec.Change{{Name: change, Done: 3, Total: 7}}, all7), &rec), h.run, noGit)
-	if len(rec) != 3 {
-		t.Errorf("want 3 records (ready, two settles), got %v", rec)
+	if len(rec) != 4 {
+		t.Errorf("want 4 records (ready, two settles, after the notification), got %v", rec)
 	}
 }
 
@@ -200,6 +206,17 @@ func TestWatchCheckout(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestWatchWorktreeOffIgnoresCheckout(t *testing.T) {
+	h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
+	var rec []herdr.Session
+	w := watched(loads(all7), &rec)
+	w.On = false
+	Watch(w, h.run, gitWith(nil, proj, "main", t.TempDir(), change).run)
+	if want := append([]string{wget, wready, wsettle, wget}, cleanEnd...); !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 	}
 }
 
@@ -311,6 +328,9 @@ func TestResume(t *testing.T) {
 
 func TestResumeFails(t *testing.T) {
 	h := &fakeHerdr{t: t}
+	if err := Resume(change, herdr.Session{}, "w2:p1J", "w2:tG", h.run); err == nil || err.Error() != "no reopenable session for "+change || len(h.calls) != 0 {
+		t.Errorf("no record: want error without herdr calls, got %v, %q", err, h.calls)
+	}
 	if err := Resume(change, herdr.Session{Agent: "pi", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", h.run); err == nil || !strings.Contains(err.Error(), "resume not supported for pi") || len(h.calls) != 0 {
 		t.Errorf("want error without herdr calls, got %v, %q", err, h.calls)
 	}
