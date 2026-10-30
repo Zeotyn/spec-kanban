@@ -10,10 +10,10 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
-// Dir returns where a Change's files live: openspec/changes/<name> when open, openspec/changes/archive/<ArchivedOn>-<name>
+// changeDir returns where a Change's files live: openspec/changes/<name> when open, openspec/changes/archive/<ArchivedOn>-<name>
 // when archived with a date, openspec/changes/archive/<name> when archived without one; below c.Dir
 // instead of project when set.
-func Dir(project string, c work.Item) string {
+func changeDir(project string, c work.Item) string {
 	if c.Dir != "" {
 		project = c.Dir
 	}
@@ -27,8 +27,8 @@ func Dir(project string, c work.Item) string {
 	return filepath.Join(base, "archive", c.Name)
 }
 
-// Docs holds a Change's documents as markdown; a field is "" when the document does not exist.
-type Docs struct {
+// changeDocs holds a Change's documents as markdown; a field is "" when the document does not exist.
+type changeDocs struct {
 	Tasks, Proposal, Design string
 	Specs                   string   // every specs/**/spec.md in lexical path order, each as "# <capability path>\n\n<content>", joined by "\n\n"
 	SpecFiles               []string // paths of those spec.md files, same order, for the editor
@@ -37,13 +37,13 @@ type Docs struct {
 
 var task = regexp.MustCompile(`(?m)^[ \t]*[-*] \[( |x|X)\] (.*)$`)
 
-// Read reads the documents of the Change in dir; missing files and a missing dir give empty fields.
-func Read(dir string) Docs {
+// readDir reads the documents of the Change in dir; missing files and a missing dir give empty fields.
+func readDir(dir string) changeDocs {
 	read := func(name string) string {
 		b, _ := os.ReadFile(filepath.Join(dir, name))
 		return string(b)
 	}
-	d := Docs{Tasks: read("tasks.md"), Proposal: read("proposal.md"), Design: read("design.md")}
+	d := changeDocs{Tasks: read("tasks.md"), Proposal: read("proposal.md"), Design: read("design.md")}
 
 	specs := filepath.Join(dir, "specs")
 	var parts []string
@@ -70,4 +70,22 @@ func Read(dir string) Docs {
 		d.Next = "all tasks done"
 	}
 	return d
+}
+
+// ReadDocs returns the documents of it as the detail view's tabs: Tasks, Proposal, Design, Specs.
+func ReadDocs(project string, it work.Item) work.Docs {
+	dir := changeDir(project, it)
+	d := readDir(dir)
+	file := func(name string) []string { return []string{filepath.Join(dir, name)} }
+	return work.Docs{
+		Tabs: []work.Doc{
+			{Title: "Tasks", Body: d.Tasks, Files: file("tasks.md")},
+			{Title: "Proposal", Body: d.Proposal, Files: file("proposal.md")},
+			{Title: "Design", Body: d.Design, Files: file("design.md")},
+			{Title: "Specs", Body: d.Specs, Files: d.SpecFiles},
+		},
+		Tasks: 0,
+		First: 1,
+		Next:  d.Next,
+	}
 }

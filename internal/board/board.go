@@ -14,7 +14,6 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/detail"
 	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
@@ -78,6 +77,7 @@ var runningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // termin
 // Model shows the Board of one Project; an empty project means none was found.
 type Model struct {
 	project       string
+	docs          func(work.Item) work.Docs
 	load          func() ([]work.Item, error)
 	agents        func() (map[string]bool, error) // names of the Changes with a Running agent
 	start         func(change string) error
@@ -103,13 +103,13 @@ type Model struct {
 	width, height int
 }
 
-// New builds the Board. A non-nil snapshot (the cached last load) is shown while Init loads afresh.
+// New builds the Board; docs reads an Item's documents. A non-nil snapshot (the cached last load) is shown while Init loads afresh.
 // agents, start, resumable and resume may be nil (no badges, s does nothing, no record to resume).
 // hide marks Phases not shown as columns; notice replaces the footer until the first key.
-func New(project string, load func() ([]work.Item, error), now func() time.Time, snapshot []work.Item,
+func New(project string, docs func(work.Item) work.Docs, load func() ([]work.Item, error), now func() time.Time, snapshot []work.Item,
 	agents func() (map[string]bool, error), start func(change string) error,
 	resumable func(change string) (string, bool), resume func(change string) error, hide [columns]bool, notice string) Model {
-	m := Model{project: project, load: load, agents: agents, start: start, resumable: resumable, resume: resume, now: now, hide: hide, notice: notice,
+	m := Model{project: project, docs: docs, load: load, agents: agents, start: start, resumable: resumable, resume: resume, now: now, hide: hide, notice: notice,
 		loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
 		m.all, m.loaded = work.Group(snapshot), true
@@ -238,7 +238,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.nav.pendingG = false
 			if col := m.cols[m.nav.col]; len(col) > 0 {
 				c := col[m.nav.sel[m.nav.col]]
-				d := detail.New(m.project, c, detailHeader(c, work.Phase(m.nav.col)), m.width, m.height)
+				d := detail.New(func() work.Docs { return m.docs(c) }, c, detailHeader(c, work.Phase(m.nav.col)), m.width, m.height)
 				m.detail, m.detailOf = &d, c
 			}
 		case k == "e":
@@ -332,13 +332,14 @@ func (m *Model) updateDetailHeader() {
 	}
 }
 
-// edit opens c's tasks.md in the editor, or explains why not.
+// edit opens c's tasks file in the editor, or explains why not.
 func (m Model) edit(c work.Item) (Model, tea.Cmd) {
-	tasks := filepath.Join(openspec.Dir(m.project, c), "tasks.md")
 	if c.Phase == work.Archived {
 		m.notice = "archived changes are read-only"
 		return m, nil
 	}
+	docs := m.docs(c)
+	tasks := docs.Tabs[docs.Tasks].Files[0]
 	if _, err := os.Stat(tasks); err != nil {
 		m.notice = "no tasks to edit"
 		return m, nil

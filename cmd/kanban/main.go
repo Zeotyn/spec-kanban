@@ -182,7 +182,7 @@ func showBoard(proj string) error {
 		}
 		return spawn("resume", change, pane, tab)
 	}
-	_, err := tea.NewProgram(board.New(proj, asItems(loader(dir, proj, openspecCLI, git)), time.Now, openspec.Items(cache.Read(dir, proj)), running, startOne,
+	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return openspec.ReadDocs(proj, it) }, asItems(loader(dir, proj, openspecCLI, git)), time.Now, openspec.Items(cache.Read(dir, proj)), running, startOne,
 		resumable, resume, cfg.Hide, notice), tea.WithAltScreen()).Run()
 	return err
 }

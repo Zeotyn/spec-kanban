@@ -3,7 +3,7 @@ package detail
 
 import (
 	_ "embed"
-	"path/filepath"
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,7 +11,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
@@ -29,46 +28,42 @@ type CloseMsg struct{}
 // EditedMsg reports that the editor started from the detail view has exited.
 type EditedMsg struct{ Err error }
 
-const (
-	tasks = iota
-	proposal
-	design
-	specs
-	tabs
-)
-
-var tabNames = [tabs]string{"Tasks", "Proposal", "Design", "Specs"}
+// maxTabs is the most tabs a Source may return: one per digit key.
+const maxTabs = 9
 
 // chrome is header, tab bar, two rules and the footer.
 const chrome = 5
 
 type Model struct {
 	header        string
-	dir           string // the Change's folder
+	read          func() work.Docs
 	archived      bool
 	notice        string // one-line message in place of the footer, cleared by the next key
-	docs          openspec.Docs
+	docs          work.Docs
 	tab           int
-	off           [tabs]int
-	lines         [tabs][]string
+	off           [maxTabs]int
+	lines         [maxTabs][]string
 	width, height int
 	pendingG      bool
 }
 
-// New opens the details of c in project under header (built by the Board, which owns Card formatting).
-func New(project string, c work.Item, header string, width, height int) Model {
-	dir := openspec.Dir(project, c)
-	m := Model{header: header, dir: dir, archived: c.Phase == work.Archived, docs: openspec.Read(dir), width: width, height: height, tab: proposal}
+// New opens the details of c, whose documents read returns (again after the editor), under header
+// (built by the Board, which owns Card formatting).
+func New(read func() work.Docs, c work.Item, header string, width, height int) Model {
+	m := Model{header: header, read: read, archived: c.Phase == work.Archived, docs: read(), width: width, height: height}
+	m.tab = m.docs.First
 	if c.Total > 0 {
-		m.tab = tasks
+		m.tab = m.docs.Tasks
 	}
 	m.render()
 	return m
 }
 
-func (m Model) doc(tab int) string {
-	return [tabs]string{m.docs.Tasks, m.docs.Proposal, m.docs.Design, m.docs.Specs}[tab]
-}
+func (m Model) tabs() int { return len(m.docs.Tabs) }
+
+func (m Model) doc(tab int) string { return m.docs.Tabs[tab].Body }
+
+func (m Model) name(tab int) string { return m.docs.Tabs[tab].Title }
 
 // WithHeader replaces the header, e.g. after the Board reloaded the Change.
 func (m Model) WithHeader(header string) Model {
@@ -80,9 +75,9 @@ func (m Model) WithHeader(header string) Model {
 func (m Model) content(tab int) string {
 	doc := m.doc(tab)
 	if doc == "" {
-		return "_This change has no " + strings.ToLower(tabNames[tab]) + "._"
+		return "_This change has no " + strings.ToLower(m.name(tab)) + "._"
 	}
-	if tab == tasks && m.docs.Next != "" {
+	if tab == m.docs.Tasks && m.docs.Next != "" {
 		return m.docs.Next + "\n\n" + doc
 	}
 	return doc
@@ -94,7 +89,7 @@ func (m *Model) render() {
 		style = glamour.WithStandardStyle(Style)
 	}
 	r, err := glamour.NewTermRenderer(style, glamour.WithWordWrap(max(20, m.width-4)))
-	for t := range tabs {
+	for t := range m.tabs() {
 		out := m.content(t)
 		if err == nil {
 			if s, err := r.Render(out); err == nil {
@@ -116,7 +111,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.render()
 	case EditedMsg:
-		m.docs = openspec.Read(m.dir)
+		m.docs = m.read()
 		m.render()
 		if msg.Err != nil {
 			m.notice = "editor failed: " + msg.Err.Error()
@@ -133,12 +128,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m, func() tea.Msg { return CloseMsg{} }
 		case "ctrl+c":
 			return m, tea.Quit
-		case "1", "2", "3", "4":
-			m.tab = int(k[0] - '1')
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			if t := int(k[0] - '1'); t < m.tabs() {
+				m.tab = t
+			}
 		case "tab":
-			m.tab = (m.tab + 1) % tabs
+			m.tab = (m.tab + 1) % m.tabs()
 		case "shift+tab":
-			m.tab = (m.tab + tabs - 1) % tabs
+			m.tab = (m.tab + m.tabs() - 1) % m.tabs()
 		case "j":
 			*off++
 		case "k":
@@ -160,27 +157,24 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// edit opens the current tab's file(s) in the editor, or explains why not.
+// edit opens the current tab's Files in the editor, or explains why not.
 func (m Model) edit() (Model, tea.Cmd) {
-	name := strings.ToLower(tabNames[m.tab])
 	switch {
 	case m.archived:
 		m.notice = "archived changes are read-only"
 	case m.doc(m.tab) == "":
-		m.notice = "no " + name + " to edit"
-	case m.tab == specs:
-		return m, editor.Open(func(err error) tea.Msg { return EditedMsg{err} }, m.docs.SpecFiles...)
+		m.notice = "no " + strings.ToLower(m.name(m.tab)) + " to edit"
 	default:
-		return m, editor.Open(func(err error) tea.Msg { return EditedMsg{err} }, filepath.Join(m.dir, name+".md"))
+		return m, editor.Open(func(err error) tea.Msg { return EditedMsg{err} }, m.docs.Tabs[m.tab].Files...)
 	}
 	return m, nil
 }
 
 func (m Model) View() string {
 	bar := func(short bool) string {
-		parts := make([]string, tabs)
-		for t := range tabs {
-			mark, name := " ", tabNames[t]
+		parts := make([]string, m.tabs())
+		for t := range m.tabs() {
+			mark, name := " ", m.name(t)
 			switch {
 			case t == m.tab:
 				mark = "▌"
@@ -203,9 +197,9 @@ func (m Model) View() string {
 	// glamour does not wrap code, tables or long URLs: cut them, or the terminal wraps them and the view grows
 	fit := lipgloss.NewStyle().MaxWidth(m.width)
 	body := fit.Height(m.body()).MaxHeight(m.body()).Render(strings.Join(lines, "\n"))
-	footer := "1-4/tab tab · j/k scroll · ctrl+d/u half page · gg/G top/end · e edit · ? help · q back"
+	footer := fmt.Sprintf("1-%d/tab tab · j/k scroll · ctrl+d/u half page · gg/G top/end · e edit · ? help · q back", m.tabs())
 	if lipgloss.Width(footer) > m.width {
-		footer = "1-4 j/k ^d/^u gg/G e · ? · q back"
+		footer = fmt.Sprintf("1-%d j/k ^d/^u gg/G e · ? · q back", m.tabs())
 	}
 	if m.notice != "" {
 		footer = m.notice

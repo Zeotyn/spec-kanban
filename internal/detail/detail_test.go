@@ -16,6 +16,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/zeotyn/openspec-kanban/internal/editor"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
@@ -71,10 +72,23 @@ func project(t *testing.T) string {
 	return p
 }
 
+// The OpenSpec tabs.
+const (
+	tasks = iota
+	proposal
+	design
+	specs
+)
+
+// docsIn reads c's documents from the OpenSpec layout below p.
+func docsIn(p string, c work.Item) func() work.Docs {
+	return func() work.Docs { return openspec.ReadDocs(p, c) }
+}
+
 var change = work.Item{Name: "m1-board-view", Done: 1, Total: 3}
 
 func open(t *testing.T, c work.Item, w, h int) Model {
-	return New(project(t), c, "m1-board-view  M1  1/3  In Progress", w, h)
+	return New(docsIn(project(t), c), c, "m1-board-view  M1  1/3  In Progress", w, h)
 }
 
 func press(m Model, keys ...string) Model {
@@ -256,7 +270,7 @@ func TestEditCurrentDocument(t *testing.T) {
 	}
 	for _, tt := range tests {
 		args := fakeEditor(t, nil, nil)
-		m := press(New(p, change, "h", 80, 24), tt.tab)
+		m := press(New(docsIn(p, change), change, "h", 80, 24), tt.tab)
 		if _, ran := edit(m); !ran || !slices.Equal(*args, tt.want) {
 			t.Errorf("tab %s: editor %q, want %q", tt.tab, *args, tt.want)
 		}
@@ -267,7 +281,7 @@ func TestEditRereadsAndKeepsTab(t *testing.T) {
 	p := project(t)
 	proposal := filepath.Join(p, "openspec", "changes", "m1-board-view", "proposal.md")
 	fakeEditor(t, func() { os.WriteFile(proposal, []byte("## Why\n\nEdited by hand.\n"), 0o644) }, nil)
-	m, _ := edit(press(New(p, change, "h", 80, 24), "2"))
+	m, _ := edit(press(New(docsIn(p, change), change, "h", 80, 24), "2"))
 	if m.tab != 1 || !strings.Contains(m.View(), "Edited by hand.") {
 		t.Errorf("after editing: tab %d, view:\n%s", m.tab, m.View())
 	}
@@ -280,7 +294,7 @@ func TestEditRefused(t *testing.T) {
 		t.Errorf("missing design: ran %v, view:\n%s", ran, m.View())
 	}
 	archived := work.Item{Name: "m1-board-view", Phase: work.Archived}
-	m, ran = edit(New(t.TempDir(), archived, "h", 80, 24))
+	m, ran = edit(New(docsIn(t.TempDir(), archived), archived, "h", 80, 24))
 	if ran || !strings.Contains(m.View(), "archived changes are read-only") {
 		t.Errorf("archived: ran %v, view:\n%s", ran, m.View())
 	}
