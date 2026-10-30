@@ -32,8 +32,8 @@
 - **THEN** nothing is started and the footer says all its tasks are done
 
 #### Scenario: Review Card of an agent kind without resume
-- **WHEN** Review Card `m1-board-view` without a Running agent has a recorded `codex` session and the user presses `s`
-- **THEN** nothing is started and the footer says `resume not supported for codex`
+- **WHEN** Review Card `m1-board-view` without a Running agent has a recorded `pi` session and the user presses `s`
+- **THEN** nothing is started and the footer says `resume not supported for pi`
 
 #### Scenario: Review Card with a Running agent
 - **WHEN** Review Card `m1-board-view` has a Running agent and the user presses `s`

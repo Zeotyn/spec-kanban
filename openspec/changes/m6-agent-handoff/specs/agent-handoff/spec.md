@@ -20,14 +20,22 @@ After a Start from the Board has sent its prompt, the plugin SHALL watch the Cha
 - **THEN** the tab stays open and no Main agent is prompted
 
 ### Requirement: Handoff of a finished Change
-When the watched agent settles in idle or done and the Change is open with at least one task, all of them completed, the plugin SHALL record the agent's session for the Change, close the agent's pane (which closes its tab when it is the only pane), and submit a prompt to the Main agent that names the Change, its Progress and asks to review and archive it. When the recorded session is reopenable, the prompt SHALL also say how to reopen it (`s` on its Card, or the agent's resume command in the Project). The Handoff SHALL work the same for every agent kind.
+When the watched agent settles in idle or done and the Change is either open with at least one task, all of them completed, or archived, the plugin SHALL record the agent's session for the Change, close the agent's pane (which closes its tab when it is the only pane), and submit a prompt to the Main agent that names the Change, its Progress and asks to review it, and to archive it unless it is already archived. When the recorded session is reopenable, the prompt SHALL also say how to reopen it (`s` on its Card, or the agent's resume command in the Project). The Handoff SHALL work the same for every agent kind.
 
 #### Scenario: Clean finish
 - **WHEN** the Claude agent of `m1-board-view` settles idle and all 7 tasks of `m1-board-view` are completed, and the Board was opened from a pane running an agent
 - **THEN** the agent's tab closes and the agent in that pane receives a prompt starting with `m1-board-view is finished (7/7 tasks). Please review it and archive it with /opsx:archive m1-board-view.` that names `claude --resume <session>`
 
+#### Scenario: Agent archived the Change itself
+- **WHEN** the agent of `m1-board-view` archives the Change and settles idle
+- **THEN** the agent's tab closes and the Main agent receives a prompt starting with `m1-board-view is finished and archived. Please review it.`
+
+#### Scenario: Clean finish of another reopenable kind
+- **WHEN** the `codex` agent of `m1-board-view` finishes it cleanly with session `abc`
+- **THEN** the Main agent's prompt names `codex resume abc`
+
 #### Scenario: Clean finish of a kind without resume
-- **WHEN** the configured agent kind is one without a known resume argument and its agent finishes `m1-board-view` cleanly
+- **WHEN** the configured agent kind is one without a known resume argument (for example `pi`) and its agent finishes `m1-board-view` cleanly
 - **THEN** the tab closes and the Main agent receives the same prompt without a way to reopen the session
 
 #### Scenario: Other panes in the agent tab
@@ -68,11 +76,15 @@ For every Change started from the Board, the plugin SHALL record the agent kind 
 - **THEN** each Project keeps its own recorded session
 
 ### Requirement: Resume a recorded session
-Whether a recorded session is reopenable SHALL be decided by the agent kind herdr reported with the session: for `claude` with a session id the resume argument is `--resume <id>`; every other kind SHALL be not reopenable until its argument is known. Resuming a Change SHALL open a new tab in the Project labelled with the Change name, focus it, and start the recorded agent kind in it as the Change's agent with its resume argument, without submitting a prompt. A failure after the Board closed SHALL be shown as a herdr notification `openspec-kanban: resume failed`.
+Whether a recorded session is reopenable SHALL be decided by the agent kind herdr reported with the session: a session id is reopenable for `claude` (`--resume <id>`), `copilot` (`--resume=<id>`), `codex` (`resume <id>`), `opencode` (`--session <id>`), `cursor` (`--resume <id>`) and `gemini` (`--resume <id>`), the arguments following the agent's executable; every other kind, and a session reported as a path, SHALL be not reopenable. Resuming a Change SHALL open a new tab in the Project labelled with the Change name, focus it, and start the recorded agent kind in it as the Change's agent with its resume argument, without submitting a prompt. A failure after the Board closed SHALL be shown as a herdr notification `openspec-kanban: resume failed`.
 
 #### Scenario: Resume a finished Change
 - **WHEN** the Change `m1-board-view` has the recorded `claude` session `abc` and is resumed
 - **THEN** a tab labelled `m1-board-view` opens in the Project and is focused, Claude runs in it on session `abc`, no prompt is sent, and the tab is not closed when the agent settles
+
+#### Scenario: Resume a Copilot session
+- **WHEN** the Change `m1-board-view` has the recorded `copilot` session `abc` and is resumed
+- **THEN** Copilot is started in the new tab with `--resume=abc`
 
 #### Scenario: Recorded session no longer exists
 - **WHEN** the recorded session of `m1-board-view` was deleted from Claude's history and the Change is resumed
