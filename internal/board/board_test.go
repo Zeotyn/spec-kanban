@@ -201,7 +201,7 @@ func tall(n int) []work.Item {
 
 func TestViewFitsHeight(t *testing.T) {
 	for _, w := range []int{60, 120} {
-		for h := 14; h <= 40; h++ {
+		for h := 10; h <= 40; h++ {
 			m := keys(board(t, w, h, tall(12)), "2", "j", "j", "j", "j", "j")
 			if lines := strings.Count(m.View(), "\n") + 1; lines > h {
 				t.Errorf("%dx%d: view has %d lines", w, h, lines)
@@ -221,10 +221,65 @@ func TestViewFitsHeight(t *testing.T) {
 func TestResizeKeepsSelectionVisible(t *testing.T) {
 	m := keys(board(t, 120, 60, tall(10)), "2", "G")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 16})
-	if !strings.Contains(m.View(), "▌change-09") {
+	if !strings.Contains(m.View(), "┃change-09") {
 		t.Errorf("selected Card not visible after shrinking:\n%s", m.View())
 	}
+	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 12})
+	if !strings.Contains(m.View(), "▌change-09") {
+		t.Errorf("selected Card not visible below 13 rows:\n%s", m.View())
+	}
 }
+
+func TestBorderedCards(t *testing.T) {
+	m := keys(board(t, 120, 30, tall(12)), "2")
+	lines := strings.Split(m.column(1, 23, "Ready 12"), "\n")
+	if len(lines) != 2+4*5+1 || lines[22] != pad("↓ 8 more", 23) {
+		t.Fatalf("want four 5-line Cards and a scroll marker:\n%s", strings.Join(lines, "\n"))
+	}
+	for i, top := range []string{"┏", "╭", "╭", "╭"} { // the boxes follow each other without a blank line
+		if !strings.HasPrefix(lines[2+5*i], top) || !strings.HasPrefix(lines[6+5*i], map[string]string{"┏": "┗", "╭": "╰"}[top]) {
+			t.Errorf("Card %d is not a closed box:\n%s", i, strings.Join(lines, "\n"))
+		}
+	}
+	for _, l := range lines {
+		if lipgloss.Width(l) != 23 {
+			t.Errorf("line %q is %d cells, want the column width 23", l, lipgloss.Width(l))
+		}
+	}
+	if v := m.View(); !strings.Contains(v, "┃change-00") || strings.Contains(v, "▌") {
+		t.Errorf("the selected Card has a thick border and no ▌:\n%s", v)
+	}
+	if v := keys(board(t, 120, 13, tall(3)), "2").View(); !strings.Contains(v, "┃change-00") {
+		t.Errorf("13 rows: want a bordered Card:\n%s", v)
+	}
+	if v := keys(board(t, 60, 30, tall(3)), "2").View(); !strings.Contains(v, "┃change-00") || !strings.Contains(v, "╭") {
+		t.Errorf("single column: want bordered Cards:\n%s", v)
+	}
+	low := keys(board(t, 120, 12, tall(3)), "2")
+	if v := low.View(); strings.ContainsAny(v, "╭┏") || !strings.Contains(v, "▌change-00") {
+		t.Errorf("12 rows: want borderless Cards with ▌:\n%s", v)
+	}
+	if c := low.card(tall(1)[0], work.Ready, 23, false); len(c) != 4 || c[3] != "" {
+		t.Errorf("12 rows: a Card is three lines and a blank one: %q", c)
+	}
+}
+
+func TestBoardFitsWidth(t *testing.T) {
+	for _, w := range []int{60, 104, 120} {
+		v := board(t, w, 30, fixture).View()
+		for _, l := range strings.Split(v, "\n") {
+			if lipgloss.Width(l) > w {
+				t.Errorf("%d: line %q is %d cells", w, l, lipgloss.Width(l))
+			}
+		}
+		if w == 104 && strings.Count(v, "\n") != strings.Count(board(t, 120, 30, fixture).View(), "\n") {
+			t.Errorf("104: a long line must not wrap a Card:\n%s", v)
+		}
+	}
+}
+
+// pad fills s with spaces to w cells.
+func pad(s string, w int) string { return s + strings.Repeat(" ", w-lipgloss.Width(s)) }
 
 func TestReloadKeys(t *testing.T) {
 	m := keys(board(t, 120, 30, tall(5)), "2", "G", "g")

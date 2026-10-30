@@ -2,13 +2,15 @@ OpenSpec Kanban · proj                                                         
 
 Draft 2                 Ready 2                 In Progress 1           Review 1                Archived 2             
 ─────────────────────── ─────────────────────── ─────────────────────── ─────────────────────── ───────────────────────
- m2-change-detail    M2  m1-phase-derivation M1 ▌● m1-board-view     M1  m0-spike-…ent-start M0  m0-plugin-skeleton  M0
- no tasks                ░░░░░░░░░░ 0/6         ▌█████░░░░░ 5/11         ██████████ 10/10        archived 2026-10-29   
- P · · ·  5h             P S D T  40m           ▌3h                      1d                                            
-                                                                                                                       
- add-dark-mode           ● m5-relea…ong-name M5                                                  undated-change        
- no tasks                ░░░░░░░░░░ 0/4                                                          archived              
- P · · ·  2d             P - D T  2w                                                                                   
-                                                                                                                       
+╭─────────────────────╮ ╭─────────────────────╮ ┏━━━━━━━━━━━━━━━━━━━━━┓ ╭─────────────────────╮ ╭─────────────────────╮
+│m2-change-detail   M2│ │m1-phase-…rivation M1│ ┃● m1-board-view    M1┃ │m0-spike-…nt-start M0│ │m0-plugin-skeleton M0│
+│no tasks             │ │░░░░░░░░░░ 0/6       │ ┃█████░░░░░ 5/11      ┃ │██████████ 10/10     │ │archived 2026-10-29  │
+│P · · ·  5h          │ │P S D T  40m         │ ┃3h                   ┃ │1d                   │ │                     │
+╰─────────────────────╯ ╰─────────────────────╯ ┗━━━━━━━━━━━━━━━━━━━━━┛ ╰─────────────────────╯ ╰─────────────────────╯
+╭─────────────────────╮ ╭─────────────────────╮                                                 ╭─────────────────────╮
+│add-dark-mode        │ │● m5-relea…ng-name M5│                                                 │undated-change       │
+│no tasks             │ │░░░░░░░░░░ 0/4       │                                                 │archived             │
+│P · · ·  2d          │ │P - D T  2w          │                                                 │                     │
+╰─────────────────────╯ ╰─────────────────────╯                                                 ╰─────────────────────╯
 
 h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q close

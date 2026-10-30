@@ -7,10 +7,10 @@ Prerequisite: `m7-source-seam` is merged on `main`. Names below are the post-ref
 
 ## 2. Bordered Cards and the low-popup fallback (TDD)
 
-- [ ] 2.1 Write failing board tests: at 120×30 each Card is 5 lines in a rounded box (`╭`, `╰`) with no blank line between Cards and 4 Cards visible per column; the selected Card has a thick box (`┏`, `┃<name>`) and no `▌`; at 12 rows Cards have no border, a blank line between them and `▌` on the selected Card; at 13 rows borders are shown; at 60×30 (single column) borders are shown; every line of a 120- and 60-wide Board is exactly `width` cells
-- [ ] 2.2 Implement `borderMinHeight = 13`, `bordered()`, `cardLines()` (5 or 4) and `visible()` on it; `card` wraps the content lines (width `w-2`) in `RoundedBorder` with `theme.Dim`, the selected one in `ThickBorder` with `theme.Accent`; below 13 rows keep today's mark-column rendering
-- [ ] 2.3 Extend `TestViewFitsHeight` down to 10 rows; switch selection assertions that look for `▌<name>` (e.g. `TestResizeKeepsSelectionVisible`) to `┃<name>`, keeping `▌` where a test runs below 13 rows
-- [ ] 2.4 Rewrite the board goldens with `go test ./internal/board -update` and review the diff: closed boxes, column widths unchanged, `board-scrolled` (14 rows) still one Card per column with scroll markers, `board-60` bordered, `help-120`, `error`, `loading`, `no-project` unchanged; detail goldens unchanged
+- [x] 2.1 Write failing board tests: at 120×30 each Card is 5 lines in a rounded box (`╭`, `╰`) with no blank line between Cards and 4 Cards visible per column; the selected Card has a thick box (`┏`, `┃<name>`) and no `▌`; at 12 rows Cards have no border, a blank line between them and `▌` on the selected Card; at 13 rows borders are shown; at 60×30 (single column) borders are shown; every line of a 120- and 60-wide Board is exactly `width` cells
+- [x] 2.2 Implement `borderMinHeight = 13`, `bordered()`, `cardLines()` (5 or 4) and `visible()` on it; `card` wraps the content lines (width `w-2`) in `RoundedBorder` with `theme.Dim`, the selected one in `ThickBorder` with `theme.Accent`; below 13 rows keep today's mark-column rendering
+- [x] 2.3 Extend `TestViewFitsHeight` down to 10 rows; switch selection assertions that look for `▌<name>` (e.g. `TestResizeKeepsSelectionVisible`) to `┃<name>`, keeping `▌` where a test runs below 13 rows
+- [x] 2.4 Rewrite the board goldens with `go test ./internal/board -update` and review the diff: closed boxes, column widths unchanged, `board-scrolled` (14 rows) still one Card per column with scroll markers, `board-60` bordered, `help-120`, `error`, `loading`, `no-project` unchanged; detail goldens unchanged
 
 ## 3. Phase colours (TDD)
 

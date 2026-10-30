@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	minColWidth = 20 // below this per column the Board shows one column at a time
-	cardLines   = 4  // three lines of content plus a blank line
-	chromeLines = 6  // header, blank, column title, rule, footer, blank above footer
+	minColWidth     = 20 // below this per column the Board shows one column at a time
+	chromeLines     = 6  // header, blank, column title, rule, footer, blank above footer
+	borderMinHeight = 13 // chromeLines, two scroll markers and one bordered Card
 )
 
 // editedMsg reports that the editor started from the Board has exited.
@@ -412,9 +412,20 @@ func (m Model) counts() [columns]int {
 	return n
 }
 
+// bordered reports whether the Board is high enough to draw Cards as boxes.
+func (m Model) bordered() bool { return m.height >= borderMinHeight }
+
+// cardLines is a Card's height: a box around three lines, or three lines and a blank one.
+func (m Model) cardLines() int {
+	if m.bordered() {
+		return 5
+	}
+	return 4
+}
+
 // visible is how many Cards fit in a column, leaving one line each for the scroll markers.
 func (m Model) visible() int {
-	return max(1, (m.height-chromeLines-2)/cardLines)
+	return max(1, (m.height-chromeLines-2)/m.cardLines())
 }
 
 func (m Model) View() string {
@@ -437,7 +448,7 @@ func (m Model) View() string {
 	case !m.loaded:
 		body = "Loading changes…"
 	default:
-		body = m.columns()
+		body = lipgloss.NewStyle().MaxHeight(max(1, m.height-4)).Render(m.columns()) // too low for one Card: cut it
 	}
 	footer := "h/l column · j/k card · ⏎ details · e edit tasks · s start · / filter · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · ? help · q close"
 	if lipgloss.Width(footer) > m.width {
@@ -527,10 +538,14 @@ func (m Model) column(i, w int, title string) string {
 	return lipgloss.NewStyle().Width(w).Render(strings.Join(lines, "\n"))
 }
 
-// card renders three lines and a blank one; the selected Card is marked with ▌ and bold, an open
-// Card with a Running agent with a green ● before its name.
+// card renders a box around three lines, the selected one thick in the accent colour; below
+// borderMinHeight three lines and a blank one, the selected Card marked with ▌ and bold. An open
+// Card with a Running agent has a green ● before its name.
 func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	inner := w - 1
+	if m.bordered() {
+		inner = w - 2
+	}
 	running := c.Phase != work.Archived && m.running[c.Name]
 	firstW := inner
 	if running {
@@ -559,11 +574,24 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 			third = planMarks(c.Artifacts) + "  " + third
 		}
 	}
+	if m.bordered() {
+		if running {
+			first = lipgloss.NewStyle().Foreground(theme.Running).Render("●") + " " + first
+		}
+		border, colour := lipgloss.RoundedBorder(), theme.Dim
+		if selected {
+			border, colour = lipgloss.ThickBorder(), theme.Accent
+		}
+		// cut first: Width would wrap a long line into a taller box
+		content := lipgloss.NewStyle().MaxWidth(inner).Render(strings.Join([]string{first, second, third}, "\n"))
+		box := lipgloss.NewStyle().Border(border).BorderForeground(colour).Width(inner).Render(content)
+		return strings.Split(box, "\n")
+	}
 	mark, style := " ", lipgloss.NewStyle()
 	if selected {
 		mark, style = "▌", style.Bold(true)
 	}
-	out := make([]string, 0, cardLines)
+	out := make([]string, 0, 4)
 	for _, l := range []string{first, second, third} {
 		out = append(out, mark+style.Render(l))
 	}
