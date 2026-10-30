@@ -5,6 +5,8 @@ import (
 	"cmp"
 	"slices"
 	"time"
+
+	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 
 // Phase is a Board column; the values are in column order. The cache stores the int, so reordering
@@ -68,4 +70,16 @@ type Docs struct {
 	Tasks int    // tab holding the tasks; shown first when Total > 0, prefixed by Next
 	First int    // tab shown first otherwise
 	Next  string // "next ▸ …", "all tasks done" or ""
+}
+
+// Source reads the Work items of one spec tool and knows its conventions.
+type Source interface {
+	Detect(dir string) bool                                                                 // dir holds this tool's work
+	Load(project string, others []worktree.Checkout, known map[string]Item) ([]Item, error) // see openspec.Load for others and known
+	Open(project string) ([]string, error)                                                  // names of the open Items, without planning reads
+	ArchivedIn(dir, name string) bool                                                       // archived inside the checkout dir
+	Docs(project string, it Item) Docs                                                      // the detail view's tabs
+	Rel(name string) string                                                                 // an open Item's path below a checkout
+	Prompt() string                                                                         // default Start prompt, with {change}
+	Finish(name string) string                                                              // Handoff instruction after review
 }

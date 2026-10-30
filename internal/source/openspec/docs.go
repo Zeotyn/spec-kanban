@@ -72,8 +72,8 @@ func readDir(dir string) changeDocs {
 	return d
 }
 
-// ReadDocs returns the documents of it as the detail view's tabs: Tasks, Proposal, Design, Specs.
-func ReadDocs(project string, it work.Item) work.Docs {
+// Docs returns the documents of it as the detail view's tabs: Tasks, Proposal, Design, Specs.
+func (*Source) Docs(project string, it work.Item) work.Docs {
 	dir := changeDir(project, it)
 	d := readDir(dir)
 	file := func(name string) []string { return []string{filepath.Join(dir, name)} }

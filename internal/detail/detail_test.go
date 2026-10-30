@@ -82,7 +82,7 @@ const (
 
 // docsIn reads c's documents from the OpenSpec layout below p.
 func docsIn(p string, c work.Item) func() work.Docs {
-	return func() work.Docs { return openspec.ReadDocs(p, c) }
+	return func() work.Docs { return openspec.New(nil).Docs(p, c) }
 }
 
 var change = work.Item{Name: "m1-board-view", Done: 1, Total: 3}

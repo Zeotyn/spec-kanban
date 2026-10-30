@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 // newProject creates <tmp>/proj/openspec/changes and <tmp>/proj/internal/ui and returns the resolved project path.
@@ -43,7 +45,7 @@ func TestFind(t *testing.T) {
 	t.Chdir(proj) // relative and empty starts must not resolve against the process cwd
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Find(tt.start); got != tt.want {
+			if got := Find(tt.start, openspec.New(nil).Detect); got != tt.want {
 				t.Errorf("Find(%q) = %q, want %q", tt.start, got, tt.want)
 			}
 		})

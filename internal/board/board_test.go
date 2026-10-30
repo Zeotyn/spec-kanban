@@ -73,7 +73,7 @@ var fixture = []work.Item{
 
 // docs reads Items' documents from the OpenSpec layout below project.
 func docs(project string) func(work.Item) work.Docs {
-	return func(it work.Item) work.Docs { return openspec.ReadDocs(project, it) }
+	return func(it work.Item) work.Docs { return openspec.New(nil).Docs(project, it) }
 }
 
 // board returns a loaded Board of changes at the given size.

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
@@ -107,7 +108,7 @@ func TestSync(t *testing.T) {
 			{ws: "w6", cwd: p["kanban"]}, // shares w1's Project
 		},
 	}
-	err := Sync(h.run, load)
+	err := Sync(h.run, openspec.New(nil).Detect, load)
 	if err == nil || !strings.Contains(err.Error(), "boom") || !strings.Contains(err.Error(), p["broken"]) {
 		t.Errorf("want the failed load's error naming its Project, got %v", err)
 	}
@@ -136,7 +137,7 @@ func TestSyncHerdrError(t *testing.T) {
 				fail:       map[string]error{call: errors.New("herdr: connection refused")},
 			}
 			load := func(string) ([]work.Item, error) { return nil, nil }
-			if err := Sync(h.run, load); err == nil || !strings.Contains(err.Error(), "connection refused") {
+			if err := Sync(h.run, openspec.New(nil).Detect, load); err == nil || !strings.Contains(err.Error(), "connection refused") {
 				t.Errorf("want herdr's error, got %v", err)
 			}
 			if len(h.reports) > 0 {
@@ -166,7 +167,7 @@ func TestSyncLoadsAtMostFourAtOnce(t *testing.T) {
 		running.Add(-1)
 		return nil, nil
 	}
-	if err := Sync(h.run, load); err != nil {
+	if err := Sync(h.run, openspec.New(nil).Detect, load); err != nil {
 		t.Fatal(err)
 	}
 	if got := peak.Load(); got != 4 {
@@ -190,7 +191,7 @@ func TestSyncFocusedPanePerWorkspace(t *testing.T) {
 	load := func(proj string) ([]work.Item, error) {
 		return []work.Item{{Name: filepath.Base(proj)}}, nil
 	}
-	if err := Sync(h.run, load); err != nil {
+	if err := Sync(h.run, openspec.New(nil).Detect, load); err != nil {
 		t.Fatal(err)
 	}
 	tokens := func(name string) string {

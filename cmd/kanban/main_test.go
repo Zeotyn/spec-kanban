@@ -13,6 +13,7 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/cache"
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 func TestOpen(t *testing.T) {
@@ -42,7 +43,7 @@ func TestOpen(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var got []string
 			run := func(args ...string) ([]byte, error) { got = args; return nil, nil }
-			if err := open(tt.context, run); err != nil {
+			if err := open(tt.context, run, openspec.New(nil)); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -54,7 +55,7 @@ func TestOpen(t *testing.T) {
 
 func TestOpenHerdrError(t *testing.T) {
 	run := func(args ...string) ([]byte, error) { return nil, errors.New("ui_busy") }
-	err := open(`{}`, run)
+	err := open(`{}`, run, openspec.New(nil))
 	if err == nil || !strings.Contains(err.Error(), "ui_busy") {
 		t.Fatalf("want herdr error, got %v", err)
 	}
@@ -85,7 +86,7 @@ func TestLoader(t *testing.T) {
 		}
 		return []byte(`{"isPlanningComplete":true,"artifacts":[{"id":"proposal","status":"done"}]}`), nil
 	}
-	load := loader(dir, proj, func(string) herdr.Runner { return run }, noGit)
+	load := loader(dir, proj, openspec.New(func(string) herdr.Runner { return run }), noGit)
 
 	if _, err := load(); err != nil || len(cache.Read(dir, proj)) != 1 {
 		t.Fatalf("first load must succeed and write the cache: %v, %v", err, cache.Read(dir, proj))
@@ -116,7 +117,7 @@ func TestLoaderUnwritableCache(t *testing.T) {
 	run := func(...string) ([]byte, error) {
 		return []byte(`{"changes":[{"name":"a","completedTasks":1,"totalTasks":2}]}`), nil
 	}
-	if changes, err := loader(dir, t.TempDir(), func(string) herdr.Runner { return run }, noGit)(); err != nil || len(changes) != 1 {
+	if changes, err := loader(dir, t.TempDir(), openspec.New(func(string) herdr.Runner { return run }), noGit)(); err != nil || len(changes) != 1 {
 		t.Errorf("an unwritable cache must not break loading: %v, %v", changes, err)
 	}
 }
@@ -145,7 +146,7 @@ func TestSyncLoadWritesBoardCache(t *testing.T) {
 			return []byte(`{"changes":[{"name":"a","completedTasks":1,"totalTasks":2}]}`), nil
 		}
 	}
-	changes, err := syncLoad(dir, cli, func(string) herdr.Runner { return noGit })(proj)
+	changes, err := syncLoad(dir, openspec.New(cli), func(string) herdr.Runner { return noGit })(proj)
 	if err != nil || len(changes) != 1 || ranIn != proj {
 		t.Fatalf("want one Change read in %s, got %v, %v (ran in %q)", proj, changes, err, ranIn)
 	}
@@ -164,7 +165,7 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 		}
 		return nil, nil
 	}
-	err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view", run)
+	err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view", run, openspec.New(nil))
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("want the Launch error, got %v", err)
 	}
@@ -178,7 +179,7 @@ func TestLaunchSucceedsQuietly(t *testing.T) {
 	t.Setenv("KANBAN_PROJECT", "") // not from the Board: not watched
 	var calls [][]string
 	run := func(args ...string) ([]byte, error) { calls = append(calls, args); return nil, nil }
-	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view with TDD", run); err != nil {
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view with TDD", run, openspec.New(nil)); err != nil {
 		t.Fatal(err)
 	}
 	want := [][]string{
@@ -202,7 +203,7 @@ func TestLaunchWatches(t *testing.T) {
 		}
 		return nil, nil
 	}
-	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:apply m1-board-view", run); err != nil {
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:apply m1-board-view", run, openspec.New(nil)); err != nil {
 		t.Fatal(err)
 	}
 	if want := "agent get m1-board-view"; len(calls) != 4 || calls[3] != want {
@@ -258,7 +259,7 @@ func TestStartChangeWarnsAboutBrokenConfig(t *testing.T) {
 	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
 	t.Chdir(t.TempDir()) // no project: startChange stops before herdr
 	var stderr strings.Builder
-	if err := startChange("m1-board-view", &stderr); err == nil || !strings.Contains(err.Error(), "no OpenSpec project") {
+	if err := startChange("m1-board-view", &stderr, openspec.New(nil)); err == nil || !strings.Contains(err.Error(), "no OpenSpec project") {
 		t.Fatalf("want the no-project error, got %v", err)
 	}
 	if got := stderr.String(); !strings.Contains(got, filepath.Join(dir, "config.json")) || !strings.Contains(got, "{change}") {
@@ -298,7 +299,7 @@ func TestLoaderReadsOtherCheckouts(t *testing.T) {
 			return []byte(`{"changes":[{"name":"a","completedTasks":` + done + `,"totalTasks":2}]}`), nil
 		}
 	}
-	changes, err := loader(dir, proj, cli, git)()
+	changes, err := loader(dir, proj, openspec.New(cli), git)()
 	if err != nil || len(changes) != 1 || changes[0].Done != 2 || changes[0].Dir != wt {
 		t.Errorf("want a read in its worktree %s, got %+v, %v", wt, changes, err)
 	}

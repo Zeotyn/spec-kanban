@@ -30,12 +30,16 @@ type Config struct {
 	Base     string
 }
 
-// Default is the config without a file.
-func Default() Config { return Config{Prompt: "/opsx:apply {change}", Worktree: true} }
+// Default is the config without a file; an empty Prompt means the Source's.
+func Default() Config { return Config{Worktree: true} }
 
-// PromptFor is the prompt Start sends for change.
-func (c Config) PromptFor(change string) string {
-	return strings.ReplaceAll(c.Prompt, "{change}", change)
+// PromptFor is the prompt Start sends for change; def (the Source's Prompt) when none is configured.
+func (c Config) PromptFor(change, def string) string {
+	p := c.Prompt
+	if p == "" {
+		p = def
+	}
+	return strings.ReplaceAll(p, "{change}", change)
 }
 
 // Parse decodes and validates a config file; on any problem it returns Default and the problem.

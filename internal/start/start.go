@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/config"
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 
@@ -22,12 +22,12 @@ type Worktree struct {
 }
 
 // Start sends prompt to a herdr agent of kind named after the Change: Prepare, then Launch when the
-// agent has to be started. openspecRun runs the openspec CLI inside project, git runs git there.
-func Start(project, change, kind, prompt string, wt Worktree, run, openspecRun, git herdr.Runner) error {
-	if err := checkOpen(project, change, openspecRun); err != nil {
+// agent has to be started. src reads project's open Items, git runs git inside project.
+func Start(project, change, kind, prompt string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) error {
+	if err := checkOpen(project, change, src); err != nil {
 		return err
 	}
-	pane, tab, err := Prepare(project, change, wt, run, git)
+	pane, tab, err := Prepare(project, change, wt, run, src, git)
 	if err != nil || pane == "" {
 		return err
 	}
@@ -61,8 +61,8 @@ func Kind(configured, pane string, run herdr.Runner) string {
 // returns an idle one or opens a new one unfocused (focus moves only in Launch). With wt.On the new
 // tab is in the Change's checkout, the one on the branch named like the Change, which herdr creates
 // as a worktree when there is none. An agent of that name outside project and its checkouts is
-// refused. git runs git inside project.
-func Prepare(project, change string, wt Worktree, run, git herdr.Runner) (pane, tab string, err error) {
+// refused. A new worktree's ref must hold the Change at src's Rel. git runs git inside project.
+func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab string, err error) {
 	out, err := run("agent", "get", change)
 	switch {
 	case err == nil:
@@ -129,7 +129,7 @@ func Prepare(project, change string, wt Worktree, run, git herdr.Runner) (pane, 
 		ref = worktree.Base(wt.Base, git)
 		args = append(args, "--base", ref)
 	}
-	if _, err := git("cat-file", "-e", ref+":openspec/changes/"+change); err != nil {
+	if _, err := git("cat-file", "-e", ref+":"+src.Rel(change)); err != nil {
 		return "", "", fmt.Errorf("%s is not on %s: commit it there or set base", change, ref)
 	}
 	out, err = run(append(args, "--label", change, "--no-focus")...)
@@ -256,8 +256,8 @@ func agentRunning(run herdr.Runner, pane string) (bool, error) {
 }
 
 // checkOpen fails unless change is an open Change of project.
-func checkOpen(project, change string, run herdr.Runner) error {
-	names, err := openspec.OpenNames(run)
+func checkOpen(project, change string, src work.Source) error {
+	names, err := src.Open(project)
 	if err != nil {
 		return err
 	}

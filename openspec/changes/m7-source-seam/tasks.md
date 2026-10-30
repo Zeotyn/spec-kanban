@@ -28,12 +28,12 @@ Every group ends with `go test ./...` green and no golden file changed (`git sta
 
 ## 5. Put the remaining specifics behind `Source` (TDD)
 
-- [ ] 5.1 Add `work.Source` (design.md) and `openspec.New(cli) *Source` with the methods `Detect`, `Load`, `Open` (was `OpenNames`), `ArchivedIn`, `Docs` (was `ReadDocs`), `Rel`, `Prompt`, `Finish`; tests: compile-time `var _ work.Source = (*Source)(nil)`, `Detect` true only with `openspec/changes`, `Rel("x") == "openspec/changes/x"`, `Prompt() == "/opsx:apply {change}"`, `Finish("x") == "archive it with /opsx:archive x"`
-- [ ] 5.2 `project.Find(start string, detect func(dir string) bool)`; port the project tests with `src.Detect`; `open` and `startChange` pass it
-- [ ] 5.3 `config`: `Default().Prompt == ""`, `PromptFor(change, def string)` uses `def` when no prompt is configured; config tests: no file and every invalid file still send `/opsx:apply <change>` through `src.Prompt()`
-- [ ] 5.4 `start`: `Start` and `Prepare` take a `work.Source`; `checkOpen` uses `src.Open`, the ref check `git cat-file -e <ref>:` + `src.Rel(change)`; `Watched` gets `Source` for `ArchivedIn` and `Finish`; start and watch tests assert the same herdr/git calls and Handoff texts byte for byte, with a fake Source in the cases that do not need the real one
-- [ ] 5.5 `cmd/kanban`: build one `openspec.New(openspecCLI)` and pass it to `project.Find`, `loader`, `syncLoad`, `start`, `launch`, `showBoard` (detail `read`); `loader` calls `src.Load`
-- [ ] 5.6 Check the boundary: `grep -rn 'opsx\|openspec/changes\|internal/source/openspec' --include='*.go' internal cmd` hits only `internal/source/openspec` and the Source construction in `cmd/kanban`
+- [x] 5.1 Add `work.Source` (design.md) and `openspec.New(cli) *Source` with the methods `Detect`, `Load`, `Open` (was `OpenNames`), `ArchivedIn`, `Docs` (was `ReadDocs`), `Rel`, `Prompt`, `Finish`; tests: compile-time `var _ work.Source = (*Source)(nil)`, `Detect` true only with `openspec/changes`, `Rel("x") == "openspec/changes/x"`, `Prompt() == "/opsx:apply {change}"`, `Finish("x") == "archive it with /opsx:archive x"`
+- [x] 5.2 `project.Find(start string, detect func(dir string) bool)`; port the project tests with `src.Detect`; `open` and `startChange` pass it
+- [x] 5.3 `config`: `Default().Prompt == ""`, `PromptFor(change, def string)` uses `def` when no prompt is configured; config tests: no file and every invalid file still send `/opsx:apply <change>` through `src.Prompt()`
+- [x] 5.4 `start`: `Start` and `Prepare` take a `work.Source`; `checkOpen` uses `src.Open`, the ref check `git cat-file -e <ref>:` + `src.Rel(change)`; `Watched` gets `Source` for `ArchivedIn` and `Finish`; start and watch tests assert the same herdr/git calls and Handoff texts byte for byte, with a fake Source in the cases that do not need the real one
+- [x] 5.5 `cmd/kanban`: build one `openspec.New(openspecCLI)` and pass it to `project.Find`, `loader`, `syncLoad`, `start`, `launch`, `showBoard` (detail `read`); `loader` calls `src.Load`
+- [x] 5.6 Check the boundary: `grep -rn 'opsx\|openspec/changes\|internal/source/openspec' --include='*.go' internal cmd` hits only `internal/source/openspec` and the Source construction in `cmd/kanban`
 
 ## 6. Verification
 

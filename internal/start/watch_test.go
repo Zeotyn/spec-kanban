@@ -85,7 +85,7 @@ var (
 )
 
 func watched(load func() ([]work.Item, error), rec *[]herdr.Session) Watched {
-	return Watched{Project: proj, Change: change, Main: mainPane, On: true, Load: load,
+	return Watched{Project: proj, Change: change, Main: mainPane, On: true, Load: load, Source: src,
 		Record: func(s herdr.Session) { *rec = append(*rec, s) }}
 }
 

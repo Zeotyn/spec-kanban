@@ -8,7 +8,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
+
+// src is the real OpenSpec Source, for the ref check's path.
+var src = openspec.New(nil)
 
 const change = "m1-board-view"
 
@@ -55,18 +61,19 @@ func (f *fakeHerdr) run(args ...string) ([]byte, error) {
 	return []byte(`{}`), nil
 }
 
-func fakeList(names ...string) func(...string) ([]byte, error) {
-	return func(args ...string) ([]byte, error) {
-		out := `{"changes":[`
-		for i, n := range names {
-			if i > 0 {
-				out += ","
-			}
-			out += `{"name":"` + n + `"}`
-		}
-		return []byte(out + `]}`), nil
-	}
+// fakeSource has the open Items names, or fails with err; Start needs only Open and, for a new
+// worktree, Rel, which it takes from the real Source.
+type fakeSource struct {
+	work.Source
+	names []string
+	err   error
 }
+
+func (f fakeSource) Open(string) ([]string, error) { return f.names, f.err }
+
+func (f fakeSource) Rel(name string) string { return src.Rel(name) }
+
+func fakeList(names ...string) fakeSource { return fakeSource{names: names} }
 
 // off is the config with worktrees off; noGit fails like git outside a repository.
 var off = Worktree{}
@@ -153,7 +160,7 @@ func TestPrepare(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			pane, tab, err := Prepare(proj, change, off, h.run, noGit)
+			pane, tab, err := Prepare(proj, change, off, h.run, src, noGit)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -286,7 +293,7 @@ func TestStartRejectsChangesThatAreNotOpen(t *testing.T) {
 
 func TestStartOpenspecFails(t *testing.T) {
 	h := &fakeHerdr{t: t}
-	broken := func(...string) ([]byte, error) { return nil, errors.New("openspec: not found") }
+	broken := fakeSource{err: errors.New("openspec: not found")}
 	if err := Start(proj, change, "claude", "/opsx:apply "+change, off, h.run, broken, noGit); err == nil || len(h.calls) != 0 {
 		t.Fatalf("want error and no herdr calls, got %v, %q", err, h.calls)
 	}
@@ -457,7 +464,7 @@ func TestPrepareWorktree(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: map[string]error{"agent get": notFound}}
-			pane, tab, err := Prepare(proj, change, tt.wt, h.run, tt.git.run)
+			pane, tab, err := Prepare(proj, change, tt.wt, h.run, src, tt.git.run)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -486,7 +493,7 @@ func TestPrepareChangeNotOnBase(t *testing.T) {
 	git := gitWith(nil, proj, "main")
 	delete(git.out, "cat-file -e main:openspec/changes/"+change)
 	h := &fakeHerdr{t: t, fail: map[string]error{"agent get": notFound}}
-	_, _, err := Prepare(proj, change, Worktree{On: true}, h.run, git.run)
+	_, _, err := Prepare(proj, change, Worktree{On: true}, h.run, src, git.run)
 	if err == nil || !strings.Contains(err.Error(), change+" is not on main") {
 		t.Fatalf("want error naming %s and main, got %v", change, err)
 	}
@@ -509,7 +516,7 @@ func TestPrepareAgentInCheckout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json", "pane process-info": tt.info}}
-			pane, _, err := Prepare(project, change, Worktree{On: true}, h.run, gitWith(nil, project, "main", proj, change).run)
+			pane, _, err := Prepare(project, change, Worktree{On: true}, h.run, src, gitWith(nil, project, "main", proj, change).run)
 			if err != nil || pane != tt.wantPane || !reflect.DeepEqual(h.calls, tt.want) {
 				t.Errorf("got pane %q, %v, calls %q; want pane %q, calls %q", pane, err, h.calls, tt.wantPane, tt.want)
 			}
@@ -517,13 +524,13 @@ func TestPrepareAgentInCheckout(t *testing.T) {
 	}
 	t.Run("worktree off: still focused", func(t *testing.T) {
 		h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}}
-		if _, _, err := Prepare(project, change, off, h.run, gitWith(nil, project, "main", proj, change).run); err != nil || !reflect.DeepEqual(h.calls, []string{get, info, focus}) {
+		if _, _, err := Prepare(project, change, off, h.run, src, gitWith(nil, project, "main", proj, change).run); err != nil || !reflect.DeepEqual(h.calls, []string{get, info, focus}) {
 			t.Errorf("got %v, calls %q", err, h.calls)
 		}
 	})
 	t.Run("outside the Project and its checkouts: refused", func(t *testing.T) {
 		h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json"}}
-		_, _, err := Prepare(project, change, Worktree{On: true}, h.run, gitWith(nil, project, "main", wt, change).run)
+		_, _, err := Prepare(project, change, Worktree{On: true}, h.run, src, gitWith(nil, project, "main", wt, change).run)
 		if err == nil || !strings.Contains(err.Error(), "already runs in "+proj) || !reflect.DeepEqual(h.calls, []string{get}) {
 			t.Errorf("want already-runs error and only agent get, got %v, %q", err, h.calls)
 		}
@@ -554,7 +561,7 @@ func TestPrepareWorktreeFails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, fail: map[string]error{"agent get": notFound, tt.fail: boom}}
-			if _, _, err := Prepare(proj, change, Worktree{On: true}, h.run, tt.git.run); err == nil || !strings.Contains(err.Error(), tt.fail+": boom") {
+			if _, _, err := Prepare(proj, change, Worktree{On: true}, h.run, src, tt.git.run); err == nil || !strings.Contains(err.Error(), tt.fail+": boom") {
 				t.Errorf("want %s error, got %v", tt.fail, err)
 			}
 		})

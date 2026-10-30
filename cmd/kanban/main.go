@@ -64,22 +64,23 @@ func main() {
 	if len(os.Args) > 1 {
 		cmd = os.Args[1]
 	}
+	src := openspec.New(openspecCLI)
 	var err error
 	switch cmd {
 	case "open":
-		err = open(os.Getenv("HERDR_PLUGIN_CONTEXT_JSON"), herdr.Exec)
+		err = open(os.Getenv("HERDR_PLUGIN_CONTEXT_JSON"), herdr.Exec, src)
 	case "start":
 		if len(os.Args) != 3 {
 			fmt.Fprintf(os.Stderr, "kanban: start needs exactly one change name\n\n%s", usage)
 			os.Exit(2)
 		}
-		err = startChange(os.Args[2], os.Stderr)
+		err = startChange(os.Args[2], os.Stderr, src)
 	case "launch":
 		if len(os.Args) != 7 {
 			fmt.Fprintf(os.Stderr, "kanban: launch needs a change name, a pane, a tab, an agent kind and a prompt\n\n%s", usage)
 			os.Exit(2)
 		}
-		err = launch(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], herdr.Exec)
+		err = launch(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], herdr.Exec, src)
 	case "resume":
 		if len(os.Args) != 5 {
 			fmt.Fprintf(os.Stderr, "kanban: resume needs a change name, a pane and a tab\n\n%s", usage)
@@ -87,10 +88,10 @@ func main() {
 		}
 		err = resumeChange(os.Args[2], os.Args[3], os.Args[4], herdr.Exec)
 	case "board":
-		err = showBoard(os.Getenv("KANBAN_PROJECT"))
+		err = showBoard(os.Getenv("KANBAN_PROJECT"), src)
 	case "sync":
 		dir := cache.Dir()
-		err = sidebar.Coalesce(dir, func() error { return sidebar.Sync(herdr.Exec, syncLoad(dir, openspecCLI, gitCLI)) })
+		err = sidebar.Coalesce(dir, func() error { return sidebar.Sync(herdr.Exec, src.Detect, syncLoad(dir, src, gitCLI)) })
 	case "--version":
 		fmt.Println(versionString())
 	case "-h", "--help", "":
@@ -106,7 +107,7 @@ func main() {
 }
 
 // open opens the board pane for the project of the pane the action was invoked from.
-func open(contextJSON string, run herdr.Runner) error {
+func open(contextJSON string, run herdr.Runner, src work.Source) error {
 	var ctx struct {
 		FocusedPaneID  string `json:"focused_pane_id"`
 		FocusedPaneCwd string `json:"focused_pane_cwd"`
@@ -118,7 +119,7 @@ func open(contextJSON string, run herdr.Runner) error {
 		cwd = ctx.WorkspaceCwd
 	}
 	args := []string{"plugin", "pane", "open", "--plugin", "openspec-kanban", "--entrypoint", "board", "--focus"}
-	if proj := project.Find(cwd); proj != "" {
+	if proj := project.Find(cwd, src.Detect); proj != "" {
 		args = append(args, "--cwd", proj, "--env", "KANBAN_PROJECT="+proj)
 	}
 	if ctx.FocusedPaneID != "" { // the Board starts the agent kind running there
@@ -130,7 +131,7 @@ func open(contextJSON string, run herdr.Runner) error {
 }
 
 // startChange starts change from a shell; a config warning goes to stderr and Start goes on with defaults.
-func startChange(change string, stderr io.Writer) error {
+func startChange(change string, stderr io.Writer, src work.Source) error {
 	cfg, warn := config.Load(config.Dir(herdr.Exec))
 	if warn != nil {
 		fmt.Fprintln(stderr, "kanban:", warn)
@@ -139,18 +140,18 @@ func startChange(change string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	proj := project.Find(cwd)
+	proj := project.Find(cwd, src.Detect)
 	if proj == "" {
 		return fmt.Errorf("no OpenSpec project at or above %s", cwd)
 	}
 	kind := start.Kind(cfg.Agent, os.Getenv("HERDR_PANE_ID"), herdr.Exec)
 	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
-	return start.Start(proj, change, kind, cfg.PromptFor(change), wt, herdr.Exec, openspecCLI(proj), gitCLI(proj))
+	return start.Start(proj, change, kind, cfg.PromptFor(change, src.Prompt()), wt, herdr.Exec, src, gitCLI(proj))
 }
 
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,
 // which is itself an OpenSpec project.
-func showBoard(proj string) error {
+func showBoard(proj string, src work.Source) error {
 	dir := cache.Dir()
 	cfg, warn := config.Load(config.Dir(herdr.Exec))
 	notice := ""
@@ -161,19 +162,19 @@ func showBoard(proj string) error {
 	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec, git) }
 	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
-		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, git)
+		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, src, git)
 		if err != nil || pane == "" {
 			return err
 		}
 		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
-		return spawn("launch", change, pane, tab, kind, cfg.PromptFor(change))
+		return spawn("launch", change, pane, tab, kind, cfg.PromptFor(change, src.Prompt()))
 	}
 	reopenable := func(change string) bool { return start.ResumeArgs(cache.ReadSession(dir, proj, change)) != nil }
 	resumable := func(change string) (string, bool) {
 		return cache.ReadSession(dir, proj, change).Agent, reopenable(change)
 	}
 	resume := func(change string) error {
-		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, git)
+		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, src, git)
 		if err != nil || pane == "" {
 			return err
 		}
@@ -182,7 +183,7 @@ func showBoard(proj string) error {
 		}
 		return spawn("resume", change, pane, tab)
 	}
-	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return openspec.ReadDocs(proj, it) }, loader(dir, proj, openspecCLI, git), time.Now, cache.Read(dir, proj), running, startOne,
+	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), running, startOne,
 		resumable, resume, cfg.Hide, notice), tea.WithAltScreen()).Run()
 	return err
 }
@@ -212,7 +213,7 @@ func childEnv(env []string) []string {
 
 // launch runs start.Launch and reports a failure as a herdr notification: nobody reads its stderr.
 // A Start from the Board ($KANBAN_PROJECT set) is then watched until it hands off or its agent goes away.
-func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
+func launch(change, pane, tab, kind, prompt string, run herdr.Runner, src work.Source) error {
 	if err := start.Launch(change, kind, prompt, pane, tab, run); err != nil {
 		run("notification", "show", "openspec-kanban: start failed", "--body", err.Error())
 		return err
@@ -227,7 +228,8 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 		loadGit = func(...string) ([]byte, error) { return nil, errors.New("worktree off") }
 	}
 	start.Watch(start.Watched{Project: proj, Change: change, Main: os.Getenv("KANBAN_MAIN_PANE"), Base: cfg.Base, On: cfg.Worktree,
-		Load:   loader(dir, proj, openspecCLI, loadGit),
+		Load:   loader(dir, proj, src, loadGit),
+		Source: src,
 		Record: func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
 	}, run, git)
 	return nil
@@ -246,7 +248,7 @@ func resumeChange(change, pane, tab string, run herdr.Runner) error {
 
 // loader reads the Project's Changes and those worked on in its other checkouts, reusing cached
 // planning state, and caches every successful load.
-func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) func() ([]work.Item, error) {
+func loader(dir, proj string, src work.Source, git herdr.Runner) func() ([]work.Item, error) {
 	return func() ([]work.Item, error) {
 		known := map[string]work.Item{}
 		for _, c := range cache.Read(dir, proj) { // re-read each time, so every refresh reuses the newest load
@@ -254,7 +256,7 @@ func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) f
 				known[c.Name] = c
 			}
 		}
-		changes, err := openspec.Load(proj, cli, worktree.List(git), known)
+		changes, err := src.Load(proj, worktree.List(git), known)
 		if err == nil {
 			_ = cache.Write(dir, proj, changes) // cache problems never break the Board
 		}
@@ -263,8 +265,8 @@ func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) f
 }
 
 // syncLoad loads a Project for the sidebar through the Board's loader, so every sync warms the Board's cache.
-func syncLoad(dir string, cli, git func(proj string) herdr.Runner) func(string) ([]work.Item, error) {
-	return func(proj string) ([]work.Item, error) { return loader(dir, proj, cli, git(proj))() }
+func syncLoad(dir string, src work.Source, git func(proj string) herdr.Runner) func(string) ([]work.Item, error) {
+	return func(proj string) ([]work.Item, error) { return loader(dir, proj, src, git(proj))() }
 }
 
 // openspecCLI runs the openspec CLI inside proj.

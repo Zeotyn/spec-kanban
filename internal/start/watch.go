@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/work"
 	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
@@ -19,6 +18,7 @@ type Watched struct {
 	Base            string // configured base, "" to detect it
 	On              bool   // Start works in the Change's checkout (config worktree)
 	Load            func() ([]work.Item, error)
+	Source          work.Source // for ArchivedIn and Finish
 	Record          func(herdr.Session)
 }
 
@@ -120,7 +120,7 @@ func (w Watched) check(git herdr.Runner, a agent) (text string, finished bool, s
 		}
 	}
 	// A Change archived in its checkout is still open in the Project until merged.
-	archived := checkout != "" && openspec.ArchivedIn(checkout, w.Change) || open == nil && inProject
+	archived := checkout != "" && w.Source.ArchivedIn(checkout, w.Change) || open == nil && inProject
 	progress := ""
 	if open != nil {
 		progress = fmt.Sprintf("%d/%d tasks", open.Done, open.Total)
@@ -147,15 +147,15 @@ func (w Watched) text(git herdr.Runner, checkout, progress string, archived bool
 	case checkout == "" && archived:
 		t = c + " is finished and archived. Please review it."
 	case checkout == "":
-		t = fmt.Sprintf("%s is finished (%s). Please review it and archive it with /opsx:archive %s.", c, progress, c)
+		t = fmt.Sprintf("%s is finished (%s). Please review it and %s.", c, progress, w.Source.Finish(c))
 	default:
 		dir = checkout
 		base := worktree.Base(w.Base, git)
 		if archived {
 			t = fmt.Sprintf("%s is finished and archived on branch %s in %s. Please review it, merge branch %s into %s, then", c, c, checkout, c, base)
 		} else {
-			t = fmt.Sprintf("%s is finished (%s) on branch %s in %s. Please review it, merge branch %s into %s, archive it with /opsx:archive %s, then",
-				c, progress, c, checkout, c, base, c)
+			t = fmt.Sprintf("%s is finished (%s) on branch %s in %s. Please review it, merge branch %s into %s, %s, then",
+				c, progress, c, checkout, c, base, w.Source.Finish(c))
 		}
 		t += " remove its worktree with: git worktree remove " + checkout + "." +
 			" Never use --force and keep the branch; if the merge or the removal does not go through cleanly, stop and tell the user."

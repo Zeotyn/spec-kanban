@@ -28,7 +28,7 @@ const maxParallel = 8
 
 var dated = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})-(.+)$`)
 
-// Load returns the open Changes as Items, read by cli(project) (the openspec CLI inside a directory), in
+// load returns the open Changes as Items, read by cli(project) (the openspec CLI inside a directory), in
 // `openspec list` order, then the archived ones by folder name.
 // A checkout in others (the Project's own skipped) whose branch names a Change it holds supplies that Change, read there with Dir
 // set: it replaces the Project's open Change of that name or is appended, unless the Project archived
@@ -36,7 +36,7 @@ var dated = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})-(.+)$`)
 // Planning state is read only for open Changes without completed tasks, in their Dir, and decides
 // their Phase; Phase and Artifacts are copied from known instead when known holds the Change with the
 // same Dir, the same non-zero Modified, the same Stamp (file fingerprint) and non-nil Artifacts.
-func Load(project string, cli func(dir string) herdr.Runner, others []worktree.Checkout, known map[string]work.Item) ([]work.Item, error) {
+func load(project string, cli func(dir string) herdr.Runner, others []worktree.Checkout, known map[string]work.Item) ([]work.Item, error) {
 	run := cli(project)
 	version := make(chan string, 1) // in parallel with list, so it costs no extra time
 	go func() {
@@ -146,12 +146,6 @@ func isIn(changes []work.Item, name string) bool {
 	return slices.ContainsFunc(changes, func(c work.Item) bool { return c.Name == name })
 }
 
-// ArchivedIn reports whether the archive of the checkout dir holds change, dated or not.
-func ArchivedIn(dir, change string) bool {
-	archived, _ := archive(dir)
-	return isIn(archived, change)
-}
-
 // files fingerprints the OpenSpec setup (see setup) and the relative file paths under dir. openspec's
 // lastModified is the newest file time, which misses an older file being deleted or renamed; the
 // path list catches that. "" on error, which never matches.
@@ -189,19 +183,6 @@ func setup(project, version string) string {
 		return nil
 	})
 	return b.String()
-}
-
-// OpenNames returns the names of the open Changes.
-func OpenNames(run herdr.Runner) ([]string, error) {
-	changes, err := list(run)
-	if err != nil {
-		return nil, err
-	}
-	names := make([]string, len(changes))
-	for i, c := range changes {
-		names[i] = c.Name
-	}
-	return names, nil
 }
 
 func list(run herdr.Runner) ([]work.Item, error) {

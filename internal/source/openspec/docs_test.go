@@ -107,7 +107,7 @@ func TestReadDocs(t *testing.T) {
 		"proposal.md":         "# Proposal\n",
 		"specs/board/spec.md": "board spec\n",
 	})
-	got := ReadDocs(project, work.Item{Name: "m1-board"})
+	got := New(nil).Docs(project, work.Item{Name: "m1-board"})
 	want := work.Docs{
 		Tabs: []work.Doc{
 			{Title: "Tasks", Body: "- [ ] 1.1 Open\n", Files: []string{filepath.Join(dir, "tasks.md")}},
