@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
@@ -205,5 +206,20 @@ func TestStartChangeWarnsAboutBrokenConfig(t *testing.T) {
 	}
 	if got := stderr.String(); !strings.Contains(got, filepath.Join(dir, "config.json")) || !strings.Contains(got, "{change}") {
 		t.Errorf("stderr %q lacks the warning naming the file and the problem", got)
+	}
+}
+
+func TestVersionString(t *testing.T) {
+	old := version
+	t.Cleanup(func() { version = old })
+
+	version = "9.9.9"
+	if got := versionString(); got != "9.9.9" {
+		t.Errorf("stamped: got %q, want 9.9.9", got)
+	}
+	version = ""
+	info, _ := debug.ReadBuildInfo()
+	if got := versionString(); got != info.Main.Version {
+		t.Errorf("unstamped: got %q, want the build info's %q", got, info.Main.Version)
 	}
 }

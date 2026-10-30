@@ -1,7 +1,7 @@
 ## 1. Version (TDD)
 
-- [ ] 1.1 Write a failing test for the version string: a stamped `version` is printed as is; an empty one falls back to the build info's main module version
-- [ ] 1.2 Make `version` a `var` set by `-ldflags -X main.version=…` with the build-info fallback until the test passes; check `go build -ldflags "-X main.version=9.9.9" -o /tmp/k ./cmd/kanban && /tmp/k --version` prints `9.9.9`
+- [x] 1.1 Write a failing test for the version string: a stamped `version` is printed as is; an empty one falls back to the build info's main module version
+- [x] 1.2 Make `version` a `var` set by `-ldflags -X main.version=…` with the build-info fallback until the test passes; check `go build -ldflags "-X main.version=9.9.9" -o /tmp/k ./cmd/kanban && /tmp/k --version` prints `9.9.9`
 
 ## 2. Install script
 

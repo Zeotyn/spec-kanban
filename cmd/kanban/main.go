@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"syscall"
@@ -24,7 +25,19 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/start"
 )
 
-const version = "0.1.0"
+// version is stamped by release builds with -ldflags "-X main.version=<version>".
+var version = ""
+
+// versionString is the stamped version, else the module version Go recorded in the build info.
+func versionString() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		return info.Main.Version
+	}
+	return "(devel)"
+}
 
 const usage = `kanban — OpenSpec kanban board for herdr
 
@@ -66,7 +79,7 @@ func main() {
 		dir := cache.Dir()
 		err = sidebar.Coalesce(dir, func() error { return sidebar.Sync(herdr.Exec, syncLoad(dir, openspecCLI)) })
 	case "--version":
-		fmt.Println(version)
+		fmt.Println(versionString())
 	case "-h", "--help", "":
 		fmt.Print(usage)
 	default:
