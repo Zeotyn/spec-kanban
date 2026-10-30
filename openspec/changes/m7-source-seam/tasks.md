@@ -7,10 +7,10 @@ Every group ends with `go test ./...` green and no golden file changed (`git sta
 
 ## 2. Neutral domain types (TDD)
 
-- [ ] 2.1 Write failing tests in `internal/work`: `Phase.String` for all five Phases; `Group` places Items by their `Phase` field and orders them as the change-phases spec says (port the ordering cases of `phase_test.go` onto `Item` with `Phase` set: newest `Modified` first, Archived by `ArchivedOn` newest first, undated last, ties by name)
-- [ ] 2.2 Implement `work.Phase` (constants, `String`, comment that the int is cached), `work.Item` (design.md), `work.Group`, `work.Doc`/`work.Docs`; `internal/phase` stays for now
-- [ ] 2.3 Write failing tests in `internal/source/openspec` for `phaseOf` (port the `phase.Of` table: archived, no tasks, all done, some done with incomplete planning, complete, incomplete, unknown) and for a temporary `Items([]Change) []work.Item` (fields copied, `Phase` from `phaseOf`, `Files` → `Stamp`, `Archived` → Phase Archived)
-- [ ] 2.4 Implement `phaseOf` and `Items`
+- [x] 2.1 Write failing tests in `internal/work`: `Phase.String` for all five Phases; `Group` places Items by their `Phase` field and orders them as the change-phases spec says (port the ordering cases of `phase_test.go` onto `Item` with `Phase` set: newest `Modified` first, Archived by `ArchivedOn` newest first, undated last, ties by name)
+- [x] 2.2 Implement `work.Phase` (constants, `String`, comment that the int is cached), `work.Item` (design.md), `work.Group`, `work.Doc`/`work.Docs`; `internal/phase` stays for now
+- [x] 2.3 Write failing tests in `internal/source/openspec` for `phaseOf` (port the `phase.Of` table: archived, no tasks, all done, some done with incomplete planning, complete, incomplete, unknown) and for a temporary `Items([]Change) []work.Item` (fields copied, `Phase` from `phaseOf`, `Files` → `Stamp`, `Archived` → Phase Archived)
+- [x] 2.4 Implement `phaseOf` and `Items`
 
 ## 3. Switch consumers one at a time
 
