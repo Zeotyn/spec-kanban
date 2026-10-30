@@ -16,7 +16,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

@@ -20,9 +20,9 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/cache"
 	"github.com/zeotyn/openspec-kanban/internal/config"
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/project"
 	"github.com/zeotyn/openspec-kanban/internal/sidebar"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/start"
 	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )

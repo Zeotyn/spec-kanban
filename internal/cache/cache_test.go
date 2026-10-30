@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 const project = "/abs/project"

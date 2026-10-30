@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 func TestOf(t *testing.T) {

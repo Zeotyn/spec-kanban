@@ -5,7 +5,7 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 // Phase is a Board column; the values are in column order.

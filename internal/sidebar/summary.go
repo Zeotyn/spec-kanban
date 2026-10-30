@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/zeotyn/openspec-kanban/internal/board"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/phase"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 // width is the longest value a token may have; it fits sidebar_width = 34.

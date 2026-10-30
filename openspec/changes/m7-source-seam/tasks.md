@@ -2,7 +2,7 @@ Every group ends with `go test ./...` green and no golden file changed (`git sta
 
 ## 1. Move OpenSpec code into the Source package
 
-- [ ] 1.1 `git mv internal/openspec internal/source/openspec` (package name stays `openspec`); fix the imports in `board`, `cache`, `detail`, `docs`, `phase`, `sidebar`, `start`, `cmd/kanban`; tests green, contract tests included
+- [x] 1.1 `git mv internal/openspec internal/source/openspec` (package name stays `openspec`); fix the imports in `board`, `cache`, `detail`, `docs`, `phase`, `sidebar`, `start`, `cmd/kanban`; tests green, contract tests included
 - [ ] 1.2 Move `internal/docs` (`Dir`, `Read`, `Docs` and their tests) into `internal/source/openspec/docs.go`; fix `board` and `detail`; delete `internal/docs`
 
 ## 2. Neutral domain types (TDD)

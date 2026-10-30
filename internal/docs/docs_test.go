@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 func write(t *testing.T, dir string, files map[string]string) {

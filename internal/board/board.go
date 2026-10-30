@@ -15,8 +15,8 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/detail"
 	"github.com/zeotyn/openspec-kanban/internal/docs"
 	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/phase"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 const (

@@ -16,7 +16,7 @@ func TestContract(t *testing.T) {
 	if _, err := exec.LookPath("openspec"); err != nil {
 		t.Skip("openspec CLI not on PATH")
 	}
-	project, err := filepath.Abs(filepath.Join("..", "..", "testdata", "project"))
+	project, err := filepath.Abs(filepath.Join("..", "..", "..", "testdata", "project"))
 	if err != nil {
 		t.Fatal(err)
 	}

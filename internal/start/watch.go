@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 

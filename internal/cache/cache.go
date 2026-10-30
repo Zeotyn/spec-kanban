@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 // Version is the cache format version; bump it whenever the stored shape or the reuse rule changes.

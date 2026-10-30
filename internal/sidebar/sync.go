@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
 	"github.com/zeotyn/openspec-kanban/internal/project"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 // maxLoads bounds concurrent Project loads; with cold caches each may start 8 openspec processes.

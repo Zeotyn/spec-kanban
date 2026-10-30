@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 // script answers each herdr call whose joined args start with a key with its answers in turn, the
