@@ -4,6 +4,11 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/zeotyn/openspec-kanban/internal/theme"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // FitName shortens name in the middle with "…" to at most width runes, keeping more of the start.
@@ -69,11 +74,26 @@ func planMarks(artifacts map[string]string) string {
 	return strings.Join(marks, " ")
 }
 
-// progressBar renders done/total as width cells followed by " done/total".
-func progressBar(done, total, width int) string {
+// progressBar renders done/total as width cells, the filled ones in fill and the empty ones faint,
+// followed by " done/total".
+func progressBar(done, total, width int, fill lipgloss.Color) string {
 	if total <= 0 {
 		return "no tasks"
 	}
 	filled := (min(done, total)*width*2 + total) / (2 * total) // rounded to nearest
-	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled) + fmt.Sprintf(" %d/%d", done, total)
+	return lipgloss.NewStyle().Foreground(fill).Render(strings.Repeat("█", filled)) +
+		theme.Faint.Render(strings.Repeat("░", width-filled)) + fmt.Sprintf(" %d/%d", done, total)
+}
+
+// phaseColor is the colour of Phase p's column title, rule and Progress bars.
+func phaseColor(p work.Phase) lipgloss.Color {
+	switch p {
+	case work.Ready:
+		return theme.Accent
+	case work.InProgress:
+		return "3" // yellow
+	case work.Review:
+		return "2" // green
+	}
+	return theme.Dim
 }

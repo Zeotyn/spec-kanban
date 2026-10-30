@@ -520,7 +520,8 @@ func (m Model) columns() string {
 
 // column renders column i at width w under title.
 func (m Model) column(i, w int, title string) string {
-	lines := []string{title, strings.Repeat("─", w)}
+	colour := lipgloss.NewStyle().Foreground(phaseColor(work.Phase(i)))
+	lines := []string{colour.Render(title), colour.Render(strings.Repeat("─", w))}
 	cards, off, vis := m.cols[i], m.nav.off[i], m.visible()
 	if len(cards) == 0 {
 		lines = append(lines, "nothing here")
@@ -568,7 +569,7 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	case c.Phase == work.Archived:
 		second = "archived"
 	default:
-		second = progressBar(c.Done, c.Total, max(3, min(10, inner-8)))
+		second = progressBar(c.Done, c.Total, max(3, min(10, inner-8)), phaseColor(p))
 		third = age(m.now().Sub(c.Modified))
 		if p == work.Draft || p == work.Ready {
 			third = planMarks(c.Artifacts) + "  " + third

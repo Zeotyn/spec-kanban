@@ -14,8 +14,8 @@ Prerequisite: `m7-source-seam` is merged on `main`. Names below are the post-ref
 
 ## 3. Phase colours (TDD)
 
-- [ ] 3.1 Write failing tests: `phaseColor` returns `8`, `4`, `3`, `2`, `8` for Draft, Ready, In Progress, Review, Archived; with the profile switched to `termenv.ANSI256` (restored to `Ascii` in `t.Cleanup`), a rendered 120×30 Board contains the Ready title and rule in blue, the In Progress Card's `█` run in yellow and its `░` run faint, and the narrow indicator in the shown Phase's colour; `format_test` cases still pass under ASCII
-- [ ] 3.2 Implement `phaseColor`; colour the title and rule in `column` and the narrow indicator in `columns`; `progressBar` takes the fill colour, styles `█` with it and `░` faint, label unchanged; goldens unchanged
+- [x] 3.1 Write failing tests: `phaseColor` returns `8`, `4`, `3`, `2`, `8` for Draft, Ready, In Progress, Review, Archived; with the profile switched to `termenv.ANSI256` (restored to `Ascii` in `t.Cleanup`), a rendered 120×30 Board contains the Ready title and rule in blue, the In Progress Card's `█` run in yellow and its `░` run faint, and the narrow indicator in the shown Phase's colour; `format_test` cases still pass under ASCII
+- [x] 3.2 Implement `phaseColor`; colour the title and rule in `column` and the narrow indicator in `columns`; `progressBar` takes the fill colour, styles `█` with it and `░` faint, label unchanged; goldens unchanged
 
 ## 4. Typography and footer (TDD)
 

@@ -94,7 +94,7 @@ func TestProgressBar(t *testing.T) {
 		{5, 11, 10, "█████░░░░░ 5/11"},
 		{0, 0, 10, "no tasks"},
 	} {
-		if got := progressBar(c.done, c.total, c.width); got != c.want {
+		if got := progressBar(c.done, c.total, c.width, "3"); got != c.want {
 			t.Errorf("progressBar(%d, %d, %d) = %q, want %q", c.done, c.total, c.width, got, c.want)
 		}
 	}
