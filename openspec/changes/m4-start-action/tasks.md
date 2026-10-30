@@ -26,5 +26,5 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `go test -race ./...` and `go vet ./...` pass
+- [x] 6.1 `go test -race ./...` and `go vet ./...` pass
 - [ ] 6.2 Smoke test in herdr: rebuild; open the Board, `s` on a Ready Card → popup closes, new tab labelled with the Change runs `/opsx:apply` in the invoking workspace; reopen → Card shows `●`; `s` again → existing tab focused, no second tab; `s` on Draft/Review/Archived → notices; quit Claude in that tab, reopen the Board and note whether the badge lingers (answers the Open Question); `kanban start <change>` from a shell still works

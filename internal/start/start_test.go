@@ -121,6 +121,16 @@ func TestStartRefusesAnotherProjectsAgent(t *testing.T) {
 	}
 }
 
+func TestStartAgentWithoutCwd(t *testing.T) {
+	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get-no-cwd.json", "pane process-info": "process-info-running.json"}}
+	if err := Start(proj, change, h.run, fakeList(change)); err != nil {
+		t.Fatalf("an unknown cwd must not refuse the agent: %v", err)
+	}
+	if !reflect.DeepEqual(h.calls, []string{get, info, focus}) {
+		t.Errorf("want focus only, got %q", h.calls)
+	}
+}
+
 func TestStartRejectsChangesThatAreNotOpen(t *testing.T) {
 	h := &fakeHerdr{t: t}
 	err := Start(proj, "m1-bord-view", h.run, fakeList(change))

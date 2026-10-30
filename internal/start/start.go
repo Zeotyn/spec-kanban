@@ -36,7 +36,7 @@ func Start(project, change string, run, openspecRun herdr.Runner) error {
 		if err := json.Unmarshal(out, &got); err != nil {
 			return fmt.Errorf("agent get: %w", err)
 		}
-		if cwd := got.Result.Agent.Cwd; !inside(cwd, project) {
+		if cwd := got.Result.Agent.Cwd; cwd != "" && !inside(cwd, project) { // no cwd: nothing to check against
 			return fmt.Errorf("agent %s already runs in %s", change, cwd)
 		}
 		pane = got.Result.Agent.PaneID

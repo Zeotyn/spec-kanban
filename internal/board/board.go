@@ -66,7 +66,7 @@ type Model struct {
 
 // New builds the Board. A non-nil snapshot (the cached last load) is shown at once while the fresh
 // load from Init runs; nil means show a loading notice until then. agents looks up the Running agents
-// and start Starts a Change; either may be nil when not needed.
+// and start Starts a Change; either may be nil when not needed (no badges, s does nothing).
 func New(project string, load func() ([]openspec.Change, error), now func() time.Time, snapshot []openspec.Change,
 	agents func() (map[string]bool, error), start func(change string) error) Model {
 	m := Model{project: project, load: load, agents: agents, start: start, now: now, loading: project != "", width: 120, height: 30}
@@ -147,6 +147,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		m.starting, m.notice = "", "start failed: "+msg.err.Error()
+		return m, m.lookup() // a half-done Start may have left an agent behind
 	case detail.EditedMsg: // the detail closed before the editor reported back
 		return m.refresh()
 	case editedMsg:
@@ -246,6 +247,9 @@ func (m Model) startCard(c openspec.Change, p phase.Phase) (Model, tea.Cmd) {
 	case phase.Archived:
 		m.notice = "archived changes cannot be started"
 	default:
+		if m.start == nil {
+			return m, nil
+		}
 		m.starting = c.Name
 		return m, func() tea.Msg { return startedMsg{m.start(c.Name)} }
 	}

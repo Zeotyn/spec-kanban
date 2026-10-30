@@ -537,6 +537,27 @@ func TestStartFails(t *testing.T) {
 	}
 }
 
+func TestStartFailsLooksUpAgents(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "2")
+	starter(&m, errors.New("prompt not sent"))
+	m.agents = func() (map[string]bool, error) { return map[string]bool{"m1-board-view": true}, nil }
+	m, cmd := pressKey(m, "s")
+	_, cmd = m.Update(cmd())
+	if cmd == nil {
+		t.Fatal("a failed Start may leave an agent behind: its badge must be looked up again")
+	}
+	if _, ok := cmd().(agentsMsg); !ok {
+		t.Error("want an agent lookup after a failed Start")
+	}
+}
+
+func TestStartWithoutStarter(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "2")
+	if m, cmd := pressKey(m, "s"); cmd != nil || m.starting != "" {
+		t.Error("a Board without a start func must ignore s")
+	}
+}
+
 func TestStartRefused(t *testing.T) {
 	for col, notice := range map[string]string{
 		"1": "m2-change-detail is a draft: plan it first",

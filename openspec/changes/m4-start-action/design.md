@@ -63,3 +63,8 @@ Rebuild the plugin; no config changes. Rollback is reverting the change; `kanban
 ## Open Questions
 
 - Should the badge confirm with `pane process-info` that Claude is still in the foreground (one extra call per badge) to hide exited agents? Deferred until the smoke test shows whether herdr 0.9.5 clears the name on exit, as its docs say, or keeps it, as the M0 spike saw.
+
+## Notes from review
+
+- The foreign-agent check reads the agent's pane `cwd`. If Claude exited and the user then `cd`'d out of the Project in that shell, Start refuses instead of restarting there. Accepted: restarting would run Claude outside the Project anyway. An agent without a `cwd` is not checked.
+- A failed Start (for example "prompt not sent") may leave a named agent behind, so the Board looks up Running agents again after a failure.
