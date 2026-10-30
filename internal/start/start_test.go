@@ -603,6 +603,8 @@ func TestPrepareCallsSource(t *testing.T) {
 		{"worktree already open", proj, on, gitWith(nil, proj, "main", wt, change),
 			map[string]string{"worktree open": "worktree-open-already.json", "tab create": "tab-create.json"}, map[string]error{"agent get": notFound}, []string{wt}},
 		{"worktree create", proj, on, gitWith(nil, proj, "main"), map[string]string{"worktree create": "worktree-create.json"}, map[string]error{"agent get": notFound}, []string{wt}},
+		{"worktree create without its path: the root pane's cwd", proj, on, gitWith(nil, proj, "main"),
+			map[string]string{"worktree create": "worktree-create-no-path.json"}, map[string]error{"agent get": notFound}, []string{wt}},
 		{"idle agent in the Project", proj, off, nil, map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{proj}},
 		{"idle agent in a checkout", project, on, gitWith(nil, project, "main", proj, change),
 			map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{proj}},

@@ -70,7 +70,7 @@ A Feature's Phase SHALL follow these rules in order: Archived when all of its at
 - **THEN** it is in Ready
 
 ### Requirement: Merged branch archives a Feature
-A Feature whose tasks are all completed SHALL be Archived when a local branch named exactly like the Feature exists and is merged into the base (the configured `base`, else the default branch as Start determines it), that is, its tip is reachable from the base. An Archived Feature SHALL show no archive date. A branch that is not merged, or no such branch, SHALL leave the Feature in Review. A Feature with tasks left SHALL never be Archived, so a branch just created from the base does not archive it. The merge state SHALL be read with at most one git call per load, and only when some Feature has all its tasks completed; when git fails, no Feature SHALL be Archived.
+A Feature whose tasks are all completed SHALL be Archived when a local branch named exactly like the Feature exists, is merged into the base (the configured `base`, else the default branch as Start determines it), that is, its tip is reachable from the base, and is checked out in no checkout. A branch still checked out (a worktree, or the Project itself) SHALL leave the Feature in Review, since a branch without commits of its own counts as merged while it may hold the agent's uncommitted work. An Archived Feature SHALL show no archive date. A branch that is not merged, or no such branch, SHALL leave the Feature in Review. A Feature with tasks left SHALL never be Archived, so a branch just created from the base does not archive it. The merge state SHALL be read with at most one git call per load, and only when some Feature has all its tasks completed; when git fails, no Feature SHALL be Archived.
 
 #### Scenario: Merged after review
 - **WHEN** Feature `001-user-login-email` has all 9 tasks checked in the Project and branch `001-user-login-email` is merged into `main`, the base
@@ -83,6 +83,10 @@ A Feature whose tasks are all completed SHALL be Archived when a local branch na
 #### Scenario: Done but not merged
 - **WHEN** a Feature has all tasks checked on branch `003-search`, which has commits not in `main`
 - **THEN** it is in Review
+
+#### Scenario: Done but not committed in its worktree
+- **WHEN** the agent of `004-reports` checked all tasks in its worktree on branch `004-reports` without committing, so the branch tip is still the base
+- **THEN** it is in Review, and the Handoff asks to merge, delete the worktree's `.specify/feature.json` and remove the worktree
 
 #### Scenario: Worked on the base without a branch
 - **WHEN** a Feature has all tasks checked and no branch of its name exists

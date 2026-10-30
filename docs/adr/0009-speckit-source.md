@@ -6,7 +6,7 @@ status: accepted
 
 Spec Kit (`internal/source/speckit`) is the second Source behind the interface of ADR 0008. Its Work items are Features, the folders `specs/<name>/` with a `spec.md`. The Phase derives from the files, as for OpenSpec: Draft, Ready, In Progress, Review.
 
-Spec Kit has no archive, so a merged branch counts as Archived: a Feature whose tasks are all done and whose branch, named like the Feature, is merged into the base moves to Archived. Requiring all tasks done keeps a branch just created from the base from archiving a Ready Feature. One `git branch --merged` call per load, and only while a Feature is in Review; when git fails, nothing is archived. A Feature without a branch stays in Review.
+Spec Kit has no archive, so a merged branch counts as Archived: a Feature whose tasks are all done and whose branch, named like the Feature, is merged into the base moves to Archived. Requiring all tasks done keeps a branch just created from the base from archiving a Ready Feature, and requiring the branch to be checked out nowhere keeps an agent's finished but uncommitted work (its branch tip still the base) in Review until the worktree is removed after the merge. One `git branch --merged` call per load, and only while a Feature is in Review; when git fails, nothing is archived. A Feature without a branch stays in Review.
 
 A Project has one Source. Detection takes the nearest directory at or above the working directory that either tool recognises. When both do, OpenSpec wins, because that is today's behaviour; the config key `source` prefers Spec Kit instead. It is only a preference, so it is harmless as a global setting for Projects that only one tool recognises. The Board never mixes the two.
 

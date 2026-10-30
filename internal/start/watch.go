@@ -146,10 +146,12 @@ func (w Watched) text(git herdr.Runner, checkout, progress string, archived bool
 	switch {
 	case checkout == "" && archived:
 		t = c + " is finished and archived. Please review it."
-	case checkout == "" && w.Source.Finish(c, "") == "":
-		t = fmt.Sprintf("%s is finished (%s). Please review it.", c, progress)
 	case checkout == "":
-		t = fmt.Sprintf("%s is finished (%s). Please review it and %s.", c, progress, w.Source.Finish(c, ""))
+		t = fmt.Sprintf("%s is finished (%s). Please review it", c, progress)
+		if f := w.Source.Finish(c, ""); f != "" {
+			t += " and " + f
+		}
+		t += "."
 	default:
 		dir = checkout
 		base := worktree.Base(w.Base, git)

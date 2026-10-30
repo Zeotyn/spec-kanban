@@ -183,13 +183,15 @@ func TestMergedRule(t *testing.T) {
 		want       work.Phase
 		calls      []string
 	}{
-		{"merged", "main", map[string][]byte{"branch --merged main --format=%(refname:short)": []byte(listed)}, work.Archived,
-			[]string{p + ": branch --merged main --format=%(refname:short)"}},
+		{"merged", "main", map[string][]byte{"branch --merged main --format=%(refname:short) %(worktreepath)": []byte(listed)}, work.Archived,
+			[]string{p + ": branch --merged main --format=%(refname:short) %(worktreepath)"}},
 		{"not merged", "release/2.x", map[string][]byte{"branch --merged": []byte("main\n001-review-old\n")}, work.Review,
-			[]string{p + ": branch --merged release/2.x --format=%(refname:short)"}},
-		{"git fails", "main", nil, work.Review, []string{p + ": branch --merged main --format=%(refname:short)"}},
+			[]string{p + ": branch --merged release/2.x --format=%(refname:short) %(worktreepath)"}},
+		{"merged but checked out", "main", map[string][]byte{"branch --merged main": []byte("main /p\n001-review /wt/001-review\n")}, work.Review,
+			[]string{p + ": branch --merged main --format=%(refname:short) %(worktreepath)"}},
+		{"git fails", "main", nil, work.Review, []string{p + ": branch --merged main --format=%(refname:short) %(worktreepath)"}},
 		{"detected base", "", map[string][]byte{"rev-parse --verify --quiet refs/heads/main": {}, "branch --merged main": []byte(listed)}, work.Archived,
-			[]string{p + ": symbolic-ref --short refs/remotes/origin/HEAD", p + ": rev-parse --verify --quiet refs/heads/main", p + ": branch --merged main --format=%(refname:short)"}},
+			[]string{p + ": symbolic-ref --short refs/remotes/origin/HEAD", p + ": rev-parse --verify --quiet refs/heads/main", p + ": branch --merged main --format=%(refname:short) %(worktreepath)"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -256,15 +258,17 @@ func TestMergedRuleRealGit(t *testing.T) {
 	run("checkout", "-q", "-b", "003-unmerged")
 	commit(map[string]string{"src.go": "package x\n"}, "work")
 	run("checkout", "-q", "main")
+	run("worktree", "add", "-q", "-b", "004-wip", filepath.Join(p, "wt"))
+	write(t, filepath.Join(p, "wt"), map[string]string{"specs/004-wip/spec.md": "x", "specs/004-wip/tasks.md": "- [x] T001 A\n"}) // done, not committed
 
 	git := func(dir string) herdr.Runner {
 		return func(args ...string) ([]byte, error) { return herdr.Run("git", dir, args...) }
 	}
-	items, err := New(git, "").Load(p, nil, nil)
+	items, err := New(git, "").Load(p, worktree.List(git(p)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]work.Phase{"001-merged": work.Archived, "002-fresh": work.Ready, "003-unmerged": work.Review}
+	want := map[string]work.Phase{"001-merged": work.Archived, "002-fresh": work.Ready, "003-unmerged": work.Review, "004-wip": work.Review}
 	if got := phases(items); !reflect.DeepEqual(got, want) {
 		t.Errorf("phases %v, want %v", got, want)
 	}

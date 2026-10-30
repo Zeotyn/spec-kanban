@@ -2,6 +2,7 @@
 package start
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -158,13 +159,17 @@ func place(project, change string, wt Worktree, run herdr.Runner, src work.Sourc
 			Worktree struct {
 				Path string `json:"path"`
 			} `json:"worktree"`
+			RootPane struct {
+				Cwd string `json:"cwd"`
+			} `json:"root_pane"`
 		} `json:"result"`
 	}
-	if json.Unmarshal(out, &made) != nil || made.Result.Worktree.Path == "" {
-		return "", "", "", fmt.Errorf("worktree create: no worktree path in %s", out)
+	_ = json.Unmarshal(out, &made) // created reports broken output
+	path := cmp.Or(made.Result.Worktree.Path, made.Result.RootPane.Cwd)
+	if pane, tab, err = created("worktree create", out); err == nil && path == "" {
+		err = fmt.Errorf("worktree create: no worktree path in %s", out)
 	}
-	pane, tab, err = created("worktree create", out)
-	return pane, tab, made.Result.Worktree.Path, err
+	return pane, tab, path, err
 }
 
 // newTab runs tab create with args and returns its root pane and tab.

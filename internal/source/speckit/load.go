@@ -132,18 +132,25 @@ func phaseOf(done, total int) work.Phase {
 	return work.Ready
 }
 
-// archive moves the Review Features whose branch is merged into the base to Archived, with one git
-// call after detecting the base, and none when no Feature is in Review; a git failure archives none.
+// archive moves the Review Features whose branch is merged into the base and checked out nowhere to
+// Archived, with one git call after detecting the base, and none when no Feature is in Review; a git
+// failure archives none. A checked-out branch may still hold the agent's uncommitted work, and a
+// branch without commits of its own counts as merged.
 func (s *Source) archive(project string, items []work.Item) {
 	if !slices.ContainsFunc(items, func(it work.Item) bool { return it.Phase == work.Review }) {
 		return
 	}
 	git := s.git(project)
-	out, err := git("branch", "--merged", worktree.Base(s.base, git), "--format=%(refname:short)")
+	out, err := git("branch", "--merged", worktree.Base(s.base, git), "--format=%(refname:short) %(worktreepath)")
 	if err != nil {
 		return
 	}
-	merged := strings.Fields(string(out))
+	var merged []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if name, path, _ := strings.Cut(line, " "); name != "" && path == "" {
+			merged = append(merged, name)
+		}
+	}
 	for i := range items {
 		if items[i].Phase == work.Review && slices.Contains(merged, items[i].Name) {
 			items[i].Phase = work.Archived
