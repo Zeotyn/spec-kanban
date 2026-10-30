@@ -21,15 +21,17 @@ import (
 var Kinds = []string{"pi", "claude", "codex", "gemini", "cursor", "devin", "agy", "cline", "omp", "mastracode", "opencode", "copilot", "kimi", "kiro", "droid", "amp", "grok", "hermes", "kilo", "qodercli", "qwen", "letta", "maki", "muse"}
 
 // Config holds the settings; an empty Agent means detect the kind from the invoking pane, Hide is
-// indexed by Phase.
+// indexed by Phase, an empty Base means detect the base of a new worktree.
 type Config struct {
-	Agent  string
-	Prompt string
-	Hide   [5]bool
+	Agent    string
+	Prompt   string
+	Hide     [5]bool
+	Worktree bool
+	Base     string
 }
 
 // Default is the config without a file.
-func Default() Config { return Config{Prompt: "/opsx:apply {change}"} }
+func Default() Config { return Config{Prompt: "/opsx:apply {change}", Worktree: true} }
 
 // PromptFor is the prompt Start sends for change.
 func (c Config) PromptFor(change string) string {
@@ -39,9 +41,11 @@ func (c Config) PromptFor(change string) string {
 // Parse decodes and validates a config file; on any problem it returns Default and the problem.
 func Parse(b []byte) (Config, error) {
 	var raw struct {
-		Agent  *string  `json:"agent"`
-		Prompt *string  `json:"prompt"`
-		Hide   []string `json:"hide"`
+		Agent    *string  `json:"agent"`
+		Prompt   *string  `json:"prompt"`
+		Hide     []string `json:"hide"`
+		Worktree *bool    `json:"worktree"`
+		Base     *string  `json:"base"`
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
@@ -76,6 +80,15 @@ func Parse(b []byte) (Config, error) {
 	}
 	if !slices.Contains(cfg.Hide[:], false) {
 		return Default(), errors.New("hide: all phases hidden")
+	}
+	if raw.Worktree != nil {
+		cfg.Worktree = *raw.Worktree
+	}
+	if raw.Base != nil {
+		if *raw.Base == "" {
+			return Default(), errors.New("base is empty")
+		}
+		cfg.Base = *raw.Base
 	}
 	return cfg, nil
 }

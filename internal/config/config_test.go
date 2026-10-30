@@ -19,11 +19,16 @@ func TestParse(t *testing.T) {
 		want  Config
 		wants string // substring of the error, "" for none
 	}{
-		{"empty object gives defaults", `{}`, def, ""},
-		{"agent kept", `{"agent": "codex"}`, Config{Agent: "codex", Prompt: def.Prompt}, ""},
-		{"prompt alone", `{"prompt": "/opsx:apply {change} with TDD"}`, Config{Prompt: "/opsx:apply {change} with TDD"}, ""},
-		{"hide alone", `{"hide": ["Archived"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{phase.Archived: true}}, ""},
-		{"phase names ignore case", `{"hide": ["archived", "IN PROGRESS"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{phase.Archived: true, phase.InProgress: true}}, ""},
+		{"empty object gives defaults", `{}`, Config{Prompt: "/opsx:apply {change}", Worktree: true}, ""},
+		{"worktree off", `{"worktree": false}`, Config{Prompt: def.Prompt}, ""},
+		{"base kept", `{"base": "develop"}`, Config{Prompt: def.Prompt, Worktree: true, Base: "develop"}, ""},
+		{"worktree as a string", `{"worktree": "no"}`, def, "worktree"},
+		{"base empty", `{"base": ""}`, def, "base"},
+		{"base as a number", `{"base": 1}`, def, "base"},
+		{"agent kept", `{"agent": "codex"}`, Config{Agent: "codex", Prompt: def.Prompt, Worktree: true}, ""},
+		{"prompt alone", `{"prompt": "/opsx:apply {change} with TDD"}`, Config{Prompt: "/opsx:apply {change} with TDD", Worktree: true}, ""},
+		{"hide alone", `{"hide": ["Archived"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{phase.Archived: true}, Worktree: true}, ""},
+		{"phase names ignore case", `{"hide": ["archived", "IN PROGRESS"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{phase.Archived: true, phase.InProgress: true}, Worktree: true}, ""},
 		{"agent with capital", `{"agent": "Codex"}`, def, `"Codex"`},
 		{"agent unknown", `{"agent": "bash"}`, def, `"bash"`},
 		{"agent empty", `{"agent": ""}`, def, `agent ""`},
