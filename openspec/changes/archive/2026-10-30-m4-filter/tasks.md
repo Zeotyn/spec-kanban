@@ -20,4 +20,4 @@
 ## 5. Verification
 
 - [x] 5.1 `go test -race ./...` and `go vet ./...` pass
-- [ ] 5.2 Smoke test in herdr: rebuild, open the Board on a Project with several milestones; `/m1` shows only M1 Cards with fitting counts and the header filter; `enter`, `n`/`N` walk the matches across columns and wrap; `/BOARD` matches case-insensitively; `esc` restores all Cards, a second `esc` closes the popup; narrow popup still works with a filter
+- [x] 5.2 Smoke test in herdr: rebuild, open the Board on a Project with several milestones; `/m1` shows only M1 Cards with fitting counts and the header filter; `enter`, `n`/`N` walk the matches across columns and wrap; `/BOARD` matches case-insensitively; `esc` restores all Cards, a second `esc` closes the popup; narrow popup still works with a filter
