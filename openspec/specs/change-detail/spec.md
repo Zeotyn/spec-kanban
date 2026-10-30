@@ -7,7 +7,7 @@ Defines the detail view of a Change: which documents it shows in which tabs, how
 ## Requirements
 
 ### Requirement: Tabs for a Change's documents
-The detail view SHALL show one Change with four tabs in this order: Tasks, Proposal, Design, Specs. A header SHALL show the Change name, its milestone badge, its Progress and its Phase. The view SHALL open on Tasks when the Change has tasks and on Proposal otherwise. `1`–`4` SHALL switch to that tab, `Tab` and `shift+Tab` to the next and previous tab, wrapping around.
+The detail view SHALL show one Change with the tabs its Source supplies, in the Source's order: for an OpenSpec Change four tabs, Tasks, Proposal, Design, Specs; for a Spec Kit Feature the tabs of the speckit-source spec. A header SHALL show the Change name, its milestone badge, its Progress and its Phase. The view SHALL open on Tasks when the Change has tasks and otherwise on the Source's first document tab (Proposal for OpenSpec). `1` up to the number of tabs SHALL switch to that tab, `Tab` and `shift+Tab` to the next and previous tab, wrapping around.
 
 #### Scenario: Open a Change with tasks
 - **WHEN** the user opens the details of `m1-board-view`, which has 5 of 11 tasks completed
@@ -20,6 +20,10 @@ The detail view SHALL show one Change with four tabs in this order: Tasks, Propo
 #### Scenario: Switch tabs
 - **WHEN** the Tasks tab is shown and the user presses `Tab` four times
 - **THEN** Proposal, Design, Specs and then Tasks are shown in turn
+
+#### Scenario: Feature with two tabs
+- **WHEN** the details of a Spec Kit Feature with only `spec.md` are shown and the user presses `3`
+- **THEN** the Spec tab stays shown, since the Feature has only Tasks and Spec
 
 ### Requirement: Rendered documents
 Each tab SHALL show its document rendered as markdown for the terminal, wrapped to the view width. The Tasks tab SHALL start with the next open task, or a note that all tasks are done, followed by `tasks.md`. The Specs tab SHALL show every `spec.md` below the Change's `specs/` directory, at any depth, each under a heading with its capability path. A tab whose document does not exist SHALL say that the Change has no such document.
