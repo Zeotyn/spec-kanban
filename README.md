@@ -6,6 +6,8 @@
 
 A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes as a kanban board.
 
+![spec-kanban: navigating the board, filtering by milestone, opening a Change's details and the key help](docs/assets/demo.gif)
+
 ## Requirements
 
 - herdr ≥ 0.9.3
@@ -26,6 +28,8 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 
 ## Keys
 
+![The Board: Changes as Cards in Phase columns, the selected Card framed in the accent colour](docs/assets/board.png)
+
 | Key | Board | Details |
 | --- | --- | --- |
 | `h` `l` / `j` `k` | column / Card | – / scroll |
@@ -41,6 +45,11 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `q` `Esc` | close (`Esc` first clears a filter) | back to the Board |
 
 `?` shows all keys and the version; any key closes the help.
+
+<p>
+  <img src="docs/assets/detail.png" alt="Details of a Change: its tasks with the next open one on top, and tabs for proposal, design and specs" width="62%">
+  <img src="docs/assets/help.png" alt="The key help with the plugin version" width="30%">
+</p>
 
 `e` opens `$EDITOR` (`vi` when unset) inside the popup. GUI editors need their wait flag, for example `EDITOR="code -w"`, or the Board reloads before you have saved.
 

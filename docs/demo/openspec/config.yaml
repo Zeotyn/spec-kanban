@@ -1,0 +1,5 @@
+schema: spec-driven
+
+context: |
+  Tasks is a small todo and notes app (web + mobile).
+  Change names use a milestone prefix: m<N>-<slug>, fixes use f<N>-<slug>.
