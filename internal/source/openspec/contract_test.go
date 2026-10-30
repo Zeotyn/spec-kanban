@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // TestContract runs the real openspec CLI against testdata/project, so a change in its JSON output

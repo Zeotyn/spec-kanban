@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Renamed from openspec-kanban to spec-kanban, since more spec tools than OpenSpec are planned: the repository is github.com/zeotyn/spec-kanban, the plugin id is `spec-kanban` and the action `spec-kanban-open`. Re-link or re-install the plugin, update the keybinding's `command`, and move `config.json` from `plugins/config/openspec-kanban` to `plugins/config/spec-kanban`.
+
 ## 0.2.0 - 2026-10-30
 
 - Worktrees: `s` starts the agent in its own git worktree on a branch named after the Change, based on the repository's default branch, so work in the main checkout goes on in parallel; the Board and the sidebar read Progress from the worktree. The `worktree` and `base` settings turn this off or pick the base.

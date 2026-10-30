@@ -13,8 +13,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // Kinds: update from `herdr agent start --help`.
@@ -123,7 +123,7 @@ func Dir(run herdr.Runner) string {
 	if dir := os.Getenv("HERDR_PLUGIN_CONFIG_DIR"); dir != "" {
 		return dir
 	}
-	out, err := run("plugin", "config-dir", "openspec-kanban")
+	out, err := run("plugin", "config-dir", "spec-kanban")
 	if err != nil {
 		return ""
 	}

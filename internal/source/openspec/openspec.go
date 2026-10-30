@@ -18,9 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
-	"github.com/zeotyn/openspec-kanban/internal/worktree"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/worktree"
 )
 
 // maxParallel bounds concurrent `openspec status` calls (each starts a Node process).

@@ -12,10 +12,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/zeotyn/openspec-kanban/internal/detail"
-	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/theme"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/detail"
+	"github.com/zeotyn/spec-kanban/internal/editor"
+	"github.com/zeotyn/spec-kanban/internal/theme"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 const (
@@ -465,7 +465,7 @@ func (m Model) View() string {
 
 // helpView renders the key help, framed when the frame fits, else cut to the view.
 func (m Model) helpView() string {
-	lines := []string{"openspec-kanban " + m.version + " · any key closes"}
+	lines := []string{"spec-kanban " + m.version + " · any key closes"}
 	for _, g := range helpGroups {
 		lines = append(lines, "", theme.AccentBold.Render(g.title))
 		for _, k := range g.keys {

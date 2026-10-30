@@ -11,9 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/cache"
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/cache"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/source/openspec"
 )
 
 func TestOpen(t *testing.T) {
@@ -25,7 +25,7 @@ func TestOpen(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(proj, "openspec/changes"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	base := []string{"plugin", "pane", "open", "--plugin", "openspec-kanban", "--entrypoint", "board", "--focus"}
+	base := []string{"plugin", "pane", "open", "--plugin", "spec-kanban", "--entrypoint", "board", "--focus"}
 	withProject := append(append([]string{}, base...), "--cwd", proj, "--env", "KANBAN_PROJECT="+proj)
 
 	tests := []struct {
@@ -169,7 +169,7 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("want the Launch error, got %v", err)
 	}
-	want := []string{"notification", "show", "openspec-kanban: start failed", "--body", err.Error()}
+	want := []string{"notification", "show", "spec-kanban: start failed", "--body", err.Error()}
 	if len(calls) != 3 || !reflect.DeepEqual(calls[2], want) {
 		t.Errorf("herdr calls %q, want tab focus, agent start then %q", calls, want)
 	}
@@ -220,7 +220,7 @@ func TestResumeNotifiesOnFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("want an error without a record")
 	}
-	want := [][]string{{"notification", "show", "openspec-kanban: resume failed", "--body", err.Error()}}
+	want := [][]string{{"notification", "show", "spec-kanban: resume failed", "--body", err.Error()}}
 	if !reflect.DeepEqual(calls, want) {
 		t.Errorf("herdr calls %q, want %q", calls, want)
 	}

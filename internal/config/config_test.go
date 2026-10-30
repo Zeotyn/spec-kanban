@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 func TestParse(t *testing.T) {
@@ -122,8 +122,8 @@ func TestDir(t *testing.T) {
 		wantCalls      []string
 	}{
 		{"env wins", "/cfg", "/other\n", nil, "/cfg", nil},
-		{"herdr fallback, trimmed", "", "/home/u/.config/herdr/plugins/config/openspec-kanban\n", nil, "/home/u/.config/herdr/plugins/config/openspec-kanban", []string{"plugin config-dir openspec-kanban"}},
-		{"herdr fails", "", "", errors.New("herdr: not found"), "", []string{"plugin config-dir openspec-kanban"}},
+		{"herdr fallback, trimmed", "", "/home/u/.config/herdr/plugins/config/spec-kanban\n", nil, "/home/u/.config/herdr/plugins/config/spec-kanban", []string{"plugin config-dir spec-kanban"}},
+		{"herdr fails", "", "", errors.New("herdr: not found"), "", []string{"plugin config-dir spec-kanban"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

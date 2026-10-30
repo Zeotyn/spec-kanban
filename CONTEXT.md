@@ -1,4 +1,4 @@
-# openspec-kanban
+# spec-kanban
 
 A herdr plugin that shows a Project's OpenSpec Changes as a kanban Board and summarises them in the sidebar.
 

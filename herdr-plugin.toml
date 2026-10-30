@@ -1,5 +1,5 @@
-id = "openspec-kanban"
-name = "openspec-kanban"
+id = "spec-kanban"
+name = "spec-kanban"
 version = "0.2.0"
 description = "Kanban board for OpenSpec changes"
 min_herdr_version = "0.9.3"
@@ -10,9 +10,9 @@ platforms = ["macos", "linux"]
 [[build]]
 command = ["sh", "scripts/build.sh"]
 
-# Invoke: herdr plugin action invoke openspec-kanban-open  (or via keybinding, see herdr-config.toml)
+# Invoke: herdr plugin action invoke spec-kanban-open  (or via keybinding, see herdr-config.toml)
 [[actions]]
-id = "openspec-kanban-open"
+id = "spec-kanban-open"
 title = "Open OpenSpec Kanban"
 description = "Shows the OpenSpec changes of this workspace as a kanban board"
 contexts = ["global", "workspace", "tab", "pane"]

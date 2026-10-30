@@ -1,4 +1,4 @@
-# openspec-kanban
+# spec-kanban
 
 A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes as a kanban board.
 
@@ -10,10 +10,10 @@ A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://gi
 
 ## Install
 
-Install a release (see [Releases](https://github.com/zeotyn/openspec-kanban/releases)); this downloads its checksum-verified binary and needs no Go:
+Install a release (see [Releases](https://github.com/zeotyn/spec-kanban/releases)); this downloads its checksum-verified binary and needs no Go:
 
 ```sh
-herdr plugin install zeotyn/openspec-kanban --ref v<version>
+herdr plugin install zeotyn/spec-kanban --ref v<version>
 ```
 
 `herdr plugin update` keeps a release pinned; to upgrade, install the new tag. Installing without `--ref` takes `main`, which builds from source with Go unless `main` is exactly a release.
@@ -53,13 +53,13 @@ After `s` the plugin watches the agent in the background. Each time it stops aft
 - **Finished** (all tasks completed, or the agent archived the Change, in the project or in its worktree) and not waiting for input: the agent's pane closes, and with it its tab when nothing else is open there. The agent in the pane you opened the Board from, the **Main agent** (any kind), gets a prompt like `m1-board-view is finished (7/7 tasks). Please review it and archive it with /opsx:archive m1-board-view.` For a Change in a worktree it asks instead to review it, merge branch `m1-board-view` into the base, archive it, then run `git worktree remove <path>`, never with `--force`, keeping the branch, and to stop if the merge or the removal does not go through cleanly. The Main agent merges and removes; `git worktree remove` refuses a checkout with uncommitted work, so nothing is lost. The prompt also names the command that reopens the session (for example `claude --resume <id>`) when the agent kind supports it.
 - **Not finished** (tasks left) or waiting for input: the tab stays open, herdr shows a notification with the Progress, and watching goes on.
 
-When the Main agent cannot take the prompt (the Board was opened from a shell pane, the pane is gone, or the Main agent waits at a dialog), herdr shows the same text as a notification `openspec-kanban: <change> finished`. Watching ends with the Handoff or when the agent's tab is closed. `kanban start` from a shell is not watched.
+When the Main agent cannot take the prompt (the Board was opened from a shell pane, the pane is gone, or the Main agent waits at a dialog), herdr shows the same text as a notification `spec-kanban: <change> finished`. Watching ends with the Handoff or when the agent's tab is closed. `kanban start` from a shell is not watched.
 
-The agent kind and session herdr reports are recorded per project and Change under `sessions/` in the plugin's state directory (`$HERDR_PLUGIN_STATE_DIR`, else the user cache directory's `openspec-kanban`). Sessions of `claude`, `copilot`, `codex`, `opencode`, `cursor` and `gemini` can be reopened with `s` on the Review Card; the worktree is reopened, or recreated from its branch after it was removed.
+The agent kind and session herdr reports are recorded per project and Change under `sessions/` in the plugin's state directory (`$HERDR_PLUGIN_STATE_DIR`, else the user cache directory's `spec-kanban`). Sessions of `claude`, `copilot`, `codex`, `opencode`, `cursor` and `gemini` can be reopened with `s` on the Review Card; the worktree is reopened, or recreated from its branch after it was removed.
 
 ## Settings
 
-Settings live in `config.json` in the plugin's config directory, which `herdr plugin config-dir openspec-kanban` prints. The file is optional; every key is too:
+Settings live in `config.json` in the plugin's config directory, which `herdr plugin config-dir spec-kanban` prints. The file is optional; every key is too:
 
 ```json
 {
@@ -99,9 +99,9 @@ herdr refreshes the lines on startup, when an agent's status changes and when a 
 `herdr plugin link` does not run the build step, so build the binary yourself after every change:
 
 ```sh
-herdr plugin link ~/code/openspec-kanban
+herdr plugin link ~/code/spec-kanban
 go build -o bin/kanban ./cmd/kanban
-herdr plugin action invoke openspec-kanban-open
+herdr plugin action invoke spec-kanban-open
 herdr plugin log list
 ```
 

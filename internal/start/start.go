@@ -8,10 +8,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/zeotyn/openspec-kanban/internal/config"
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
-	"github.com/zeotyn/openspec-kanban/internal/worktree"
+	"github.com/zeotyn/spec-kanban/internal/config"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/worktree"
 )
 
 // Worktree holds the worktree settings: whether Start works in the Change's checkout, and the

@@ -16,10 +16,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	"github.com/zeotyn/openspec-kanban/internal/detail"
-	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/detail"
+	"github.com/zeotyn/spec-kanban/internal/editor"
+	"github.com/zeotyn/spec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -1021,7 +1021,7 @@ func TestInitialNotice(t *testing.T) {
 	}
 }
 
-const helpTitle = "openspec-kanban test · any key closes"
+const helpTitle = "spec-kanban test · any key closes"
 
 func TestHelp(t *testing.T) {
 	framed := keys(board(t, 120, 30, fixture), "3", "?").View()

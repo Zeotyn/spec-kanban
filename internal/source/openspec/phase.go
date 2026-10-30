@@ -1,6 +1,6 @@
 package openspec
 
-import "github.com/zeotyn/openspec-kanban/internal/work"
+import "github.com/zeotyn/spec-kanban/internal/work"
 
 // phaseOf applies the change-phases rules to an open Change in order; progress outranks planning.
 func phaseOf(done, total int, planned bool) work.Phase {

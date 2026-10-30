@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 func TestSummary(t *testing.T) {

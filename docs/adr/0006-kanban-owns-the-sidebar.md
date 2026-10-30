@@ -2,9 +2,9 @@
 status: accepted
 ---
 
-# openspec-kanban owns the sidebar summary
+# spec-kanban owns the sidebar summary
 
-openspec-kanban reports its own Space tokens (`kanban_change`, `kanban`, source `openspec-kanban`) and replaces the sidebar part of herdr-openspec, which the user has disabled. The summary reads Changes the same way the Board does (ADR 0002) and shares its cache, so sidebar and Board always agree on Phases and Progress, and every sidebar refresh warms the Board.
+spec-kanban reports its own Space tokens (`kanban_change`, `kanban`, source `spec-kanban`) and replaces the sidebar part of herdr-openspec, which the user has disabled. The summary reads Changes the same way the Board does (ADR 0002) and shares its cache, so sidebar and Board always agree on Phases and Progress, and every sidebar refresh warms the Board.
 
 ## Considered Options
 

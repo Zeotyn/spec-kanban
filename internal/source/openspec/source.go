@@ -4,9 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
-	"github.com/zeotyn/openspec-kanban/internal/worktree"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/worktree"
 )
 
 // Source is the OpenSpec work.Source; cli runs the openspec CLI inside a directory.

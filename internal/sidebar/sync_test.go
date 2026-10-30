@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // projects creates Projects with the given names in a temp dir and returns their paths by name.
@@ -95,7 +95,7 @@ func TestSync(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(p["kanban"], "internal"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	tokens := " --source openspec-kanban --token kanban_change=▰▰▰▱▱▱ 3/6 m1-board-view --token kanban=1 wip"
+	tokens := " --source spec-kanban --token kanban_change=▰▰▰▱▱▱ 3/6 m1-board-view --token kanban=1 wip"
 	h := &fakeHerdr{
 		workspaces: []string{"w1", "w2", "w3", "w4", "w5", "w6"},
 		panes: []pane{
@@ -115,8 +115,8 @@ func TestSync(t *testing.T) {
 	want := []string{
 		report + "w1" + tokens,
 		report + "w2" + tokens,
-		report + "w3 --source openspec-kanban --clear-token kanban_change --clear-token kanban",
-		report + "w4 --source openspec-kanban --clear-token kanban_change --token kanban=no open changes",
+		report + "w3 --source spec-kanban --clear-token kanban_change --clear-token kanban",
+		report + "w4 --source spec-kanban --clear-token kanban_change --token kanban=no open changes",
 		report + "w6" + tokens,
 	}
 	if !reflect.DeepEqual(h.reports, want) {
@@ -195,7 +195,7 @@ func TestSyncFocusedPanePerWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	tokens := func(name string) string {
-		return " --source openspec-kanban --token kanban_change=no tasks " + name + " --token kanban=1 draft"
+		return " --source spec-kanban --token kanban_change=no tasks " + name + " --token kanban=1 draft"
 	}
 	want := []string{report + "w1" + tokens("b"), report + "w2" + tokens("a"), report + "w3" + tokens("b")}
 	if !reflect.DeepEqual(h.reports, want) {

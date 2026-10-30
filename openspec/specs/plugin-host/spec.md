@@ -2,17 +2,17 @@
 
 ## Purpose
 
-Defines how the openspec-kanban plugin is built and hosted by herdr: how it is installed, how the open action finds the Project, and how the Board pane opens and closes.
+Defines how the spec-kanban plugin is built and hosted by herdr: how it is installed, how the open action finds the Project, and how the Board pane opens and closes.
 ## Requirements
 ### Requirement: Plugin builds on install
 The plugin SHALL provide its `kanban` binary during `herdr plugin install`. When the installed commit is a release whose binary for the machine's OS and architecture can be downloaded and verified against the release checksums, the install SHALL use that binary and SHALL NOT need a Go toolchain. In every other case the plugin SHALL build the binary from source, and the installation SHALL fail with herdr's build error when the binary cannot be built. For a linked development checkout, the repository SHALL document a single command that builds the binary at the path the manifest uses.
 
 #### Scenario: Install of a release without Go
-- **WHEN** a user runs `herdr plugin install zeotyn/openspec-kanban --ref v<version>` for a published release on a supported OS and architecture, on a machine without a Go toolchain
+- **WHEN** a user runs `herdr plugin install zeotyn/spec-kanban --ref v<version>` for a published release on a supported OS and architecture, on a machine without a Go toolchain
 - **THEN** the install succeeds with the downloaded, checksum-verified binary and `kanban --version` prints `<version>`
 
 #### Scenario: Install from GitHub with Go available
-- **WHEN** a user runs `herdr plugin install zeotyn/openspec-kanban` on a machine with a Go toolchain
+- **WHEN** a user runs `herdr plugin install zeotyn/spec-kanban` on a machine with a Go toolchain
 - **THEN** the install succeeds and the plugin's actions can be invoked without further steps
 
 #### Scenario: Install without Go
@@ -24,7 +24,7 @@ The plugin SHALL provide its `kanban` binary during `herdr plugin install`. When
 - **THEN** invoking the open action launches the freshly built binary
 
 ### Requirement: Open action opens the Board for the invoking Project
-Invoking the `openspec-kanban-open` action SHALL open the Board as a popup covering 90% of the terminal width and height. The Board SHALL show the Project that contains the working directory of the pane the action was invoked from; when that pane has no working directory, the Board SHALL use the focused workspace's working directory.
+Invoking the `spec-kanban-open` action SHALL open the Board as a popup covering 90% of the terminal width and height. The Board SHALL show the Project that contains the working directory of the pane the action was invoked from; when that pane has no working directory, the Board SHALL use the focused workspace's working directory.
 
 #### Scenario: Pane inside a Project
 - **WHEN** the action is invoked from a pane whose working directory is `<project>/internal/ui`, and `<project>/openspec/changes` exists
@@ -39,7 +39,7 @@ Invoking the `openspec-kanban-open` action SHALL open the Board as a popup cover
 - **THEN** no popup opens and the action's log entry contains herdr's error
 
 ### Requirement: Keybinding opens the Board
-The repository SHALL provide a herdr config snippet that binds `prefix+o` to the `openspec-kanban-open` action.
+The repository SHALL provide a herdr config snippet that binds `prefix+o` to the `spec-kanban-open` action.
 
 #### Scenario: Snippet applied
 - **WHEN** the user copies the snippet into `~/.config/herdr/config.toml`, reloads the config, and presses `prefix+o`

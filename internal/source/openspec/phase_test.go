@@ -3,7 +3,7 @@ package openspec
 import (
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 func TestPhaseOf(t *testing.T) {

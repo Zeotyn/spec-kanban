@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	"github.com/zeotyn/openspec-kanban/internal/theme"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/theme"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // coloured renders with 256 colours until the test ends.
@@ -96,7 +96,7 @@ func TestHelpStyle(t *testing.T) {
 	coloured(t)
 	v := keys(board(t, 120, 40, fixture), "?").View()
 	contains(t, v, theme.AccentBold.Render("Board"), theme.AccentBold.Render("Filter prompt"), theme.AccentBold.Render("Details"),
-		"  gg/G         "+faint.Render("first/last card"), "openspec-kanban test · any key closes")
+		"  gg/G         "+faint.Render("first/last card"), "spec-kanban test · any key closes")
 	if !strings.HasPrefix(v, fg("8").Render(top)+"\n") {
 		t.Errorf("the frame must be dim:\n%q", v)
 	}

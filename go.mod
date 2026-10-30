@@ -1,4 +1,4 @@
-module github.com/zeotyn/openspec-kanban
+module github.com/zeotyn/spec-kanban
 
 go 1.24.0
 

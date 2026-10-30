@@ -14,8 +14,8 @@ The plugin SHALL assign each herdr workspace the Project that contains the worki
 - **THEN** `w1` shows the summary of `<project>`
 
 #### Scenario: Two Projects in one workspace
-- **WHEN** workspace `w1` has a pane in Project `magentic` and the focused pane in Project `openspec-kanban`
-- **THEN** `w1` shows the summary of `openspec-kanban`
+- **WHEN** workspace `w1` has a pane in Project `magentic` and the focused pane in Project `spec-kanban`
+- **THEN** `w1` shows the summary of `spec-kanban`
 
 #### Scenario: Workspace outside any Project
 - **WHEN** no pane of workspace `w2` works inside a Project
@@ -89,8 +89,8 @@ A refresh SHALL read Changes with the same cached planning reuse as the Board, a
 When a Project's Changes cannot be read (for example, the openspec CLI is missing or fails), the tokens of the workspaces showing that Project SHALL stay as they were, and the error SHALL appear in the plugin's command log. Other workspaces SHALL be refreshed as usual. When herdr cannot list its workspaces or panes, the refresh SHALL report nothing and fail with herdr's error.
 
 #### Scenario: openspec CLI fails for one Project
-- **WHEN** `openspec list` fails in Project `magentic` but succeeds in `openspec-kanban`
-- **THEN** the workspaces of `magentic` keep their previous tokens and those of `openspec-kanban` are refreshed
+- **WHEN** `openspec list` fails in Project `magentic` but succeeds in `spec-kanban`
+- **THEN** the workspaces of `magentic` keep their previous tokens and those of `spec-kanban` are refreshed
 
 #### Scenario: herdr unreachable
 - **WHEN** `herdr workspace list` fails

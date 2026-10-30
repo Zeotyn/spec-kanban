@@ -1,5 +1,5 @@
 ╭───────────────────────────────────────────╮
-│openspec-kanban test · any key closes      │
+│spec-kanban test · any key closes          │
 │                                           │
 │Board                                      │
 │  h/l j/k      column, card                │

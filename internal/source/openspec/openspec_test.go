@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
-	"github.com/zeotyn/openspec-kanban/internal/worktree"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/worktree"
 )
 
 // one runs every directory's CLI through run.

@@ -1,8 +1,8 @@
-# ctrl+b o invokes the openspec-kanban-open action
+# ctrl+b o invokes the spec-kanban-open action
 [[keys.command]]
 key = "prefix+o"
 type = "plugin_action"
-command = "openspec-kanban-open"
+command = "spec-kanban-open"
 
 # Sidebar summary (kanban sync): the Most recently modified Change, bold once all its tasks are
 # done, and the open Changes per Phase. Replaces herdr-openspec's $openspec/$openspec_change rows.

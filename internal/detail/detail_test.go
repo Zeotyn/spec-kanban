@@ -15,9 +15,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/editor"
+	"github.com/zeotyn/spec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

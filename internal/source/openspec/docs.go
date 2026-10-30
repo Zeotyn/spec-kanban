@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // changeDir returns where a Change's files live: openspec/changes/<name> when open, openspec/changes/archive/<ArchivedOn>-<name>

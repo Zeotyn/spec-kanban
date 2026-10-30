@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 const project = "/abs/project"
@@ -26,7 +26,7 @@ func TestDirFallsBackToUserCacheDir(t *testing.T) {
 	if err != nil {
 		t.Skip("no user cache dir:", err)
 	}
-	if got, want := Dir(), filepath.Join(base, "openspec-kanban"); got != want {
+	if got, want := Dir(), filepath.Join(base, "spec-kanban"); got != want {
 		t.Errorf("Dir() = %q, want %q", got, want)
 	}
 }

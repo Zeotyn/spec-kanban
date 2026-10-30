@@ -1,4 +1,4 @@
-// Command kanban is the openspec-kanban herdr plugin.
+// Command kanban is the spec-kanban herdr plugin.
 package main
 
 import (
@@ -16,16 +16,16 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/zeotyn/openspec-kanban/internal/board"
-	"github.com/zeotyn/openspec-kanban/internal/cache"
-	"github.com/zeotyn/openspec-kanban/internal/config"
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/project"
-	"github.com/zeotyn/openspec-kanban/internal/sidebar"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
-	"github.com/zeotyn/openspec-kanban/internal/start"
-	"github.com/zeotyn/openspec-kanban/internal/work"
-	"github.com/zeotyn/openspec-kanban/internal/worktree"
+	"github.com/zeotyn/spec-kanban/internal/board"
+	"github.com/zeotyn/spec-kanban/internal/cache"
+	"github.com/zeotyn/spec-kanban/internal/config"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/project"
+	"github.com/zeotyn/spec-kanban/internal/sidebar"
+	"github.com/zeotyn/spec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/start"
+	"github.com/zeotyn/spec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/worktree"
 )
 
 // version is stamped by release builds with -ldflags "-X main.version=<version>".
@@ -118,7 +118,7 @@ func open(contextJSON string, run herdr.Runner, src work.Source) error {
 	if cwd == "" {
 		cwd = ctx.WorkspaceCwd
 	}
-	args := []string{"plugin", "pane", "open", "--plugin", "openspec-kanban", "--entrypoint", "board", "--focus"}
+	args := []string{"plugin", "pane", "open", "--plugin", "spec-kanban", "--entrypoint", "board", "--focus"}
 	if proj := project.Find(cwd, src.Detect); proj != "" {
 		args = append(args, "--cwd", proj, "--env", "KANBAN_PROJECT="+proj)
 	}
@@ -215,7 +215,7 @@ func childEnv(env []string) []string {
 // A Start from the Board ($KANBAN_PROJECT set) is then watched until it hands off or its agent goes away.
 func launch(change, pane, tab, kind, prompt string, run herdr.Runner, src work.Source) error {
 	if err := start.Launch(change, kind, prompt, pane, tab, run); err != nil {
-		run("notification", "show", "openspec-kanban: start failed", "--body", err.Error())
+		run("notification", "show", "spec-kanban: start failed", "--body", err.Error())
 		return err
 	}
 	proj := os.Getenv("KANBAN_PROJECT")
@@ -241,7 +241,7 @@ func resumeChange(change, pane, tab string, run herdr.Runner) error {
 	s := cache.ReadSession(cache.Dir(), os.Getenv("KANBAN_PROJECT"), change)
 	err := start.Resume(change, s, pane, tab, run)
 	if err != nil {
-		run("notification", "show", "openspec-kanban: resume failed", "--body", err.Error())
+		run("notification", "show", "spec-kanban: resume failed", "--body", err.Error())
 	}
 	return err
 }

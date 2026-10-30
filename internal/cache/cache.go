@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // Version is the cache format version; bump it whenever the stored shape or the reuse rule changes.
@@ -22,7 +22,7 @@ type file struct {
 	Changes []work.Item `json:"changes"`
 }
 
-// Dir returns $HERDR_PLUGIN_STATE_DIR when set, else os.UserCacheDir()/openspec-kanban; "" if neither is available.
+// Dir returns $HERDR_PLUGIN_STATE_DIR when set, else os.UserCacheDir()/spec-kanban; "" if neither is available.
 func Dir() string {
 	if d := os.Getenv("HERDR_PLUGIN_STATE_DIR"); d != "" {
 		return d
@@ -31,7 +31,7 @@ func Dir() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(base, "openspec-kanban")
+	return filepath.Join(base, "spec-kanban")
 }
 
 // name spreads Projects over files; the project field inside is the authority.

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zeotyn/openspec-kanban/internal/board"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/board"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // width is the longest value a token may have; it fits sidebar_width = 34.

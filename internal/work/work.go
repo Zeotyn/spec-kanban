@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/zeotyn/openspec-kanban/internal/worktree"
+	"github.com/zeotyn/spec-kanban/internal/worktree"
 )
 
 // Phase is a Board column; the values are in column order. The cache stores the int, so reordering

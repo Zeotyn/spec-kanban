@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // src is the real OpenSpec Source, for the ref check's path.
@@ -19,7 +19,7 @@ var src = openspec.New(nil)
 const change = "m1-board-view"
 
 // proj is the Project the tests start in: the cwd of the agent in agent-get.json.
-const proj = "/Users/U758014/code/openspec-kanban"
+const proj = "/Users/U758014/code/spec-kanban"
 
 // notFound is what herdr.Run returns for an unknown agent: the real stderr folded into the error.
 var notFound = func() error {
@@ -399,7 +399,7 @@ func TestRunning(t *testing.T) {
 }
 
 // wt is the linked worktree of the Change, where herdr's fixtures put it.
-const wt = "/Users/U758014/.herdr/worktrees/openspec-kanban/" + change
+const wt = "/Users/U758014/.herdr/worktrees/spec-kanban/" + change
 
 // gitWith answers the calls worktree.List and worktree.Base make with porcelain listing the
 // checkouts as path, branch pairs, origin/HEAD at origin/main and a local main, plus extra.
@@ -503,7 +503,7 @@ func TestPrepareChangeNotOnBase(t *testing.T) {
 }
 
 func TestPrepareAgentInCheckout(t *testing.T) {
-	const project = "/work/openspec-kanban" // agent-get.json's cwd is proj, a linked checkout here
+	const project = "/work/spec-kanban" // agent-get.json's cwd is proj, a linked checkout here
 	tests := []struct {
 		name     string
 		info     string

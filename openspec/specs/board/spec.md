@@ -148,7 +148,7 @@ When the Changes cannot be read, the Board SHALL show the error message in place
 
 #### Scenario: Start fails after the Board closed
 - **WHEN** the user presses `s` on a Ready Card and Claude does not become ready
-- **THEN** herdr shows a notification `openspec-kanban: start failed` naming the tab and saying the prompt was not sent
+- **THEN** herdr shows a notification `spec-kanban: start failed` naming the tab and saying the prompt was not sent
 
 #### Scenario: Draft Card
 - **WHEN** a Draft Card is selected and the user presses `s`
@@ -260,7 +260,7 @@ While a filter is active, `n` SHALL select the next matching Card in reading ord
 - **THEN** the Board stays as it is
 
 ### Requirement: Key help
-`?` on the Board or in the detail view SHALL show the key help in place of the view: every key with what it does, grouped under Board, Filter prompt and Details. The help SHALL start with a line naming the plugin and its version as `openspec-kanban <version>`, where the version is the one `kanban --version` prints, and saying that any key closes the help. Group titles SHALL be bold in the accent colour (ANSI blue, `4`), keys in the default style and their descriptions faint. When the popup is large enough for the whole help with a border around it, the help SHALL be framed by a rounded border in the dim colour (ANSI bright black, `8`); otherwise it SHALL be shown without the border, cut to the popup as before. The next key SHALL close the help and return to the view it was opened from, without any other effect; `ctrl+c` SHALL close the Board. In the filter prompt `?` SHALL be typed into the filter, and while Start runs it SHALL be ignored like every other key. The footers of the Board and the detail view SHALL mention `?`.
+`?` on the Board or in the detail view SHALL show the key help in place of the view: every key with what it does, grouped under Board, Filter prompt and Details. The help SHALL start with a line naming the plugin and its version as `spec-kanban <version>`, where the version is the one `kanban --version` prints, and saying that any key closes the help. Group titles SHALL be bold in the accent colour (ANSI blue, `4`), keys in the default style and their descriptions faint. When the popup is large enough for the whole help with a border around it, the help SHALL be framed by a rounded border in the dim colour (ANSI bright black, `8`); otherwise it SHALL be shown without the border, cut to the popup as before. The next key SHALL close the help and return to the view it was opened from, without any other effect; `ctrl+c` SHALL close the Board. In the filter prompt `?` SHALL be typed into the filter, and while Start runs it SHALL be ignored like every other key. The footers of the Board and the detail view SHALL mention `?`.
 
 #### Scenario: Help on the Board
 - **WHEN** the Board is open and the user presses `?`
@@ -268,7 +268,7 @@ While a filter is active, `n` SHALL select the next matching Card in reading ord
 
 #### Scenario: Version in the help
 - **WHEN** `kanban --version` prints `0.3.0` and the user presses `?` on the Board
-- **THEN** the help starts with `openspec-kanban 0.3.0` and says that any key closes it
+- **THEN** the help starts with `spec-kanban 0.3.0` and says that any key closes it
 
 #### Scenario: Styled and framed help
 - **WHEN** the user presses `?` in a 120 by 40 popup in a colour terminal

@@ -41,8 +41,8 @@ When the watched agent settles in idle or done and the Change is finished, the p
 - **THEN** the agent's tab closes and the agent in that pane receives a prompt starting with `m1-board-view is finished (7/7 tasks). Please review it and archive it with /opsx:archive m1-board-view.` that names `claude --resume <session>`
 
 #### Scenario: Clean finish in a worktree
-- **WHEN** the agent of `m1-board-view` works in the worktree `~/.herdr/worktrees/openspec-kanban/m1-board-view` on branch `m1-board-view`, the base is `main`, and it settles idle with all 7 tasks completed
-- **THEN** the agent's pane closes and the Main agent's prompt asks to review the Change, merge branch `m1-board-view` into `main`, archive it with `/opsx:archive m1-board-view`, then run `git worktree remove ~/.herdr/worktrees/openspec-kanban/m1-board-view`, never with `--force` and keeping the branch; the worktree and the branch still exist
+- **WHEN** the agent of `m1-board-view` works in the worktree `~/.herdr/worktrees/spec-kanban/m1-board-view` on branch `m1-board-view`, the base is `main`, and it settles idle with all 7 tasks completed
+- **THEN** the agent's pane closes and the Main agent's prompt asks to review the Change, merge branch `m1-board-view` into `main`, archive it with `/opsx:archive m1-board-view`, then run `git worktree remove ~/.herdr/worktrees/spec-kanban/m1-board-view`, never with `--force` and keeping the branch; the worktree and the branch still exist
 
 #### Scenario: Agent archived the Change in its worktree
 - **WHEN** the agent of `m1-board-view` archives the Change inside its worktree and settles idle
@@ -80,7 +80,7 @@ The Main agent SHALL be the agent, of any kind herdr detects, in the pane the Bo
 
 #### Scenario: Board opened from a shell pane
 - **WHEN** the Board was opened from a pane running only a shell (no agent) and a started Change finishes cleanly
-- **THEN** the agent's pane closes and herdr shows a notification `openspec-kanban: m1-board-view finished` with the Handoff text
+- **THEN** the agent's pane closes and herdr shows a notification `spec-kanban: m1-board-view finished` with the Handoff text
 
 #### Scenario: Main agent blocked
 - **WHEN** a Change finishes cleanly while the Main agent waits at an approval dialog
@@ -98,7 +98,7 @@ For every Change started from the Board, the plugin SHALL record the agent kind 
 - **THEN** each Project keeps its own recorded session
 
 ### Requirement: Resume a recorded session
-Whether a recorded session is reopenable SHALL be decided by the agent kind herdr reported with the session: a session id is reopenable for `claude` (`--resume <id>`), `copilot` (`--resume=<id>`), `codex` (`resume <id>`), `opencode` (`--session <id>`), `cursor` (`--resume <id>`) and `gemini` (`--resume <id>`), the arguments following the agent's executable; every other kind, and a session reported as a path, SHALL be not reopenable. Resuming a Change SHALL choose its tab the way Start does (a running agent is only focused; the exited agent's tab, the Change's worktree reopened or recreated from its branch, or a new tab labelled with the Change), focus it, and start the recorded agent kind in it as the Change's agent with its resume argument, without submitting a prompt. A failure after the Board closed SHALL be shown as a herdr notification `openspec-kanban: resume failed`.
+Whether a recorded session is reopenable SHALL be decided by the agent kind herdr reported with the session: a session id is reopenable for `claude` (`--resume <id>`), `copilot` (`--resume=<id>`), `codex` (`resume <id>`), `opencode` (`--session <id>`), `cursor` (`--resume <id>`) and `gemini` (`--resume <id>`), the arguments following the agent's executable; every other kind, and a session reported as a path, SHALL be not reopenable. Resuming a Change SHALL choose its tab the way Start does (a running agent is only focused; the exited agent's tab, the Change's worktree reopened or recreated from its branch, or a new tab labelled with the Change), focus it, and start the recorded agent kind in it as the Change's agent with its resume argument, without submitting a prompt. A failure after the Board closed SHALL be shown as a herdr notification `spec-kanban: resume failed`.
 
 #### Scenario: Resume a finished Change
 - **WHEN** the Change `m1-board-view` has the recorded `claude` session `abc`, no agent, and no open workspace for its worktree, and is resumed
@@ -114,5 +114,5 @@ Whether a recorded session is reopenable SHALL be decided by the agent kind herd
 
 #### Scenario: Recorded session no longer exists
 - **WHEN** the recorded session of `m1-board-view` was deleted from Claude's history and the Change is resumed
-- **THEN** the tab stays open with Claude's own error, or herdr shows `openspec-kanban: resume failed` when Claude does not become ready
+- **THEN** the tab stays open with Claude's own error, or herdr shows `spec-kanban: resume failed` when Claude does not become ready
 

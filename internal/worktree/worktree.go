@@ -4,7 +4,7 @@ package worktree
 import (
 	"strings"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
 )
 
 // Checkout is a git checkout of the repository: its top directory and branch.

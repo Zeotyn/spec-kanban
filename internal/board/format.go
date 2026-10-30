@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/zeotyn/openspec-kanban/internal/theme"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/theme"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // FitName shortens name in the middle with "…" to at most width runes, keeping more of the start.

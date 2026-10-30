@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Open action opens the Board for the invoking Project
-Invoking the `openspec-kanban-open` action SHALL open the Board as a popup covering 90% of the terminal width and height. The Board SHALL show the Project that contains the working directory of the pane the action was invoked from; when that pane has no working directory, the Board SHALL use the focused workspace's working directory. A Project is the nearest directory at or above it that any Source recognises: one containing `openspec/changes` (OpenSpec), or one containing both `.specify` and `specs` (Spec Kit).
+Invoking the `spec-kanban-open` action SHALL open the Board as a popup covering 90% of the terminal width and height. The Board SHALL show the Project that contains the working directory of the pane the action was invoked from; when that pane has no working directory, the Board SHALL use the focused workspace's working directory. A Project is the nearest directory at or above it that any Source recognises: one containing `openspec/changes` (OpenSpec), or one containing both `.specify` and `specs` (Spec Kit).
 
 #### Scenario: Pane inside a Project
 - **WHEN** the action is invoked from a pane whose working directory is `<project>/internal/ui`, and `<project>/openspec/changes` exists

@@ -70,7 +70,7 @@ When any herdr step fails, Start SHALL stop, report which step failed with herdr
 
 #### Scenario: Claude does not become ready after the Board closed
 - **WHEN** a Start from the Board has closed the Board and the agent does not reach readiness
-- **THEN** herdr shows the notification `openspec-kanban: start failed` with that error
+- **THEN** herdr shows the notification `spec-kanban: start failed` with that error
 
 ### Requirement: Start does not take another Project's agent
 herdr agent names are unique across all Projects. When an agent named after the Change exists but works in a directory outside the Project and outside every checkout of the Project's git repository, Start SHALL neither focus nor restart it, create no tab, and fail with a message naming the Change and the other agent's directory.
@@ -87,7 +87,7 @@ herdr agent names are unique across all Projects. When an agent named after the 
 When the `worktree` setting is on (the default) and the Project is the top directory of a git checkout, Start SHALL run the agent in the Change's checkout: the checkout of the Project's repository whose branch is named exactly like the Change. When such a checkout exists, Start SHALL reuse it: a linked worktree that is not open in herdr SHALL be opened as a herdr workspace whose root pane becomes the agent's tab; a checkout that is already open, or the Project's own checkout when it is on that branch, SHALL get a new tab labelled with the Change. Otherwise Start SHALL have herdr create a linked worktree on a new branch named like the Change from the base, at herdr's configured worktree location, opened as a new herdr workspace labelled with the Change; an existing local branch of that name without a checkout SHALL be checked out instead of created. Start SHALL never remove a worktree or delete a branch. When `worktree` is off, or the Project is not the top directory of a git checkout (outside git, or a subdirectory of a checkout), Start SHALL work in the Project as without this setting.
 
 #### Scenario: First Start of a Change
-- **WHEN** the Project `openspec-kanban` is a git repository with default branch `main`, no branch `m1-board-view` exists, and the user presses `s` on Card `m1-board-view`
+- **WHEN** the Project `spec-kanban` is a git repository with default branch `main`, no branch `m1-board-view` exists, and the user presses `s` on Card `m1-board-view`
 - **THEN** herdr creates a worktree of the repository on new branch `m1-board-view` from `main`, opens it as a workspace labelled `m1-board-view`, and the agent starts in its root pane and receives the configured prompt
 
 #### Scenario: Rerun with a closed worktree

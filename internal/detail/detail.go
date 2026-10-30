@@ -10,9 +10,9 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/zeotyn/openspec-kanban/internal/editor"
-	"github.com/zeotyn/openspec-kanban/internal/theme"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/editor"
+	"github.com/zeotyn/spec-kanban/internal/theme"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // Style names a glamour standard style; "" uses terminal.json, which colours only with the 16 ANSI

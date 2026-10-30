@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	"github.com/zeotyn/openspec-kanban/internal/theme"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/theme"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // three is a Source's Docs with three tabs, tasks last and the second one missing.

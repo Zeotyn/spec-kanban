@@ -1,17 +1,17 @@
 # kanban-config Specification
 
 ## Purpose
-Defines the user settings of openspec-kanban: where the config file lives, which settings it holds with their defaults, and how a missing or invalid config is handled.
+Defines the user settings of spec-kanban: where the config file lives, which settings it holds with their defaults, and how a missing or invalid config is handled.
 ## Requirements
 ### Requirement: Config file location
-The plugin SHALL read its settings from `config.json` in herdr's config directory for the plugin, as given to plugin commands in `HERDR_PLUGIN_CONFIG_DIR`. When that variable is not set, as for `kanban start` run from a shell, the plugin SHALL use the directory that `herdr plugin config-dir openspec-kanban` prints. A missing file, or a config directory that cannot be determined, SHALL mean all defaults without a warning.
+The plugin SHALL read its settings from `config.json` in herdr's config directory for the plugin, as given to plugin commands in `HERDR_PLUGIN_CONFIG_DIR`. When that variable is not set, as for `kanban start` run from a shell, the plugin SHALL use the directory that `herdr plugin config-dir spec-kanban` prints. A missing file, or a config directory that cannot be determined, SHALL mean all defaults without a warning.
 
 #### Scenario: Board opened through herdr
-- **WHEN** `HERDR_PLUGIN_CONFIG_DIR` is `~/.config/herdr/plugins/config/openspec-kanban` and that directory contains `config.json`
+- **WHEN** `HERDR_PLUGIN_CONFIG_DIR` is `~/.config/herdr/plugins/config/spec-kanban` and that directory contains `config.json`
 - **THEN** the Board uses the settings from that file
 
 #### Scenario: Start from a shell
-- **WHEN** the user runs `kanban start m1-board-view` in a shell without `HERDR_PLUGIN_CONFIG_DIR`, and `config.json` exists in the directory `herdr plugin config-dir openspec-kanban` prints
+- **WHEN** the user runs `kanban start m1-board-view` in a shell without `HERDR_PLUGIN_CONFIG_DIR`, and `config.json` exists in the directory `herdr plugin config-dir spec-kanban` prints
 - **THEN** Start uses the settings from that file
 
 #### Scenario: No config file

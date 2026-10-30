@@ -38,7 +38,7 @@ else
 fi
 command -v curl >/dev/null || fallback "curl not found"
 
-url=https://github.com/zeotyn/openspec-kanban/releases/download/v$version
+url=https://github.com/zeotyn/spec-kanban/releases/download/v$version
 release=$(get "$url/commit.txt") || fallback "no release v$version"
 head=$(git rev-parse HEAD) || fallback "cannot read the checkout's commit"
 [ "$release" = "$head" ] || fallback "checkout $head is not release v$version ($release)"

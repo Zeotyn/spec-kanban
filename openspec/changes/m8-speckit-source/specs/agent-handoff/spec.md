@@ -8,8 +8,8 @@ When the watched agent settles in idle or done and the Change is finished, the p
 - **THEN** the agent's tab closes and the agent in that pane receives a prompt starting with `m1-board-view is finished (7/7 tasks). Please review it and archive it with /opsx:archive m1-board-view.` that names `claude --resume <session>`
 
 #### Scenario: Clean finish in a worktree
-- **WHEN** the agent of `m1-board-view` works in the worktree `~/.herdr/worktrees/openspec-kanban/m1-board-view` on branch `m1-board-view`, the base is `main`, and it settles idle with all 7 tasks completed
-- **THEN** the agent's pane closes and the Main agent's prompt asks to review the Change, merge branch `m1-board-view` into `main`, archive it with `/opsx:archive m1-board-view`, then run `git worktree remove ~/.herdr/worktrees/openspec-kanban/m1-board-view`, never with `--force` and keeping the branch; the worktree and the branch still exist
+- **WHEN** the agent of `m1-board-view` works in the worktree `~/.herdr/worktrees/spec-kanban/m1-board-view` on branch `m1-board-view`, the base is `main`, and it settles idle with all 7 tasks completed
+- **THEN** the agent's pane closes and the Main agent's prompt asks to review the Change, merge branch `m1-board-view` into `main`, archive it with `/opsx:archive m1-board-view`, then run `git worktree remove ~/.herdr/worktrees/spec-kanban/m1-board-view`, never with `--force` and keeping the branch; the worktree and the branch still exist
 
 #### Scenario: Agent archived the Change in its worktree
 - **WHEN** the agent of `m1-board-view` archives the Change inside its worktree and settles idle

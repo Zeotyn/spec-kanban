@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/project"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/project"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // maxLoads bounds concurrent Project loads; with cold caches each may start 8 openspec processes.
@@ -90,7 +90,7 @@ func Sync(run herdr.Runner, detect func(dir string) bool, load func(project stri
 		}
 	}
 	for _, w := range workspaces.Result.Workspaces {
-		args := []string{"workspace", "report-metadata", w.ID, "--source", "openspec-kanban"}
+		args := []string{"workspace", "report-metadata", w.ID, "--source", "spec-kanban"}
 		if proj := shown[w.ID]; proj == "" {
 			args = append(args, "--clear-token", "kanban_change", "--clear-token", "kanban")
 		} else if r := results[proj]; r.err != nil {

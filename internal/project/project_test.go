@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/source/openspec"
 )
 
 // newProject creates <tmp>/proj/openspec/changes and <tmp>/proj/internal/ui and returns the resolved project path.

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // script answers each herdr call whose joined args start with a key with its answers in turn, the
@@ -90,7 +90,7 @@ func watched(load func() ([]work.Item, error), rec *[]herdr.Session) Watched {
 }
 
 func notify(title, body string) string {
-	return "notification show openspec-kanban: " + change + " " + title + " --body " + body
+	return "notification show spec-kanban: " + change + " " + title + " --body " + body
 }
 
 func TestWatch(t *testing.T) {

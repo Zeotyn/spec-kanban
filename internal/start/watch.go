@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/work"
-	"github.com/zeotyn/openspec-kanban/internal/worktree"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
+	"github.com/zeotyn/spec-kanban/internal/worktree"
 )
 
 // Watched is a Change started from the Board whose agent Watch follows.
@@ -71,7 +71,7 @@ func Watch(w Watched, run, git herdr.Runner) {
 			w.handoff(run, a.Pane, text)
 			return
 		}
-		run("notification", "show", "openspec-kanban: "+w.Change+" stopped", "--body", stopped)
+		run("notification", "show", "spec-kanban: "+w.Change+" stopped", "--body", stopped)
 		if b, err := w.get(run); err != nil {
 			return
 		} else if b.Seq != a.Seq {
@@ -179,7 +179,7 @@ func (w Watched) handoff(run herdr.Runner, pane, text string) {
 			}
 		}
 	}
-	run("notification", "show", "openspec-kanban: "+w.Change+" finished", "--body", text)
+	run("notification", "show", "spec-kanban: "+w.Change+" finished", "--body", text)
 }
 
 // resumes holds per agent kind the command that reopens a session, %s standing for its id; only
