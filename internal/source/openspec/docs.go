@@ -1,5 +1,4 @@
-// Package docs reads a Change's documents from disk.
-package docs
+package openspec
 
 import (
 	"io/fs"
@@ -7,14 +6,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 // Dir returns where a Change's files live: openspec/changes/<name> when open, openspec/changes/archive/<ArchivedOn>-<name>
 // when archived with a date, openspec/changes/archive/<name> when archived without one; below c.Dir
 // instead of project when set.
-func Dir(project string, c openspec.Change) string {
+func Dir(project string, c Change) string {
 	if c.Dir != "" {
 		project = c.Dir
 	}

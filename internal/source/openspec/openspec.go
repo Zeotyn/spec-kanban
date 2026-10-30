@@ -1,4 +1,4 @@
-// Package openspec reads a Project's Changes through the openspec CLI and its archive directory.
+// Package openspec reads a Project's Changes through the openspec CLI and its archive directory, and their documents from disk.
 package openspec
 
 import (

@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/zeotyn/openspec-kanban/internal/docs"
 	"github.com/zeotyn/openspec-kanban/internal/editor"
 	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
@@ -47,7 +46,7 @@ type Model struct {
 	dir           string // the Change's folder
 	archived      bool
 	notice        string // one-line message in place of the footer, cleared by the next key
-	docs          docs.Docs
+	docs          openspec.Docs
 	tab           int
 	off           [tabs]int
 	lines         [tabs][]string
@@ -57,8 +56,8 @@ type Model struct {
 
 // New opens the details of c in project under header (built by the Board, which owns Card formatting).
 func New(project string, c openspec.Change, header string, width, height int) Model {
-	dir := docs.Dir(project, c)
-	m := Model{header: header, dir: dir, archived: c.Archived, docs: docs.Read(dir), width: width, height: height, tab: proposal}
+	dir := openspec.Dir(project, c)
+	m := Model{header: header, dir: dir, archived: c.Archived, docs: openspec.Read(dir), width: width, height: height, tab: proposal}
 	if c.Total > 0 {
 		m.tab = tasks
 	}
@@ -116,7 +115,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.render()
 	case EditedMsg:
-		m.docs = docs.Read(m.dir)
+		m.docs = openspec.Read(m.dir)
 		m.render()
 		if msg.Err != nil {
 			m.notice = "editor failed: " + msg.Err.Error()

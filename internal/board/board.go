@@ -13,7 +13,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/zeotyn/openspec-kanban/internal/detail"
-	"github.com/zeotyn/openspec-kanban/internal/docs"
 	"github.com/zeotyn/openspec-kanban/internal/editor"
 	"github.com/zeotyn/openspec-kanban/internal/phase"
 	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
@@ -335,7 +334,7 @@ func (m *Model) updateDetailHeader() {
 
 // edit opens c's tasks.md in the editor, or explains why not.
 func (m Model) edit(c openspec.Change) (Model, tea.Cmd) {
-	tasks := filepath.Join(docs.Dir(m.project, c), "tasks.md")
+	tasks := filepath.Join(openspec.Dir(m.project, c), "tasks.md")
 	if c.Archived {
 		m.notice = "archived changes are read-only"
 		return m, nil
