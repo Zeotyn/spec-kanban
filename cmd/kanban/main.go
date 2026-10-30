@@ -101,7 +101,9 @@ func startChange(change string) error {
 // which is itself an OpenSpec project.
 func showBoard(proj string) error {
 	dir := cache.Dir()
-	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj)), tea.WithAltScreen()).Run()
+	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec) }
+	startOne := func(change string) error { return start.Start(proj, change, herdr.Exec, openspecCLI(proj)) }
+	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne), tea.WithAltScreen()).Run()
 	return err
 }
 

@@ -2,4 +2,4 @@ OpenSpec Kanban · proj
 
 Loading changes…
 
-h/l j/k ⏎ e gg/G ^d/^u 1-5 · r · q close
+h/l j/k ⏎ e s gg/G ^d/^u 1-5 · r · q close

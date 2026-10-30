@@ -32,15 +32,30 @@ type loadedMsg struct {
 	err     error
 }
 
+// agentsMsg carries the names of the Changes with a Running agent.
+type agentsMsg struct {
+	running map[string]bool
+	err     error
+}
+
+// startedMsg reports that Start has returned.
+type startedMsg struct{ err error }
+
+var runningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // terminal green
+
 // Model shows the Board of one Project; an empty project means none was found.
 type Model struct {
 	project       string
 	load          func() ([]openspec.Change, error)
+	agents        func() (map[string]bool, error) // names of the Changes with a Running agent
+	start         func(change string) error
 	now           func() time.Time
 	loading       bool
 	loaded        bool // a load has succeeded at least once
 	err           error
 	cols          [columns][]openspec.Change
+	running       map[string]bool // Changes with a Running agent, kept across loads
+	starting      string          // the Change being started; keys other than ctrl+c are ignored meanwhile
 	nav           nav
 	detail        *detail.Model   // the open detail view, nil on the Board
 	detailOf      openspec.Change // the Change the detail shows, matched by name and archive state
@@ -50,9 +65,11 @@ type Model struct {
 }
 
 // New builds the Board. A non-nil snapshot (the cached last load) is shown at once while the fresh
-// load from Init runs; nil means show a loading notice until then.
-func New(project string, load func() ([]openspec.Change, error), now func() time.Time, snapshot []openspec.Change) Model {
-	m := Model{project: project, load: load, now: now, loading: project != "", width: 120, height: 30}
+// load from Init runs; nil means show a loading notice until then. agents looks up the Running agents
+// and start Starts a Change; either may be nil when not needed.
+func New(project string, load func() ([]openspec.Change, error), now func() time.Time, snapshot []openspec.Change,
+	agents func() (map[string]bool, error), start func(change string) error) Model {
+	m := Model{project: project, load: load, agents: agents, start: start, now: now, loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
 		m.cols, m.loaded = phase.Group(snapshot), true
 		m.nav.keep([columns][]string{}, names(m.cols), m.visible())
@@ -64,7 +81,18 @@ func (m Model) Init() tea.Cmd {
 	if m.project == "" {
 		return nil
 	}
-	return m.reload
+	return tea.Batch(m.reload, m.lookup())
+}
+
+// lookup asks for the Running agents, or returns nil without a lookup.
+func (m Model) lookup() tea.Cmd {
+	if m.agents == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		running, err := m.agents()
+		return agentsMsg{running, err}
+	}
 }
 
 func (m Model) reload() tea.Msg {
@@ -110,6 +138,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.stale = false
 			return m.refresh()
 		}
+	case agentsMsg:
+		if msg.err == nil { // outside herdr there are simply no badges
+			m.running = msg.running
+		}
+	case startedMsg:
+		if msg.err == nil {
+			return m, tea.Quit
+		}
+		m.starting, m.notice = "", "start failed: "+msg.err.Error()
 	case detail.EditedMsg: // the detail closed before the editor reported back
 		return m.refresh()
 	case editedMsg:
@@ -118,6 +155,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.refresh()
 	case tea.KeyMsg:
+		if m.starting != "" { // quitting now would leave a half-started agent behind
+			if msg.String() == "ctrl+c" {
+				return m, tea.Quit
+			}
+			return m, nil
+		}
 		m.notice = ""
 		switch k := msg.String(); {
 		case k == "q" || k == "esc" || k == "ctrl+c":
@@ -134,9 +177,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if col := m.cols[m.nav.col]; len(col) > 0 {
 				return m.edit(col[m.nav.sel[m.nav.col]])
 			}
+		case k == "s":
+			m.nav.pendingG = false
+			if col := m.cols[m.nav.col]; len(col) > 0 {
+				return m.startCard(col[m.nav.sel[m.nav.col]], phase.Phase(m.nav.col))
+			}
 		case k == "r" && m.project != "":
 			m.nav.pendingG = false
-			return m.refresh()
+			m, cmd := m.refresh()
+			return m, tea.Batch(cmd, m.lookup())
 		default:
 			m.nav.key(k, m.counts(), m.visible())
 		}
@@ -185,6 +234,22 @@ func (m Model) edit(c openspec.Change) (Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, editor.Open(func(err error) tea.Msg { return editedMsg{err} }, tasks)
+}
+
+// startCard Starts c in a command, or explains why its Phase p cannot be started.
+func (m Model) startCard(c openspec.Change, p phase.Phase) (Model, tea.Cmd) {
+	switch p {
+	case phase.Draft:
+		m.notice = c.Name + " is a draft: plan it first"
+	case phase.Review:
+		m.notice = "all tasks of " + c.Name + " are done"
+	case phase.Archived:
+		m.notice = "archived changes cannot be started"
+	default:
+		m.starting = c.Name
+		return m, func() tea.Msg { return startedMsg{m.start(c.Name)} }
+	}
+	return m, nil
 }
 
 // detailHeader sums up a Change for the detail view: name, milestone, Progress and Phase or archive date.
@@ -246,12 +311,15 @@ func (m Model) View() string {
 	default:
 		body = m.columns()
 	}
-	footer := "h/l column · j/k card · ⏎ details · e edit tasks · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
+	footer := "h/l column · j/k card · ⏎ details · e edit tasks · s start · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · q close"
 	if lipgloss.Width(footer) > m.width {
-		footer = "h/l j/k ⏎ e gg/G ^d/^u 1-5 · r · q close"
+		footer = "h/l j/k ⏎ e s gg/G ^d/^u 1-5 · r · q close"
 	}
 	if m.notice != "" {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(m.notice)
+	}
+	if m.starting != "" {
+		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("starting " + m.starting + "…")
 	}
 	return m.header() + "\n\n" + body + "\n\n" + footer // no trailing newline: the view fills the height exactly
 }
@@ -310,18 +378,24 @@ func (m Model) column(i, w int, title string) string {
 	return lipgloss.NewStyle().Width(w).Render(strings.Join(lines, "\n"))
 }
 
-// card renders three lines and a blank one; the selected Card is marked with ▌ and bold.
+// card renders three lines and a blank one; the selected Card is marked with ▌ and bold, an open
+// Card with a Running agent with a green ● before its name.
 func (m Model) card(c openspec.Change, p phase.Phase, w int, selected bool) []string {
 	inner := w - 1
+	running := !c.Archived && m.running[c.Name]
+	firstW := inner
+	if running {
+		firstW -= 2 // "● "
+	}
 	badge := milestone(c.Name)
-	nameW := inner
+	nameW := firstW
 	if badge != "" {
-		nameW = inner - len(badge) - 1
+		nameW = firstW - len(badge) - 1
 	}
 	name := FitName(c.Name, nameW)
 	first := name
 	if badge != "" {
-		first += strings.Repeat(" ", max(1, inner-lipgloss.Width(name)-len(badge))) + badge
+		first += strings.Repeat(" ", max(1, firstW-lipgloss.Width(name)-len(badge))) + badge
 	}
 	var second, third string
 	switch {
@@ -343,6 +417,9 @@ func (m Model) card(c openspec.Change, p phase.Phase, w int, selected bool) []st
 	out := make([]string, 0, cardLines)
 	for _, l := range []string{first, second, third} {
 		out = append(out, mark+style.Render(l))
+	}
+	if running { // styled apart so the badge's colour reset does not end the bold name
+		out[0] = mark + runningStyle.Render("●") + style.Render(" "+first)
 	}
 	return append(out, "")
 }

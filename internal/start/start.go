@@ -13,15 +13,15 @@ import (
 )
 
 // Start runs /opsx:apply <change> in a herdr agent named after the Change: it focuses the agent if it
-// is running, restarts it in its tab if it exited, and opens a new tab otherwise. openspecRun runs
-// the openspec CLI inside project.
+// is running, restarts it in its tab if it exited, and opens a new tab otherwise; focus moves to the
+// agent last. An agent of that name working outside project is refused. openspecRun runs the
+// openspec CLI inside project.
 func Start(project, change string, run, openspecRun herdr.Runner) error {
 	if err := checkOpen(project, change, openspecRun); err != nil {
 		return err
 	}
 
 	var pane string
-	reused := false
 	out, err := run("agent", "get", change)
 	switch {
 	case err == nil:
@@ -29,13 +29,17 @@ func Start(project, change string, run, openspecRun herdr.Runner) error {
 			Result struct {
 				Agent struct {
 					PaneID string `json:"pane_id"`
+					Cwd    string `json:"cwd"`
 				} `json:"agent"`
 			} `json:"result"`
 		}
 		if err := json.Unmarshal(out, &got); err != nil {
 			return fmt.Errorf("agent get: %w", err)
 		}
-		pane, reused = got.Result.Agent.PaneID, true
+		if cwd := got.Result.Agent.Cwd; !inside(cwd, project) {
+			return fmt.Errorf("agent %s already runs in %s", change, cwd)
+		}
+		pane = got.Result.Agent.PaneID
 		running, err := agentRunning(run, pane)
 		if err != nil {
 			return err
@@ -46,7 +50,7 @@ func Start(project, change string, run, openspecRun herdr.Runner) error {
 	case !strings.Contains(err.Error(), "agent_not_found"):
 		return fmt.Errorf("agent get: %w", err)
 	default:
-		out, err := run("tab", "create", "--cwd", project, "--label", change, "--focus")
+		out, err := run("tab", "create", "--cwd", project, "--label", change, "--no-focus")
 		if err != nil {
 			return fmt.Errorf("tab create: %w", err)
 		}
@@ -69,10 +73,40 @@ func Start(project, change string, run, openspecRun herdr.Runner) error {
 	if _, err := run("agent", "prompt", change, "/opsx:apply "+change); err != nil {
 		return fmt.Errorf("claude runs in tab %q but the prompt was not sent: %w", change, err)
 	}
-	if reused {
-		return step(run, "agent", "focus", change) // tab create focuses new tabs only
+	return step(run, "agent", "focus", change)
+}
+
+// Running returns the names of the herdr agents that work in project or below it. Only agents
+// started with a name count, and Start names them after their Change; every agent_status counts.
+func Running(project string, run herdr.Runner) (map[string]bool, error) {
+	out, err := run("agent", "list")
+	if err != nil {
+		return nil, fmt.Errorf("agent list: %w", err)
 	}
-	return nil
+	var list struct {
+		Result struct {
+			Agents []struct {
+				Name string `json:"name"`
+				Cwd  string `json:"cwd"`
+			} `json:"agents"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(out, &list); err != nil {
+		return nil, fmt.Errorf("agent list: %w", err)
+	}
+	names := map[string]bool{}
+	for _, a := range list.Result.Agents {
+		if a.Name != "" && inside(a.Cwd, project) {
+			names[a.Name] = true
+		}
+	}
+	return names, nil
+}
+
+// inside reports whether dir is project or lies below it.
+func inside(dir, project string) bool {
+	dir, project = filepath.Clean(dir), filepath.Clean(project)
+	return dir == project || strings.HasPrefix(dir, project+string(filepath.Separator))
 }
 
 // agentRunning reports whether Claude runs in the foreground of pane. It is false when only the

@@ -26,9 +26,12 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `Enter` | open details | – |
 | `e` | edit `tasks.md` | edit the shown document |
 | `r` | reload | – |
+| `s` | start the Change in a new Claude tab | – |
 | `q` `Esc` | close | back to the Board |
 
 `e` opens `$EDITOR` (`vi` when unset) inside the popup. GUI editors need their wait flag, for example `EDITOR="code -w"`, or the Board reloads before you have saved.
+
+`s` works on Ready and In Progress Cards. It starts Claude in a new tab named after the Change, runs `/opsx:apply` there and closes the Board; if that Change already has an agent, it focuses it instead. On Draft, Review and Archived Cards the footer says why not. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
 
 ## Sidebar
 

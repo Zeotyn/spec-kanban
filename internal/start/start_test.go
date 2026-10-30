@@ -11,6 +11,9 @@ import (
 
 const change = "m1-board-view"
 
+// proj is the Project the tests start in: the cwd of the agent in agent-get.json.
+const proj = "/Users/U758014/code/openspec-kanban"
+
 // notFound is what herdr.Run returns for an unknown agent: the real stderr folded into the error.
 var notFound = func() error {
 	b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "herdr", "agent-get-missing.json"))
@@ -62,7 +65,7 @@ func fakeList(names ...string) func(...string) ([]byte, error) {
 }
 
 var (
-	create = "tab create --cwd /p --label " + change + " --focus"
+	create = "tab create --cwd " + proj + " --label " + change + " --no-focus"
 	launch = "agent start " + change + " --kind claude --pane w2:p1J --timeout 60000"
 	prompt = "agent prompt " + change + " /opsx:apply " + change
 	focus  = "agent focus " + change
@@ -81,7 +84,7 @@ func TestStart(t *testing.T) {
 			name: "new tab",
 			out:  map[string]string{"tab create": "tab-create.json"},
 			fail: map[string]error{"agent get": notFound},
-			want: []string{get, create, launch, prompt},
+			want: []string{get, create, launch, prompt, focus},
 		},
 		{
 			name: "agent running: focus only",
@@ -97,7 +100,7 @@ func TestStart(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			if err := Start("/p", change, h.run, fakeList("other", change)); err != nil {
+			if err := Start(proj, change, h.run, fakeList("other", change)); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(h.calls, tt.want) {
@@ -107,9 +110,20 @@ func TestStart(t *testing.T) {
 	}
 }
 
+func TestStartRefusesAnotherProjectsAgent(t *testing.T) {
+	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json"}}
+	err := Start(proj+"2", change, h.run, fakeList(change))
+	if err == nil || !strings.Contains(err.Error(), change) || !strings.Contains(err.Error(), "already runs in "+proj) {
+		t.Fatalf("want already-runs error naming the change and %s, got %v", proj, err)
+	}
+	if !reflect.DeepEqual(h.calls, []string{get}) {
+		t.Errorf("want no focus, restart or tab, got %q", h.calls)
+	}
+}
+
 func TestStartRejectsChangesThatAreNotOpen(t *testing.T) {
 	h := &fakeHerdr{t: t}
-	err := Start("/p", "m1-bord-view", h.run, fakeList(change))
+	err := Start(proj, "m1-bord-view", h.run, fakeList(change))
 	if err == nil || !strings.Contains(err.Error(), `"m1-bord-view" is not an open change`) {
 		t.Fatalf("want not-open error, got %v", err)
 	}
@@ -121,7 +135,7 @@ func TestStartRejectsChangesThatAreNotOpen(t *testing.T) {
 func TestStartOpenspecFails(t *testing.T) {
 	h := &fakeHerdr{t: t}
 	broken := func(...string) ([]byte, error) { return nil, errors.New("openspec: not found") }
-	if err := Start("/p", change, h.run, broken); err == nil || len(h.calls) != 0 {
+	if err := Start(proj, change, h.run, broken); err == nil || len(h.calls) != 0 {
 		t.Fatalf("want error and no herdr calls, got %v, %q", err, h.calls)
 	}
 }
@@ -142,7 +156,7 @@ func TestStartReportsFailingStep(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: map[string]string{"tab create": "tab-create.json"}, fail: tt.fail}
-			err := Start("/p", change, h.run, fakeList(change))
+			err := Start(proj, change, h.run, fakeList(change))
 			if err == nil {
 				t.Fatal("want error")
 			}
@@ -172,12 +186,55 @@ func TestStartWithUnexpectedPaneState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
-			err := Start("/p", change, h.run, fakeList(change))
+			err := Start(proj, change, h.run, fakeList(change))
 			if err == nil || !strings.Contains(err.Error(), tt.wants) {
 				t.Fatalf("want error with %q, got %v", tt.wants, err)
 			}
 			if got := h.calls[len(h.calls)-1]; got != info {
 				t.Errorf("must stop after process-info, last call %q", got)
+			}
+		})
+	}
+}
+
+func TestRunning(t *testing.T) {
+	list, err := os.ReadFile(filepath.Join("testdata", "herdr", "agent-list.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name    string
+		project string
+		out     string
+		err     error
+		want    map[string]bool
+		wantErr bool
+	}{
+		{"named agents in the project and below it, any status", "/work/proj", string(list), nil,
+			map[string]bool{"m1-board-view": true, "m2-card-detail": true, "m3-sidebar-summary": true}, false},
+		{"other projects and unnamed agents ignored", "/work/other", string(list), nil, map[string]bool{"c1-rename": true}, false},
+		{"name prefix is not a subdirectory", "/work/pro", string(list), nil, map[string]bool{}, false},
+		{"trailing slash", "/work/project2/", string(list), nil, map[string]bool{"f1-cache": true}, false},
+		{"empty list", "/work/proj", `{"id":"cli:agent:list","result":{"agents":[]}}`, nil, map[string]bool{}, false},
+		{"herdr error", "/work/proj", "", errors.New("herdr: not found"), nil, true},
+		{"unparsable output", "/work/proj", "not json", nil, nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls []string
+			run := func(args ...string) ([]byte, error) {
+				calls = append(calls, strings.Join(args, " "))
+				return []byte(tt.out), tt.err
+			}
+			got, err := Running(tt.project, run)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(calls, []string{"agent list"}) {
+				t.Errorf("herdr calls %q, want one agent list", calls)
 			}
 		})
 	}
