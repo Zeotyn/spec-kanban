@@ -41,6 +41,21 @@ type agentsMsg struct {
 // startedMsg reports that Start has returned.
 type startedMsg struct{ err error }
 
+// key is a key and what it does, for the footer and the help.
+type key struct{ key, desc string }
+
+var footerKeys = []key{{"h/l", "column"}, {"j/k", "card"}, {"⏎", "details"}, {"e", "edit tasks"}, {"s", "start"}, {"/", "filter"},
+	{"gg/G", "first/last"}, {"ctrl+d/u", "half page"}, {"1-5", "column"}, {"r", "reload"}, {"?", "help"}, {"q", "close"}}
+
+// keyList renders keys as "key description" pairs separated by " · ", the descriptions faint.
+func keyList(keys []key) string {
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = k.key + " " + theme.Faint.Render(k.desc)
+	}
+	return strings.Join(parts, " · ")
+}
+
 // helpText lists every key by view; README's keys table says the same.
 const helpText = `Keys
 
@@ -450,9 +465,9 @@ func (m Model) View() string {
 	default:
 		body = lipgloss.NewStyle().MaxHeight(max(1, m.height-4)).Render(m.columns()) // too low for one Card: cut it
 	}
-	footer := "h/l column · j/k card · ⏎ details · e edit tasks · s start · / filter · gg/G first/last · ctrl+d/u half page · 1-5 column · r reload · ? help · q close"
+	footer := keyList(footerKeys)
 	if lipgloss.Width(footer) > m.width {
-		footer = "h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q close"
+		footer = "h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q " + theme.Faint.Render("close")
 	}
 	if m.prompting {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("/" + m.filter + "█")
@@ -540,7 +555,7 @@ func (m Model) column(i, w int, title string) string {
 }
 
 // card renders a box around three lines, the selected one thick in the accent colour; below
-// borderMinHeight three lines and a blank one, the selected Card marked with ▌ and bold. An open
+// borderMinHeight three lines and a blank one, the selected Card marked with ▌. An open
 // Card with a Running agent has a green ● before its name.
 func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	inner := w - 1
@@ -558,27 +573,29 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 		nameW = firstW - len(badge) - 1
 	}
 	name := FitName(c.Name, nameW)
-	first := name
+	// each segment is styled apart so one's reset does not end another's style
+	first := lipgloss.NewStyle().Bold(true).Render(name)
 	if badge != "" {
-		first += strings.Repeat(" ", max(1, firstW-lipgloss.Width(name)-len(badge))) + badge
+		first += strings.Repeat(" ", max(1, firstW-lipgloss.Width(name)-len(badge))) + lipgloss.NewStyle().Foreground(theme.Milestone).Render(badge)
+	}
+	if running {
+		first = lipgloss.NewStyle().Foreground(theme.Running).Render("●") + " " + first
 	}
 	var second, third string
 	switch {
 	case c.Phase == work.Archived && c.ArchivedOn != "":
-		second = "archived " + c.ArchivedOn
+		second = theme.Faint.Render("archived " + c.ArchivedOn)
 	case c.Phase == work.Archived:
-		second = "archived"
+		second = theme.Faint.Render("archived")
 	default:
 		second = progressBar(c.Done, c.Total, max(3, min(10, inner-8)), phaseColor(p))
 		third = age(m.now().Sub(c.Modified))
 		if p == work.Draft || p == work.Ready {
 			third = planMarks(c.Artifacts) + "  " + third
 		}
+		third = theme.Faint.Render(third)
 	}
 	if m.bordered() {
-		if running {
-			first = lipgloss.NewStyle().Foreground(theme.Running).Render("●") + " " + first
-		}
 		border, colour := lipgloss.RoundedBorder(), theme.Dim
 		if selected {
 			border, colour = lipgloss.ThickBorder(), theme.Accent
@@ -588,16 +605,9 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 		box := lipgloss.NewStyle().Border(border).BorderForeground(colour).Width(inner).Render(content)
 		return strings.Split(box, "\n")
 	}
-	mark, style := " ", lipgloss.NewStyle()
+	mark := " "
 	if selected {
-		mark, style = "▌", style.Bold(true)
+		mark = "▌"
 	}
-	out := make([]string, 0, 4)
-	for _, l := range []string{first, second, third} {
-		out = append(out, mark+style.Render(l))
-	}
-	if running { // styled apart so the badge's colour reset does not end the bold name
-		out[0] = mark + lipgloss.NewStyle().Foreground(theme.Running).Render("●") + style.Render(" "+first)
-	}
-	return append(out, "")
+	return []string{mark + first, mark + second, mark + third, ""}
 }

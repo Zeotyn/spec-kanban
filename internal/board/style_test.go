@@ -44,3 +44,46 @@ func TestPhaseColours(t *testing.T) {
 		fg("3").Render("█████"), lipgloss.NewStyle().Faint(true).Render("░░░░░"))
 	contains(t, keys(board(t, 60, 30, fixture), "l", "l").View(), fg("3").Render("◀ 3/5 In Progress 1 ▶"))
 }
+
+var (
+	bold  = lipgloss.NewStyle().Bold(true)
+	faint = lipgloss.NewStyle().Faint(true)
+)
+
+// noHighColours reports 256-colour and true-colour sequences, which would override the terminal theme.
+func noHighColours(t *testing.T, v string) {
+	t.Helper()
+	for _, s := range []string{"38;5;", "48;5;", "38;2;"} {
+		if strings.Contains(v, s) {
+			t.Errorf("view has %q: only the 16 ANSI colours may be used:\n%q", s, v)
+		}
+	}
+}
+
+func TestCardTypography(t *testing.T) {
+	coloured(t)
+	running := agentsMsg{running: map[string]bool{"m1-board-view": true}}
+	for _, h := range []int{30, 12} { // bordered and fallback Cards
+		v := keys(send(board(t, 120, h, fixture), running), "2").View()
+		contains(t, v, fg("2").Render("●")+" "+bold.Render("m1-board-view"), fg("5").Render("M1"),
+			faint.Render("P S D T  40m"), faint.Render("3h"))
+		noHighColours(t, v)
+	}
+	contains(t, keys(board(t, 120, 30, fixture), "5").View(), faint.Render("archived 2026-10-29"))
+}
+
+func TestFooterStyle(t *testing.T) {
+	coloured(t)
+	v := board(t, 200, 30, fixture).View()
+	contains(t, v, "h/l "+faint.Render("column")+" · j/k "+faint.Render("card"), "q "+faint.Render("close"))
+	noHighColours(t, v)
+	contains(t, board(t, 120, 30, fixture).View(), "\nh/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q "+faint.Render("close"))
+	m := keys(board(t, 120, 30, fixture), "2")
+	starter(&m, nil)
+	for name, m := range map[string]Model{"prompt": keys(m, "/", "x"), "notice": keys(m, "1", "s"), "starting": keys(m, "s")} {
+		v := m.View()
+		if footer := v[strings.LastIndex(v, "\n")+1:]; strings.Contains(footer, "\x1b") {
+			t.Errorf("%s footer must carry no style: %q", name, footer)
+		}
+	}
+}

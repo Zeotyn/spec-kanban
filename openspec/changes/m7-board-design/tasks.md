@@ -19,8 +19,8 @@ Prerequisite: `m7-source-seam` is merged on `main`. Names below are the post-ref
 
 ## 4. Typography and footer (TDD)
 
-- [ ] 4.1 Write failing ANSI256 tests: Card name bold, `M<N>` in `theme.Milestone`, the planning-marks/age line and the archive-date line faint, `●` still in `theme.Running` without ending the bold name; the long footer shows `h/l` default and `column` faint; the short footer shows keys default and `close` faint; notice, prompt and `starting …` footers carry no style; no `38;5;`, `48;5;` or `38;2;` in the coloured Board
-- [ ] 4.2 Implement the per-segment Card styling (name, badge, running badge, meta line) for bordered and fallback Cards; turn the footer into key/description pairs rendered long or keys-only, with the width check on `lipgloss.Width`; goldens unchanged
+- [x] 4.1 Write failing ANSI256 tests: Card name bold, `M<N>` in `theme.Milestone`, the planning-marks/age line and the archive-date line faint, `●` still in `theme.Running` without ending the bold name; the long footer shows `h/l` default and `column` faint; the short footer shows keys default and `close` faint; notice, prompt and `starting …` footers carry no style; no `38;5;`, `48;5;` or `38;2;` in the coloured Board
+- [x] 4.2 Implement the per-segment Card styling (name, badge, running badge, meta line) for bordered and fallback Cards; turn the footer into key/description pairs rendered long or keys-only, with the width check on `lipgloss.Width`; goldens unchanged
 
 ## 5. Detail tab bar (TDD)
 
