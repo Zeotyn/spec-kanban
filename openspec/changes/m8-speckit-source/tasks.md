@@ -55,8 +55,8 @@ Every group ends with `go test ./...` green. OpenSpec goldens and Handoff texts 
 
 ## 9. Verification
 
-- [ ] 9.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass; `git diff --stat main -- '*/testdata/golden/*'` lists only `no-project.txt`
-- [ ] 9.2 `openspec validate m8-speckit-source --strict` passes
+- [x] 9.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass; `git diff --stat main -- '*/testdata/golden/*'` lists only `no-project.txt`
+- [x] 9.2 `openspec validate m8-speckit-source --strict` passes
 
 ## 10. Smoke test (user, in herdr, with `~/code/speckit-spike`)
 
