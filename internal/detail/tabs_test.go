@@ -1,6 +1,8 @@
 package detail
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -9,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"github.com/zeotyn/spec-kanban/internal/source/speckit"
 	"github.com/zeotyn/spec-kanban/internal/theme"
 	"github.com/zeotyn/spec-kanban/internal/work"
 )
@@ -90,5 +93,29 @@ func TestTabBarStyle(t *testing.T) {
 				t.Errorf("%d wide: only the 16 ANSI colours may be used, found %q", c.width, s)
 			}
 		}
+	}
+}
+
+func TestSpecKitSpecOnly(t *testing.T) {
+	p := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(p, "specs", "001-a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(p, "specs", "001-a", "spec.md"), []byte("# Feature Specification\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	it := work.Item{Name: "001-a"}
+	m := New(func() work.Docs { return speckit.New(nil, "").Docs(p, it) }, it, "h", 120, 24)
+	if m.tabs() != 2 || m.tab != 1 {
+		t.Errorf("tabs %d, shown %d; want 2 tabs, Spec shown", m.tabs(), m.tab)
+	}
+	if v := m.View(); !strings.Contains(v, "·1 Tasks │ ▌2 Spec") || !strings.Contains(v, "Feature Specification") {
+		t.Errorf("view:\n%s", v)
+	}
+	if m = press(m, "3"); m.tab != 1 {
+		t.Errorf("3 with two tabs: tab %d, want 1", m.tab)
+	}
+	if m = press(m, "1"); !strings.Contains(m.View(), "This change has no tasks.") {
+		t.Errorf("Tasks tab needs the no-tasks notice:\n%s", m.View())
 	}
 }

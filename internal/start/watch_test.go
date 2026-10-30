@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/source/speckit"
 	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
@@ -365,6 +366,36 @@ func TestWatchWithoutFinishingStep(t *testing.T) {
 			var rec []herdr.Session
 			w := watched(loads(all9), &rec)
 			w.On, w.Source = tt.on, noStep{src}
+			Watch(w, h.run, gitWith(nil, proj, "main", dir, change).run)
+			if last := h.calls[len(h.calls)-1]; last != "agent prompt "+mainPane+" "+tt.want {
+				t.Errorf("prompt\n got %q\nwant %q", last, "agent prompt "+mainPane+" "+tt.want)
+			}
+		})
+	}
+}
+
+// TestWatchSpecKit checks the Handoff of a finished Spec Kit Feature: no archive step, and in a
+// worktree the request to delete the feature.json Start wrote.
+func TestWatchSpecKit(t *testing.T) {
+	dir := t.TempDir()
+	all9 := []work.Item{{Name: change, Done: 9, Total: 9}}
+	tests := []struct {
+		name string
+		on   bool
+		want string
+	}{
+		{"Finish without a worktree", false, change + " is finished (9/9 tasks). Please review it." + resumeTip},
+		{"Finish in a worktree", true, change + " is finished (9/9 tasks) on branch " + change + " in " + dir + ". Please review it, merge branch " + change +
+			" into main, delete " + dir + "/.specify/feature.json unless git tracks it, then remove its worktree with: git worktree remove " + dir + "." +
+			" Never use --force and keep the branch; if the merge or the removal does not go through cleanly, stop and tell the user." +
+			" To look into its session press s on its Card in the Board, or run in " + dir + ": claude --resume " + claudeID},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
+			var rec []herdr.Session
+			w := watched(loads(all9), &rec)
+			w.On, w.Source = tt.on, speckit.New(nil, "")
 			Watch(w, h.run, gitWith(nil, proj, "main", dir, change).run)
 			if last := h.calls[len(h.calls)-1]; last != "agent prompt "+mainPane+" "+tt.want {
 				t.Errorf("prompt\n got %q\nwant %q", last, "agent prompt "+mainPane+" "+tt.want)
