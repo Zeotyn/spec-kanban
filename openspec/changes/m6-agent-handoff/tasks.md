@@ -30,7 +30,7 @@
 
 ## 6. Docs
 
-- [ ] 6.1 README: Handoff (when the pane closes, what the Main agent receives with and without a worktree, that the Main agent merges and runs `git worktree remove` and the plugin removes nothing, the notification fallback), `s` on Review, where sessions are recorded; replace "Nothing is removed automatically yet"
+- [x] 6.1 README: Handoff (when the pane closes, what the Main agent receives with and without a worktree, that the Main agent merges and runs `git worktree remove` and the plugin removes nothing, the notification fallback), `s` on Review, where sessions are recorded; replace "Nothing is removed automatically yet"
 
 ## 7. Verification
 
