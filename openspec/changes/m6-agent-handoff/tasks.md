@@ -5,8 +5,8 @@
 
 ## 2. Archive check (TDD)
 
-- [ ] 2.1 Write failing tests for `openspec.ArchivedIn(dir, change)`: `archive/<change>` and `archive/<date>-<change>` → true; other names, no archive dir → false
-- [ ] 2.2 Implement it by factoring out `Load`'s archive scan and reuse it there; existing `Load` tests stay green
+- [x] 2.1 Write failing tests for `openspec.ArchivedIn(dir, change)`: `archive/<change>` and `archive/<date>-<change>` → true; other names, no archive dir → false
+- [x] 2.2 Implement it by factoring out `Load`'s archive scan and reuse it there; existing `Load` tests stay green
 
 ## 3. Watch and Handoff (TDD, fake `herdr.Runner`, git runner and loader)
 

@@ -64,24 +64,11 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 		out, _ := run("--version")
 		version <- strings.TrimSpace(string(out))
 	}()
-	entries, err := os.ReadDir(filepath.Join(project, "openspec", "changes", "archive"))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	archived, err := archive(project)
+	if err != nil {
 		return nil, err
 	}
-	var archived []Change
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		c := Change{Name: e.Name(), Archived: true}
-		if m := dated.FindStringSubmatch(e.Name()); m != nil {
-			c.ArchivedOn, c.Name = m[1], m[2]
-		}
-		archived = append(archived, c)
-	}
-	isArchived := func(name string) bool {
-		return slices.ContainsFunc(archived, func(a Change) bool { return a.Name == name })
-	}
+	isArchived := func(name string) bool { return isIn(archived, name) }
 	found := make([]*Change, len(others)) // in parallel with the Project's list too
 	var lists sync.WaitGroup
 	for i, o := range others {
@@ -150,6 +137,37 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 	}
 	wg.Wait()
 	return append(changes, archived...), nil
+}
+
+// archive returns the Changes archived in dir's openspec/changes/archive, by folder name; none when
+// it does not exist.
+func archive(dir string) ([]Change, error) {
+	entries, err := os.ReadDir(filepath.Join(dir, "openspec", "changes", "archive"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	var archived []Change
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		c := Change{Name: e.Name(), Archived: true}
+		if m := dated.FindStringSubmatch(e.Name()); m != nil {
+			c.ArchivedOn, c.Name = m[1], m[2]
+		}
+		archived = append(archived, c)
+	}
+	return archived, nil
+}
+
+func isIn(changes []Change, name string) bool {
+	return slices.ContainsFunc(changes, func(c Change) bool { return c.Name == name })
+}
+
+// ArchivedIn reports whether the archive of the checkout dir holds change, dated or not.
+func ArchivedIn(dir, change string) bool {
+	archived, _ := archive(dir)
+	return isIn(archived, change)
 }
 
 // files fingerprints the OpenSpec setup (see setup) and the relative file paths under dir. openspec's

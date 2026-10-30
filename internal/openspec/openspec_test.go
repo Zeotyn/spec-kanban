@@ -385,3 +385,20 @@ func TestLoadDoesNotReuseAcrossCheckouts(t *testing.T) {
 		t.Errorf("planning cached for the same checkout must be reused, calls %q, %v", c.calls, err)
 	}
 }
+
+func TestArchivedIn(t *testing.T) {
+	dir := t.TempDir()
+	if ArchivedIn(dir, "a") {
+		t.Error("no archive dir: want false")
+	}
+	for _, d := range []string{"a", "2026-10-01-b", "c-d", "2026-10-01-other"} {
+		if err := os.MkdirAll(filepath.Join(dir, "openspec", "changes", "archive", d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, want := range map[string]bool{"a": true, "b": true, "c": false, "d": false, "2026-10-01-b": false, "x": false} {
+		if got := ArchivedIn(dir, name); got != want {
+			t.Errorf("ArchivedIn(%q) = %v, want %v", name, got, want)
+		}
+	}
+}
