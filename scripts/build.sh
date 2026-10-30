@@ -50,7 +50,7 @@ tmp=$(mktemp bin/.kanban.XXXXXX)
 get -o "$tmp" "$url/$bin" || fallback "cannot download $bin of v$version"
 want=$(printf '%s\n' "$sums" | awk -v f="$bin" '$2 == f { print $1 }')
 got=$(sha256 "$tmp" | awk '{ print $1 }')
-[ -n "$want" ] && [ "$want" = "$got" ] || fallback "checksum mismatch for $bin of v$version"
+if [ -z "$want" ] || [ "$want" != "$got" ]; then fallback "checksum mismatch for $bin of v$version"; fi
 chmod 755 "$tmp"
 [ "$("$tmp" --version 2>/dev/null)" = "$version" ] || fallback "$bin of v$version does not print version $version"
 mv -f "$tmp" bin/kanban
