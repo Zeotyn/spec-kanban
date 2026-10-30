@@ -141,7 +141,7 @@ Before the agent of a Feature starts, Start SHALL write `.specify/feature.json` 
 - **THEN** no worktree, tab or agent is created and Start reports that `001-user-login-email` is not on `main`
 
 ### Requirement: Default prompt of a Feature
-Without a configured `prompt`, Start SHALL send Spec Kit's implement command for the agent kind it starts, read from the Project's `.specify/integration.json`: the integration named like the kind when it is installed there, else the file's `integration`. For the integrations `codex` and `zcode` the command SHALL be `$speckit-implement`; for any other it SHALL be `/speckit` followed by the integration's `invoke_separator` and `implement`. When the file is missing or unreadable, or names no integration or no separator, the command SHALL be `/speckit-implement`. A configured `prompt` SHALL replace it, `{change}` becoming the Feature name.
+Without a configured `prompt`, Start SHALL send Spec Kit's implement command for the agent kind it starts, read from the Project's `.specify/integration.json`: the integration named like the kind when it is installed there, else the file's `integration`. For the integrations `codex` and `zcode` the command SHALL be `$speckit-implement`; for any other it SHALL be `/speckit` followed by the integration's `invoke_separator` and `implement`. When the file is missing or unreadable, or names no integration or no separator, the command SHALL be `/speckit-implement`. Configured `instructions` SHALL follow the command after one space. A configured `prompt` SHALL replace both, `{change}` becoming the Feature name.
 
 #### Scenario: Claude integration
 - **WHEN** `.specify/integration.json` names integration `claude` with `invoke_separator` `-` and the user Starts a Feature with Claude
@@ -154,6 +154,10 @@ Without a configured `prompt`, Start SHALL send Spec Kit's implement command for
 #### Scenario: Dot separator
 - **WHEN** the integration is `gemini` with `invoke_separator` `.`
 - **THEN** the agent receives `/speckit.implement`
+
+#### Scenario: With instructions
+- **WHEN** the integration is `claude` and `config.json` is `{"instructions": "with ponytail"}`
+- **THEN** the agent receives `/speckit-implement with ponytail`
 
 #### Scenario: Older layout
 - **WHEN** the Project has no `.specify/integration.json`

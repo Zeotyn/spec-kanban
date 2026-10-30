@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Start opens an agent session for a Change
-Starting a Change SHALL open a new herdr tab whose working directory is the Change's checkout (see "Start works in the Change's checkout"; the Project when worktrees are off) and that is labelled or whose workspace is labelled with the Change name, let the Project's Source prepare that checkout (OpenSpec needs nothing; for Spec Kit see the speckit-source spec), focus it, start an agent of the chosen kind in that tab as an agent that herdr tracks, and submit the configured prompt with `{change}` replaced by the Change name to it; without a configured prompt this is the Source's default for that kind: `/opsx:apply <change>` for OpenSpec, Spec Kit's implement command for Spec Kit. When the preparation fails, Start SHALL report it and start no agent. The kind SHALL be the configured `agent`; without one, the kind herdr reports for the agent running in the invoking pane (the pane the Board was opened from, or the pane `kanban start` runs in); `claude` when that pane runs no agent, herdr cannot tell, or the reported kind is not one Start can launch.
+Starting a Change SHALL open a new herdr tab whose working directory is the Change's checkout (see "Start works in the Change's checkout"; the Project when worktrees are off) and that is labelled or whose workspace is labelled with the Change name, let the Project's Source prepare that checkout (OpenSpec needs nothing; for Spec Kit see the speckit-source spec), focus it, start an agent of the chosen kind in that tab as an agent that herdr tracks, and submit the prompt to it. The prompt SHALL be the configured `prompt` with `{change}` replaced by the Change name when one is set; otherwise the Source's command for that kind (`/opsx:apply <change>` for OpenSpec, Spec Kit's implement command for Spec Kit), followed by a space and the configured `instructions` when they are set. When the preparation fails, Start SHALL report it and start no agent. The kind SHALL be the configured `agent`; without one, the kind herdr reports for the agent running in the invoking pane (the pane the Board was opened from, or the pane `kanban start` runs in); `claude` when that pane runs no agent, herdr cannot tell, or the reported kind is not one Start can launch.
 
 #### Scenario: Start a Ready Change
 - **WHEN** the user runs `kanban start m1-board-view` inside a Project that contains that open Change, from a plain shell, and nothing is configured
@@ -9,6 +9,10 @@ Starting a Change SHALL open a new herdr tab whose working directory is the Chan
 
 #### Scenario: Start with a configured prompt
 - **WHEN** the configured prompt is `/opsx:apply {change} with ponytail, TDD, subagents and review loops` and the user presses `s` on Card `m1-board-view`
+- **THEN** the agent's first prompt in the new tab is `/opsx:apply m1-board-view with ponytail, TDD, subagents and review loops`
+
+#### Scenario: Start with configured instructions
+- **WHEN** the configured `instructions` are `with ponytail, TDD, subagents and review loops`, no `prompt` is set, and the user presses `s` on Card `m1-board-view`
 - **THEN** the agent's first prompt in the new tab is `/opsx:apply m1-board-view with ponytail, TDD, subagents and review loops`
 
 #### Scenario: Board opened from a Codex pane

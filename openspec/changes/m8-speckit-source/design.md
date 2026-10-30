@@ -37,7 +37,7 @@ Config is global (one `config.json` for all Projects), and `kanban sync` serves 
 
 **Non-Goals:**
 - A Board that mixes both tools in one Project, or a Source per subdirectory.
-- A prompt per Source in config (`prompt` stays global), or per-Source `hide`.
+- A prompt or instructions per Source in config (`prompt` and `instructions` stay global), or per-Source `hide`. Per-Source `instructions` can be added later without breaking the string form.
 - Reading `checklists/`, `contracts/`, `data-model.md`, `quickstart.md` (no tabs, no Phase effect), and the `**Status**` line.
 - Renaming the Archived column, or "change" in UI texts and `{change}`.
 - Writing any Spec Kit state other than `feature.json`. Running `specify`.
@@ -117,6 +117,24 @@ Alternatives: `git merge-base --is-ancestor <name> <base>` per Feature (one call
 
 `Prompt(project, kind)` reads `<project>/.specify/integration.json`. It uses the integration named `kind` when it is in `installed_integrations`, else `integration`. For `codex`/`zcode` it returns `$speckit-implement`. Otherwise it returns `/speckit` + `integration_settings[name].invoke_separator` + `implement`. A missing file, a missing name or a missing separator gives `/speckit-implement`. The prompt carries no `{change}`: `feature.json` names the Feature, and Spec Kit treats any argument as extra user instructions. herdr kind names equal Spec Kit integration keys except `cursor` (`cursor-agent`), which falls back to the default integration. `kimi`'s `/skill:` form is left to the `prompt` setting.
 
+### Config `instructions`: the Source's command plus free text
+
+The common wish is "the usual command, with these extra words". A global `prompt` cannot express that once a Project can be Spec Kit, because the command differs per Source and per integration. So:
+
+```go
+Config.Instructions string   // "" = unset
+// PromptFor(change, def): Prompt set → Prompt with {change} replaced (Instructions ignored);
+// else def with {change} replaced, + " " + Instructions when Instructions != "".
+```
+
+- `def` is the Source's `Prompt(project, kind)` as before, so the append happens in one place for every Source. `instructions` is passed verbatim: no `{change}` replacement, no trimming.
+- `prompt` stays a complete override, byte-identical to today, so existing configs keep working.
+- Both set: `Parse` keeps the settings, clears `Instructions`, and returns a warning (`instructions is ignored because prompt is set`). `Load` then returns that config with the warning instead of `Default()`. The Board and `kanban start` show it where they show any config warning. Unlike every other problem, this one does not reset settings, because the user's intent (`prompt`) is unambiguous.
+- Not a string → wrong type, defaults and the usual warning. `""` is unset and silent.
+- One text for all Sources. A per-Source form (e.g. an object keyed by Source) is a later extension if a user mixes tools with different wishes.
+
+Alternative: a `{apply}` placeholder in `prompt` that expands to the Source's command. Rejected: users would have to learn the placeholder, and nothing stops them from still hard-coding `/opsx:apply {change}`, which breaks Spec Kit Starts silently. `instructions` cannot name a command at all, so it cannot be wrong for a Source.
+
 ### Config `source`
 
 `Config.Source string`, `""` | `openspec` | `speckit`, validated like `agent`. It is only a preference among Sources that recognise the Project, so it is safe as a global setting.
@@ -137,14 +155,14 @@ README gets a "Spec Kit" section: detection and `source`, Phases and the merged-
 - [The implement agent may commit `feature.json`, so it reaches the base by merge] → harmless (Spec Kit rewrites it on the next `specify`). The Handoff says "unless git tracks it".
 - [A Feature finished without a branch, or whose branch was deleted, never reaches Archived] → it stays in Review, as agreed. `hide` cannot hide just those. The README states the fallback.
 - [A stale merged branch named like a Feature that is finished on the base archives it] → that is the correct reading of "merged".
-- [Global `prompt` applies to Spec Kit too, so an `/opsx:apply {change}` prompt breaks Spec Kit Starts] → README caveat. A per-Source prompt waits for a user who needs both.
+- [Global `prompt` applies to Spec Kit too, so an `/opsx:apply {change}` prompt breaks Spec Kit Starts] → `instructions` covers the usual reason to set `prompt`, and the README recommends it; README caveat for `prompt`. A per-Source prompt waits for a user who needs both.
 - [kind ↔ integration name mismatch (`cursor`)] → the default integration's command is used. `prompt` overrides it.
 - [Spec Kit 1.2.5 may differ from the spiked 0.12.14] → only shared files are read, and every read has a fallback. The smoke test runs on 0.12.14, and 1.2.5 is checked in the open questions below.
 - [The cache may hold another Source's Items after `source` changes] → shown until the first refresh. OpenSpec's reuse needs a matching `Stamp`, which Spec Kit Items never have.
 
 ## Migration Plan
 
-Nothing for users: config gains an optional key, the cache format is unchanged, and OpenSpec Projects behave identically. Rollback is a revert. An older binary rejects a config with `source` as an unknown key and falls back to defaults with a warning.
+Nothing for users: config gains two optional keys (`source`, `instructions`), existing `prompt` configs behave as before, the cache format is unchanged, and OpenSpec Projects behave identically. Rollback is a revert. An older binary rejects a config with `source` or `instructions` as an unknown key and falls back to defaults with a warning.
 
 ## Open Questions
 
