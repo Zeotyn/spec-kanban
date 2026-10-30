@@ -433,8 +433,8 @@ func (m Model) View() string {
 		return m.detail.View()
 	}
 	if m.project == "" {
-		return "No OpenSpec project here.\n\n" +
-			"Open the board from a pane inside a project (a directory containing openspec/changes).\n\n" +
+		return "No project here.\n\n" +
+			"Open the board from a pane inside a project (a directory containing openspec/changes, or .specify and specs).\n\n" +
 			"q close\n"
 	}
 	var body string
