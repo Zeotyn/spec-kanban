@@ -582,7 +582,11 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	var second, third string
 	switch {
 	case c.Phase == work.Archived && c.ArchivedOn != "":
-		second = theme.Faint.Render("archived " + c.ArchivedOn)
+		second = "archived " + c.ArchivedOn
+		if len(second) > inner { // a 20-cell column has no room for both
+			second = c.ArchivedOn
+		}
+		second = theme.Faint.Render(second)
 	case c.Phase == work.Archived:
 		second = theme.Faint.Render("archived")
 	default:

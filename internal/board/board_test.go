@@ -272,6 +272,9 @@ func TestBoardFitsWidth(t *testing.T) {
 				t.Errorf("%d: line %q is %d cells", w, l, lipgloss.Width(l))
 			}
 		}
+		if w > 60 && !strings.Contains(v, "2026-10-29") {
+			t.Errorf("%d: the archive date must not be cut:\n%s", w, v)
+		}
 		if w == 104 && strings.Count(v, "\n") != strings.Count(board(t, 120, 30, fixture).View(), "\n") {
 			t.Errorf("104: a long line must not wrap a Card:\n%s", v)
 		}

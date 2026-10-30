@@ -70,7 +70,9 @@ func TestCardTypography(t *testing.T) {
 			faint.Render("P S D T  40m"), faint.Render("3h"))
 		noHighColours(t, v)
 	}
-	contains(t, keys(board(t, 120, 30, fixture), "5").View(), faint.Render("archived 2026-10-29"))
+	v := keys(board(t, 120, 30, fixture), "5").View()
+	contains(t, v, faint.Render("archived 2026-10-29"),
+		fg("4").Render("┏"+strings.Repeat("━", 21)+"┓"), fg("8").Render("╭"+strings.Repeat("─", 21)+"╮"))
 }
 
 func TestFooterStyle(t *testing.T) {
