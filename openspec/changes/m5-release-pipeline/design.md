@@ -65,3 +65,8 @@ The manifest becomes `[[build]] command = ["sh", "scripts/build.sh"]`.
 ## Open Questions
 
 - Is a Go-free install only for `--ref v<version>` (and `main` exactly at a release) acceptable, or should installs of `main` download the latest release binary even when the checkout is newer? The latter risks a binary that does not match the manifest and was rejected here.
+
+## Notes from use
+
+- The two workflows are merged into one `.github/workflows/pipeline.yml` at the user's request: the `test` job runs on every push and pull request, the `release` job runs for `v*` tags only and `needs: test`, so a release is never built from a commit that fails the checks.
+- Older `shellcheck` on the Ubuntu runner flags `A && B || C` (SC2015); `scripts/build.sh` spells that check as `if`.

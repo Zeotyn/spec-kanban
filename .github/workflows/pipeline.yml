@@ -1,15 +1,47 @@
-name: Release
+name: Pipeline
 
+# One pipeline: every push and pull request is checked; a pushed v* tag is then released.
 on:
   push:
+    branches: ['**']
     tags: ['v*']
+  pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      # Pinned so a CLI release cannot turn main red; bump it together with the contract test.
+      - run: npm install -g @fission-ai/openspec@1.8.0
+      # Fails without the CLI, so the contract test cannot silently skip.
+      - run: openspec --version
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: sh scripts/build.sh
+      - if: runner.os == 'Linux'
+        run: shellcheck scripts/build.sh
+
   release:
+    # Only for v* tags, and only once the checks above passed.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6

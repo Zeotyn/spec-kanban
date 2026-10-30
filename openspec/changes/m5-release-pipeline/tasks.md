@@ -11,12 +11,12 @@
 
 ## 3. CI
 
-- [x] 3.1 Add `.github/workflows/ci.yml`: push and pull_request, matrix ubuntu/macos, setup-go from `go.mod`, setup-node, `npm install -g @fission-ai/openspec@1.8.0`, `openspec --version`, `gofmt -l` empty, `go vet ./...`, `go test -race ./...`, `sh scripts/build.sh`; `shellcheck scripts/build.sh` on Ubuntu
+- [x] 3.1 Add the `test` job of `.github/workflows/pipeline.yml` (first `ci.yml`): push and pull_request, matrix ubuntu/macos, setup-go from `go.mod`, setup-node, `npm install -g @fission-ai/openspec@1.8.0`, `openspec --version`, `gofmt -l` empty, `go vet ./...`, `go test -race ./...`, `sh scripts/build.sh`; `shellcheck scripts/build.sh` on Ubuntu
 - [x] 3.2 Push to `main` (no PRs while the user is the only contributor) and confirm both jobs pass and the contract test ran (`go test -v -run TestContract ./internal/openspec` output in the log shows PASS, not SKIP)
 
 ## 4. Release
 
-- [x] 4.1 Add `.github/workflows/release.yml` as in design.md: tag = `v` + manifest version check, changelog section as notes, four cross-compiled binaries with `-X main.version`, `checksums.txt`, `commit.txt`, `gh release create`, verification by running `scripts/build.sh` in the tagged checkout
+- [x] 4.1 Add the `release` job of `.github/workflows/pipeline.yml` (first `release.yml`), run only for `v*` tags and only after `test` passed: tag = `v` + manifest version check, changelog section as notes, four cross-compiled binaries with `-X main.version`, `checksums.txt`, `commit.txt`, `gh release create`, verification by running `scripts/build.sh` in the tagged checkout
 - [x] 4.2 Add `CHANGELOG.md` with a `## 0.1.0 - <date>` section summarising M0–M5
 
 ## 5. Docs

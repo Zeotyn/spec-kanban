@@ -21,7 +21,7 @@ Installing from GitHub currently requires a Go toolchain and nothing verifies ch
 
 ## Impact
 
-- New `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `scripts/build.sh`, `CHANGELOG.md`.
+- New `.github/workflows/pipeline.yml` (checks, then the release job for `v*` tags), `scripts/build.sh`, `CHANGELOG.md`.
 - `herdr-plugin.toml`: `[[build]]` runs the script.
 - `cmd/kanban/main.go`: `version` becomes a build-time variable.
 - README: install and release sections.
