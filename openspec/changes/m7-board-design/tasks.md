@@ -24,8 +24,8 @@ Prerequisite: `m7-source-seam` is merged on `main`. Names below are the post-ref
 
 ## 5. Detail tab bar (TDD)
 
-- [ ] 5.1 Write failing ANSI256 tests in `detail`: the active tab's part (`▌1 Tasks`) is rendered with `theme.AccentBold`, the inactive ones faint, also in the short form; no `38;5;`, `48;5;` or `38;2;` in the view
-- [ ] 5.2 Implement the styling in the tab bar loop over `Docs.Tabs`; marks, separators and the short-form switch unchanged; detail goldens unchanged
+- [x] 5.1 Write failing ANSI256 tests in `detail`: the active tab's part (`▌1 Tasks`) is rendered with `theme.AccentBold`, the inactive ones faint, also in the short form; no `38;5;`, `48;5;` or `38;2;` in the view
+- [x] 5.2 Implement the styling in the tab bar loop over `Docs.Tabs`; marks, separators and the short-form switch unchanged; detail goldens unchanged
 
 ## 6. Key help: version, styling, frame (TDD)
 

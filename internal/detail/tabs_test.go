@@ -5,6 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
+
+	"github.com/zeotyn/openspec-kanban/internal/theme"
 	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
@@ -59,5 +64,31 @@ func TestThreeTabsEdit(t *testing.T) {
 	}
 	if m, ran := edit(m); ran || *args != nil || !strings.Contains(m.View(), "no plan to edit") {
 		t.Errorf("e on an empty tab: ran %v, view:\n%s", ran, m.View())
+	}
+}
+
+func TestTabBarStyle(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.ANSI256)
+	t.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
+	m := openThree(work.Item{Name: "x", Total: 1})
+	for _, c := range []struct {
+		width int
+		want  []string
+	}{
+		{120, []string{theme.AccentBold.Render("▌3 Tasks"), theme.Faint.Render(" 1 Spec"), theme.Faint.Render("·2 Plan")}},
+		{20, []string{theme.AccentBold.Render("▌3 T"), theme.Faint.Render(" 1 S"), theme.Faint.Render("·2 P")}}, // short form
+	} {
+		m, _ = m.Update(tea.WindowSizeMsg{Width: c.width, Height: 24})
+		v := m.View()
+		for _, s := range c.want {
+			if !strings.Contains(v, s) {
+				t.Errorf("%d wide: tab bar lacks %q:\n%q", c.width, s, v)
+			}
+		}
+		for _, s := range []string{"38;5;", "48;5;", "38;2;"} {
+			if strings.Contains(v, s) {
+				t.Errorf("%d wide: only the 16 ANSI colours may be used, found %q", c.width, s)
+			}
+		}
 	}
 }

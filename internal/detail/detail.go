@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/zeotyn/openspec-kanban/internal/editor"
+	"github.com/zeotyn/openspec-kanban/internal/theme"
 	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
@@ -184,7 +185,11 @@ func (m Model) View() string {
 			if short {
 				name = name[:1]
 			}
-			parts[t] = mark + string(rune('1'+t)) + " " + name
+			style := theme.Faint
+			if t == m.tab {
+				style = theme.AccentBold
+			}
+			parts[t] = style.Render(mark + string(rune('1'+t)) + " " + name)
 		}
 		return strings.Join(parts, " │ ")
 	}
