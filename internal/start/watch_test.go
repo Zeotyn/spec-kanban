@@ -403,3 +403,20 @@ func TestWatchSpecKit(t *testing.T) {
 		})
 	}
 }
+
+func TestWatchAndResumeFeatureName(t *testing.T) {
+	const feature, agentID = "001-a", "f-001-a"
+	h := &script{t: t, answers: map[string][]any{"agent get " + agentID: {notFound}}}
+	w := Watched{Project: proj, Change: feature, Load: loads([]work.Item{}), Source: src, Record: func(herdr.Session) {}}
+	Watch(w, h.run, noGit)
+	if want := []string{"agent get " + agentID}; !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("Watch herdr calls %q, want %q", h.calls, want)
+	}
+	f := &fakeHerdr{t: t}
+	if err := Resume(feature, herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", f.run); err != nil {
+		t.Fatal(err)
+	}
+	if want := "agent start " + agentID + " --kind claude --pane w2:p1J --timeout 60000 -- --resume abc"; f.calls[1] != want {
+		t.Errorf("Resume call %q, want %q", f.calls[1], want)
+	}
+}

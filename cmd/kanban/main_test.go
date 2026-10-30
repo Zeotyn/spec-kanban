@@ -380,7 +380,7 @@ func TestStartChangeKeepsPromptOverInstructions(t *testing.T) {
 	if got := stderr.String(); !strings.Contains(got, "instructions is ignored because prompt is set") {
 		t.Errorf("stderr %q lacks the warning", got)
 	}
-	if last := calls[len(calls)-1]; last != "agent prompt 001-a go 001-a" {
+	if last := calls[len(calls)-1]; last != "agent prompt f-001-a go 001-a" {
 		t.Errorf("last herdr call %q, want the configured prompt", last)
 	}
 }

@@ -80,6 +80,7 @@ A directory with both `.specify` and `specs` is a Spec Kit Project; its Work ite
 - **Start** writes `.specify/feature.json` (`{"feature_directory":"specs/<name>"}`) into the checkout the agent works in before it starts, so Spec Kit finds the Feature. With `worktree` off that is the Project, and it overwrites your current feature. The [Handoff](#handoff) asks the Main agent to delete the file in the worktree, unless git tracks it, before `git worktree remove`.
 - **Prompt**: the implement command of the agent kind being started, from `.specify/integration.json`: `/speckit-implement` (claude), `$speckit-implement` (codex, zcode), `/speckit.implement` for integrations with the separator `.`. Without the file, `/speckit-implement`. It has no `{change}`, since `feature.json` names the Feature. `instructions` follow it; a configured `prompt` replaces it and applies to every Project.
 - Commit `specs/<feature>` before pressing `s`; otherwise Start reports that the Feature is not on the base.
+- herdr agent names must start with a lowercase letter, so the agent of `001-user-login-email` is named `f-001-user-login-email` (`herdr agent list`). A name whose agent name would exceed herdr's 32 characters cannot be started.
 
 ## Settings
 

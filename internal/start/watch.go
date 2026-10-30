@@ -54,9 +54,9 @@ func Watch(w Watched, run, git herdr.Runner) {
 	if _, err := w.get(run); err != nil {
 		return
 	}
-	run("agent", "wait", w.Change, "--until", "working", "--timeout", "60000") // it may have finished its turn already
+	run("agent", "wait", agentName(w.Change), "--until", "working", "--timeout", "60000") // it may have finished its turn already
 	for {
-		if _, err := run("agent", "wait", w.Change); err != nil {
+		if _, err := run("agent", "wait", agentName(w.Change)); err != nil {
 			return // the agent exited, its pane was closed or herdr went away
 		}
 		a, err := w.get(run)
@@ -77,7 +77,7 @@ func Watch(w Watched, run, git herdr.Runner) {
 		} else if b.Seq != a.Seq {
 			continue // it moved on while being checked, maybe through a whole turn
 		}
-		if _, err := run("agent", "wait", w.Change, "--until", "working"); err != nil {
+		if _, err := run("agent", "wait", agentName(w.Change), "--until", "working"); err != nil {
 			return
 		}
 	}
@@ -85,7 +85,7 @@ func Watch(w Watched, run, git herdr.Runner) {
 
 // get reads the watched agent and records its session.
 func (w Watched) get(run herdr.Runner) (agent, error) {
-	a, err := getAgent(run, w.Change)
+	a, err := getAgent(run, agentName(w.Change))
 	if err == nil && a.Session != nil {
 		w.Record(*a.Session)
 	}
@@ -235,7 +235,7 @@ func Resume(change string, s herdr.Session, pane, tab string, run herdr.Runner) 
 	if _, err := run("tab", "focus", tab); err != nil {
 		return fmt.Errorf("tab focus: %w", err)
 	}
-	if _, err := run(append([]string{"agent", "start", change, "--kind", s.Agent, "--pane", pane, "--timeout", "60000", "--"}, args...)...); err != nil {
+	if _, err := run(append([]string{"agent", "start", agentName(change), "--kind", s.Agent, "--pane", pane, "--timeout", "60000", "--"}, args...)...); err != nil {
 		return fmt.Errorf("%s did not become ready in tab %q: %w", s.Agent, change, err)
 	}
 	return nil

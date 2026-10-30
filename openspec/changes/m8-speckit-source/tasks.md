@@ -45,6 +45,7 @@ Every group ends with `go test ./...` green. OpenSpec goldens and Handoff texts 
 
 - [x] 7.1 `cmd/kanban`: build `openspec.New(openspecCLI)` and `speckit.New(gitCLI, cfg.Base)` through `sources(cfg)`; `open` uses `detect`; `start`, `board`, `launch` use `sourceFor(proj)`; `sync` loads the config (warnings ignored) and passes `detect` and a `syncLoad` that picks the Source per Project; existing `main_test.go` cases unchanged
 - [x] 7.2 No-project notice `No project here.` / `… (a directory containing openspec/changes, or .specify and specs).`, update the `no-project` golden; `kanban start` outside a Project: `no OpenSpec or Spec Kit project at or above <cwd>`
+- [x] 7.4 Found in the smoke test: herdr rejects agent names not starting with a lowercase letter or longer than 32 characters. Failing tests, then `start` names the agent `f-<name>` for such names (`agentName`/`itemName` in Prepare, Launch, Watch, Running, Resume) and refuses a name too long before any herdr call
 - [x] 7.3 Check the boundary: `grep -rn 'speckit\|\.specify\|feature\.json' --include='*.go' internal cmd` hits only `internal/source/speckit`, `internal/config` (the `source` value) and `cmd/kanban`
 
 ## 8. Docs
