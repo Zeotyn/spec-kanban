@@ -5,11 +5,11 @@ A herdr plugin that shows a Project's OpenSpec Changes as a kanban Board and sum
 ## Projects and Changes
 
 **Project**:
-A directory a Source recognises (for OpenSpec, one containing `openspec/changes`) in which the panes of a herdr workspace work.
+A directory a Source recognises (for OpenSpec, one containing `openspec/changes`; for Spec Kit, one containing `.specify` and `specs`) in which the panes of a herdr workspace work. A Project recognised by both is read by one Source: OpenSpec unless the config prefers Spec Kit.
 _Avoid_: Repo, workspace
 
 **Source**:
-The spec tool a Project's Work items are read from, behind one adapter; today only OpenSpec.
+The spec tool a Project's Work items are read from, behind one adapter: OpenSpec or Spec Kit.
 _Avoid_: Backend, provider, data source
 
 **Work item**:
@@ -19,6 +19,10 @@ _Avoid_: Ticket, task, item
 **Change**:
 The OpenSpec kind of Work item: a piece of planned work with proposal, specs, design and tasks, open or archived.
 _Avoid_: Spec, ticket, story
+
+**Feature**:
+The Spec Kit kind of Work item: a folder `specs/<name>` with `spec.md` and, as planning goes on, `plan.md`, `tasks.md` and more.
+_Avoid_: Change, story
 
 **Spec**:
 A main specification under `openspec/specs`; a Change carries spec deltas but is not a Spec itself.
@@ -60,7 +64,7 @@ Phase of an open Change with at least one task, all of which are completed, even
 _Avoid_: Done, finished
 
 **Archived**:
-Phase of an archived Change.
+Phase of an archived Change, or of a Feature whose tasks are done and whose branch is merged into the base.
 _Avoid_: Done
 
 **Running agent**:

@@ -4,7 +4,7 @@
 
 # spec-kanban
 
-A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes as a kanban board.
+A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes or [Spec Kit](https://github.com/github/spec-kit) features as a kanban board.
 
 ![spec-kanban: navigating the board, filtering by milestone, opening a Change's details and the key help](docs/assets/demo.gif)
 
@@ -55,7 +55,7 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 
 `/` opens a prompt in the footer; every key typed there is text and filters the columns at once, ignoring case. `Enter` keeps the filter, `Esc` clears it, `Backspace` on an empty prompt closes it. `m1` (or `M1`) matches only the Changes with milestone badge M1, not `m10-…` or `fix-m1-…`. The filter shows in the header and stays across reloads.
 
-`s` works on Ready and In Progress Cards. It opens a new tab named after the Change in a git worktree of the project and closes the Board at once; the tab then gets focus, the agent starts in it and gets the prompt (`/opsx:apply <change>` unless configured, see [Settings](#settings)). If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (agent not ready, prompt not sent) as a herdr notification. On a Review Card, `s` reopens the Change's recorded session (see [Handoff](#handoff)) in its worktree without a prompt, or focuses its running agent; without a recorded session, or for an agent kind that cannot resume, the footer says why not, as it does on Draft and Archived Cards. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
+`s` works on Ready and In Progress Cards. It opens a new tab named after the Change in a git worktree of the project and closes the Board at once; the tab then gets focus, the agent starts in it and gets the prompt (`/opsx:apply <change>` plus `instructions` unless `prompt` is configured, see [Settings](#settings)). If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (agent not ready, prompt not sent) as a herdr notification. On a Review Card, `s` reopens the Change's recorded session (see [Handoff](#handoff)) in its worktree without a prompt, or focuses its running agent; without a recorded session, or for an agent kind that cannot resume, the footer says why not, as it does on Draft and Archived Cards. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
 
 The worktree is a checkout on a branch named like the Change, created by herdr at `<dir>/<repo>/<change>`, where `<dir>` is `[worktrees] directory` in herdr's config (default `~/.herdr/worktrees`). New branches start from the project's default branch (`origin/HEAD`, else `main`, `master` or `develop`, else the current branch), or from `base` when set. An existing checkout on that branch is reused. The Change must be committed on the start branch before you press `s`; otherwise Start reports that the Change is not on the base. The Board and the sidebar read the Change's Progress from its worktree. The plugin never removes a worktree or deletes a branch; after a [Handoff](#handoff) the Main agent removes the worktree. Without a git repository, `s` opens the tab in the project.
 
@@ -70,6 +70,17 @@ When the Main agent cannot take the prompt (the Board was opened from a shell pa
 
 The agent kind and session herdr reports are recorded per project and Change under `sessions/` in the plugin's state directory (`$HERDR_PLUGIN_STATE_DIR`, else the user cache directory's `spec-kanban`). Sessions of `claude`, `copilot`, `codex`, `opencode`, `cursor` and `gemini` can be reopened with `s` on the Review Card; the worktree is reopened, or recreated from its branch after it was removed.
 
+## Spec Kit
+
+A directory with both `.specify` and `specs` is a Spec Kit Project; its Work items are the Features, the folders `specs/<name>/` that hold a `spec.md`. A Project is read by one Source only: OpenSpec when it has `openspec/changes`, Spec Kit otherwise, or Spec Kit when both are present and `source` is `speckit`. The no-Project notice and `kanban start` name both tools.
+
+- **Phases** come from the files: Draft without tasks, Ready with `tasks.md` and nothing checked, In Progress, Review with all tasks checked. A Feature in Review whose branch (named like the Feature) is merged into the base becomes Archived, without a date; with no such branch, or an unmerged one, or when git fails, it stays in Review. `**Status**` in `spec.md` and `checklists/` are ignored.
+- **Planning marks** `P S D T` on Draft and Ready Cards: `P` is always `-`, `S` is `spec.md`, `D` is `plan.md`, `T` is `tasks.md`, for example `- S D T`.
+- **Details** have the tabs Tasks and Spec, then Plan and Research when those files exist.
+- **Start** writes `.specify/feature.json` (`{"feature_directory":"specs/<name>"}`) into the checkout the agent works in before it starts, so Spec Kit finds the Feature. With `worktree` off that is the Project, and it overwrites your current feature. The [Handoff](#handoff) asks the Main agent to delete the file in the worktree, unless git tracks it, before `git worktree remove`.
+- **Prompt**: the implement command of the agent kind being started, from `.specify/integration.json`: `/speckit-implement` (claude), `$speckit-implement` (codex, zcode), `/speckit.implement` for integrations with the separator `.`. Without the file, `/speckit-implement`. It has no `{change}`, since `feature.json` names the Feature. `instructions` follow it; a configured `prompt` replaces it and applies to every Project.
+- Commit `specs/<feature>` before pressing `s`; otherwise Start reports that the Feature is not on the base.
+
 ## Settings
 
 Settings live in `config.json` in the plugin's config directory, which `herdr plugin config-dir spec-kanban` prints. The file is optional; every key is too:
@@ -77,7 +88,7 @@ Settings live in `config.json` in the plugin's config directory, which `herdr pl
 ```json
 {
   "agent": "codex",
-  "prompt": "/opsx:apply {change} with TDD and review loops",
+  "instructions": "with ponytail, TDD and review loops",
   "hide": ["Archived"]
 }
 ```
@@ -85,12 +96,14 @@ Settings live in `config.json` in the plugin's config directory, which `herdr pl
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `agent` | unset | Agent kind `s` starts, one of `herdr agent start --help`'s `--kind` values (`claude`, `codex`, `gemini`, `opencode`, …) |
-| `prompt` | `/opsx:apply {change}` | Text sent to the agent; every `{change}` becomes the Change name, and it must contain one |
+| `source` | unset | `openspec` or `speckit`; which Source reads a Project that both tools recognise (default OpenSpec). Ignored for a Project only one tool recognises |
+| `instructions` | unset | Text appended after one space to the Source's command, verbatim (`/opsx:apply <change>`, or Spec Kit's implement command). Ignored when `prompt` is set; the Board then shows a warning |
+| `prompt` | Source's command | Complete override of the text sent to the agent; every `{change}` becomes the Change name, and it must contain one. Applies to every Project whatever its Source, wins over `instructions` |
 | `worktree` | `true` | `false` opens the agent's tab in the project instead of a git worktree |
 | `base` | detected | Non-empty branch or ref new worktrees start from; overrides the detected default branch |
 | `hide` | `[]` | Phases whose columns the Board leaves out, ignoring case; at least one must stay |
 
-The kind `s` starts is `agent` when set, else the agent running in the pane the Board was opened from (for `kanban start`, the pane it runs in), else `claude`. OpenSpec names its commands per tool, so with a kind other than `claude` set `prompt` to the command OpenSpec installed for that tool (`openspec init --tools <tool>`).
+The kind `s` starts is `agent` when set, else the agent running in the pane the Board was opened from (for `kanban start`, the pane it runs in), else `claude`. OpenSpec names its commands per tool, so with a kind other than `claude` set `prompt` to the command OpenSpec installed for that tool (`openspec init --tools <tool>`). Spec Kit's command follows the kind by itself (see [Spec Kit](#spec-kit)). A `prompt` such as `/opsx:apply {change}` also reaches Spec Kit Projects and breaks their Start; use `instructions` to add words to either tool's command.
 
 The file is read when the Board opens or `kanban start` runs. If it is broken (invalid JSON, an unknown key, a value breaking the rules above), all settings fall back to their defaults: the Board shows the problem in its footer until the next key, and `kanban start` prints it to stderr.
 
