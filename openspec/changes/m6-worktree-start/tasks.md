@@ -1,14 +1,14 @@
 ## 1. Checkouts and base (TDD, fake git runner)
 
-- [ ] 1.1 Capture `git worktree list --porcelain` output (main + linked, one detached, one prunable) into `internal/worktree/testdata/` with fake paths
-- [ ] 1.2 Write failing tests for `worktree.List(project, git)`: top-level Project → all non-bare, non-detached, non-prunable checkouts with path and branch; non-empty `rev-parse --show-prefix` → empty list; git failing (outside git) → empty list, no error
-- [ ] 1.3 Write failing table tests for `worktree.Base(configured, git)`: configured wins without git calls; `origin/HEAD` → `origin/develop` with local `develop` → `develop`, without → `origin/develop`; no `origin/HEAD` with `master` and `develop` → `master`; none of them → current branch; detached → `HEAD`
-- [ ] 1.4 Implement `internal/worktree` (stdlib only) until the tests pass
+- [x] 1.1 Capture `git worktree list --porcelain` output (main + linked, one detached, one prunable) into `internal/worktree/testdata/` with fake paths
+- [x] 1.2 Write failing tests for `worktree.List(project, git)`: top-level Project → all non-bare, non-detached, non-prunable checkouts with path and branch; non-empty `rev-parse --show-prefix` → empty list; git failing (outside git) → empty list, no error
+- [x] 1.3 Write failing table tests for `worktree.Base(configured, git)`: configured wins without git calls; `origin/HEAD` → `origin/develop` with local `develop` → `develop`, without → `origin/develop`; no `origin/HEAD` with `master` and `develop` → `master`; none of them → current branch; detached → `HEAD`
+- [x] 1.4 Implement `internal/worktree` (stdlib only) until the tests pass
 
 ## 2. Config (TDD)
 
-- [ ] 2.1 Write failing `config.Parse` tests: defaults `Worktree: true`, `Base: ""`; `{"worktree": false}`; `{"base": "develop"}`; `{"worktree": "no"}`, `{"base": ""}`, `{"base": 1}` → defaults and an error naming the key
-- [ ] 2.2 Implement `worktree` and `base` until the tests pass
+- [x] 2.1 Write failing `config.Parse` tests: defaults `Worktree: true`, `Base: ""`; `{"worktree": false}`; `{"base": "develop"}`; `{"worktree": "no"}`, `{"base": ""}`, `{"base": 1}` → defaults and an error naming the key
+- [x] 2.2 Implement `worktree` and `base` until the tests pass
 
 ## 3. Start in the Change's checkout (TDD, fake herdr and git runners)
 
@@ -20,9 +20,9 @@
 
 ## 4. Change source reads the Change's checkout (TDD, fake openspec runner per dir)
 
-- [ ] 4.1 Write failing `openspec.Load` tests with temp dirs: worktree on branch `a` holding Change `a` with more tasks done → `a` replaced with its counts, modified time and `Dir`; worktree-only Change `n` → appended; other Changes of the worktree ignored; branch without its Change directory → no list call there; Change archived in the Project → only archived; worktree list failing or lacking the Change → Project's entry, no error; planning `status` for a worktree Change runs in its `Dir`; cached planning not reused across different `Dir`
-- [ ] 4.2 Implement `Change.Dir` and the overlay in `Load` until the tests pass; keep `contract_test.go` passing
-- [ ] 4.3 Write a failing test, then make `docs.Dir` use `c.Dir` when set, so the detail view and `e` read and edit the worktree's files
+- [x] 4.1 Write failing `openspec.Load` tests with temp dirs: worktree on branch `a` holding Change `a` with more tasks done → `a` replaced with its counts, modified time and `Dir`; worktree-only Change `n` → appended; other Changes of the worktree ignored; branch without its Change directory → no list call there; Change archived in the Project → only archived; worktree list failing or lacking the Change → Project's entry, no error; planning `status` for a worktree Change runs in its `Dir`; cached planning not reused across different `Dir`
+- [x] 4.2 Implement `Change.Dir` and the overlay in `Load` until the tests pass; keep `contract_test.go` passing
+- [x] 4.3 Write a failing test, then make `docs.Dir` use `c.Dir` when set, so the detail view and `e` read and edit the worktree's files
 
 ## 5. Wiring
 

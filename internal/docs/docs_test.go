@@ -30,6 +30,7 @@ func TestDir(t *testing.T) {
 		{openspec.Change{Name: "m1-board"}, "/p/openspec/changes/m1-board"},
 		{openspec.Change{Name: "m0-skel", Archived: true, ArchivedOn: "2026-10-29"}, "/p/openspec/changes/archive/2026-10-29-m0-skel"},
 		{openspec.Change{Name: "m0-skel", Archived: true}, "/p/openspec/changes/archive/m0-skel"},
+		{openspec.Change{Name: "m1-board", Dir: "/wt/m1-board"}, "/wt/m1-board/openspec/changes/m1-board"},
 	} {
 		if got := Dir("/p", tc.c); got != tc.want {
 			t.Errorf("Dir(%+v) = %q, want %q", tc.c, got, tc.want)

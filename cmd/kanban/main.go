@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"github.com/zeotyn/openspec-kanban/internal/project"
 	"github.com/zeotyn/openspec-kanban/internal/sidebar"
 	"github.com/zeotyn/openspec-kanban/internal/start"
+	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 
 // version is stamped by release builds with -ldflags "-X main.version=<version>".
@@ -77,7 +79,7 @@ func main() {
 		err = showBoard(os.Getenv("KANBAN_PROJECT"))
 	case "sync":
 		dir := cache.Dir()
-		err = sidebar.Coalesce(dir, func() error { return sidebar.Sync(herdr.Exec, syncLoad(dir, openspecCLI)) })
+		err = sidebar.Coalesce(dir, func() error { return sidebar.Sync(herdr.Exec, syncLoad(dir, openspecCLI, gitCLI)) })
 	case "--version":
 		fmt.Println(versionString())
 	case "-h", "--help", "":
@@ -152,7 +154,7 @@ func showBoard(proj string) error {
 		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
 		return spawnLaunch(change, pane, tab, kind, cfg.PromptFor(change))
 	}
-	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne, cfg.Hide, notice), tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(board.New(proj, loader(dir, proj, openspecCLI, gitCLI(proj)), time.Now, cache.Read(dir, proj), running, startOne, cfg.Hide, notice), tea.WithAltScreen()).Run()
 	return err
 }
 
@@ -188,8 +190,9 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 	return err
 }
 
-// loader reads the Project's Changes, reusing cached planning state, and caches every successful load.
-func loader(dir, proj string, run herdr.Runner) func() ([]openspec.Change, error) {
+// loader reads the Project's Changes and those worked on in its other checkouts, reusing cached
+// planning state, and caches every successful load.
+func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) func() ([]openspec.Change, error) {
 	return func() ([]openspec.Change, error) {
 		known := map[string]openspec.Change{}
 		for _, c := range cache.Read(dir, proj) { // re-read each time, so every refresh reuses the newest load
@@ -197,7 +200,7 @@ func loader(dir, proj string, run herdr.Runner) func() ([]openspec.Change, error
 				known[c.Name] = c
 			}
 		}
-		changes, err := openspec.Load(proj, run, known)
+		changes, err := openspec.Load(proj, cli, others(proj, worktree.List(git)), known)
 		if err == nil {
 			_ = cache.Write(dir, proj, changes) // cache problems never break the Board
 		}
@@ -206,11 +209,21 @@ func loader(dir, proj string, run herdr.Runner) func() ([]openspec.Change, error
 }
 
 // syncLoad loads a Project for the sidebar through the Board's loader, so every sync warms the Board's cache.
-func syncLoad(dir string, cli func(proj string) herdr.Runner) func(string) ([]openspec.Change, error) {
-	return func(proj string) ([]openspec.Change, error) { return loader(dir, proj, cli(proj))() }
+func syncLoad(dir string, cli, git func(proj string) herdr.Runner) func(string) ([]openspec.Change, error) {
+	return func(proj string) ([]openspec.Change, error) { return loader(dir, proj, cli, git(proj))() }
+}
+
+// others drops proj's own checkout from checkouts.
+func others(proj string, checkouts []worktree.Checkout) []worktree.Checkout {
+	return slices.DeleteFunc(checkouts, func(c worktree.Checkout) bool { return filepath.Clean(c.Path) == filepath.Clean(proj) })
 }
 
 // openspecCLI runs the openspec CLI inside proj.
 func openspecCLI(proj string) herdr.Runner {
 	return func(args ...string) ([]byte, error) { return herdr.Run("openspec", proj, args...) }
+}
+
+// gitCLI runs git inside proj.
+func gitCLI(proj string) herdr.Runner {
+	return func(args ...string) ([]byte, error) { return herdr.Run("git", proj, args...) }
 }

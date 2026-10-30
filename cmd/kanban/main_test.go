@@ -85,7 +85,7 @@ func TestLoader(t *testing.T) {
 		}
 		return []byte(`{"isPlanningComplete":true,"artifacts":[{"id":"proposal","status":"done"}]}`), nil
 	}
-	load := loader(dir, proj, run)
+	load := loader(dir, proj, func(string) herdr.Runner { return run }, noGit)
 
 	if _, err := load(); err != nil || len(cache.Read(dir, proj)) != 1 {
 		t.Fatalf("first load must succeed and write the cache: %v, %v", err, cache.Read(dir, proj))
@@ -116,7 +116,7 @@ func TestLoaderUnwritableCache(t *testing.T) {
 	run := func(...string) ([]byte, error) {
 		return []byte(`{"changes":[{"name":"a","completedTasks":1,"totalTasks":2}]}`), nil
 	}
-	if changes, err := loader(dir, t.TempDir(), run)(); err != nil || len(changes) != 1 {
+	if changes, err := loader(dir, t.TempDir(), func(string) herdr.Runner { return run }, noGit)(); err != nil || len(changes) != 1 {
 		t.Errorf("an unwritable cache must not break loading: %v, %v", changes, err)
 	}
 }
@@ -131,6 +131,9 @@ func mustOnly(t *testing.T, dir string) string {
 	return entries[0].Name()
 }
 
+// noGit fails like git outside a repository.
+func noGit(...string) ([]byte, error) { return nil, errors.New("fatal: not a git repository") }
+
 func sorted(s []string) []string { return slices.Sorted(slices.Values(s)) }
 
 func TestSyncLoadWritesBoardCache(t *testing.T) {
@@ -142,7 +145,7 @@ func TestSyncLoadWritesBoardCache(t *testing.T) {
 			return []byte(`{"changes":[{"name":"a","completedTasks":1,"totalTasks":2}]}`), nil
 		}
 	}
-	changes, err := syncLoad(dir, cli)(proj)
+	changes, err := syncLoad(dir, cli, func(string) herdr.Runner { return noGit })(proj)
 	if err != nil || len(changes) != 1 || ranIn != proj {
 		t.Fatalf("want one Change read in %s, got %v, %v (ran in %q)", proj, changes, err, ranIn)
 	}
@@ -221,5 +224,28 @@ func TestVersionString(t *testing.T) {
 	info, _ := debug.ReadBuildInfo()
 	if got := versionString(); got != info.Main.Version {
 		t.Errorf("unstamped: got %q, want the build info's %q", got, info.Main.Version)
+	}
+}
+
+func TestLoaderReadsOtherCheckouts(t *testing.T) {
+	proj, wt, dir := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(wt, "openspec", "changes", "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	git := func(args ...string) ([]byte, error) {
+		if args[0] == "rev-parse" {
+			return []byte("\n"), nil
+		}
+		return []byte("worktree " + proj + "\nbranch refs/heads/main\n\nworktree " + wt + "\nbranch refs/heads/a\n"), nil
+	}
+	cli := func(p string) herdr.Runner {
+		done := map[string]string{proj: "1", wt: "2"}[p]
+		return func(...string) ([]byte, error) {
+			return []byte(`{"changes":[{"name":"a","completedTasks":` + done + `,"totalTasks":2}]}`), nil
+		}
+	}
+	changes, err := loader(dir, proj, cli, git)()
+	if err != nil || len(changes) != 1 || changes[0].Done != 2 || changes[0].Dir != wt {
+		t.Errorf("want a read in its worktree %s, got %+v, %v", wt, changes, err)
 	}
 }

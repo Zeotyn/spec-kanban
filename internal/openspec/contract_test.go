@@ -21,7 +21,7 @@ func TestContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	run := func(args ...string) ([]byte, error) { return herdr.Run("openspec", project, args...) } // as main wires it
-	changes, err := Load(project, run, nil)
+	changes, err := Load(project, func(string) herdr.Runner { return run }, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestMissingCLI(t *testing.T) {
 	run := func(args ...string) ([]byte, error) {
 		return herdr.Run("openspec-not-installed-xyz", dir, args...)
 	}
-	if _, err := Load(t.TempDir(), run, nil); err == nil || !strings.Contains(err.Error(), "openspec CLI not found") {
+	if _, err := Load(t.TempDir(), func(string) herdr.Runner { return run }, nil, nil); err == nil || !strings.Contains(err.Error(), "openspec CLI not found") {
 		t.Fatalf("want not-found error, got %v", err)
 	}
 }

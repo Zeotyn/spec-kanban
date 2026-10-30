@@ -12,8 +12,12 @@ import (
 )
 
 // Dir returns where a Change's files live: openspec/changes/<name> when open, openspec/changes/archive/<ArchivedOn>-<name>
-// when archived with a date, openspec/changes/archive/<name> when archived without one.
+// when archived with a date, openspec/changes/archive/<name> when archived without one; below c.Dir
+// instead of project when set.
 func Dir(project string, c openspec.Change) string {
+	if c.Dir != "" {
+		project = c.Dir
+	}
 	base := filepath.Join(project, "openspec", "changes")
 	switch {
 	case !c.Archived:

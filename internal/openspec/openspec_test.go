@@ -12,7 +12,15 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
+
+// one runs every directory's CLI through run.
+func one(run herdr.Runner) func(string) herdr.Runner {
+	return func(string) herdr.Runner { return run }
+}
 
 // fakeCLI answers `list --json` with list and `status --change <name> --json` from status;
 // a missing status entry fails like the real CLI does for an unknown change.
@@ -56,7 +64,7 @@ func TestLoadOpenChanges(t *testing.T) {
 			{"name":"broken","completedTasks":0,"totalTasks":2,"lastModified":"2026-10-26T10:00:00Z","status":"in-progress"}]}`,
 		status: map[string]string{"draft": proposalOnly, "ready": planned},
 	}
-	got, err := Load(t.TempDir(), cli.run, nil)
+	got, err := Load(t.TempDir(), one(cli.run), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +126,7 @@ func TestLoadReusesKnownPlanning(t *testing.T) {
 		"failed":  {Name: "failed", Modified: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC), Files: fp("failed")},
 		"started": {Name: "started", Modified: time.Date(2026, 10, 28, 13, 0, 0, 0, time.UTC), Planning: Complete, Artifacts: done},
 	}
-	got, err := Load(project, cli.run, known)
+	got, err := Load(project, one(cli.run), nil, known)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +154,7 @@ func TestLoadUnchangedCallsOnlyList(t *testing.T) {
 		"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Incomplete, Artifacts: map[string]string{"proposal": "ready"}, Files: fingerprint(project, "a")},
 		"b": {Modified: time.Date(2026, 10, 28, 11, 0, 0, 0, time.UTC), Planning: Complete, Artifacts: map[string]string{"proposal": "done"}, Files: fingerprint(project, "b")},
 	}
-	got, err := Load(project, cli.run, known)
+	got, err := Load(project, one(cli.run), nil, known)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +211,7 @@ func TestLoadDoesNotReuse(t *testing.T) {
 				t.Fatal(err)
 			}
 			cli := &fakeCLI{list: tt.list, status: map[string]string{"a": proposalOnly}}
-			got, err := Load(project, cli.run, known)
+			got, err := Load(project, one(cli.run), nil, known)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -215,7 +223,7 @@ func TestLoadDoesNotReuse(t *testing.T) {
 }
 
 func TestLoadNoChanges(t *testing.T) {
-	got, err := Load(t.TempDir(), (&fakeCLI{list: `{"changes":[]}`}).run, nil)
+	got, err := Load(t.TempDir(), one((&fakeCLI{list: `{"changes":[]}`}).run), nil, nil)
 	if err != nil || len(got) != 0 {
 		t.Fatalf("want no changes and no error, got %v, %v", got, err)
 	}
@@ -233,7 +241,7 @@ func TestLoadFailures(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			run := func(...string) ([]byte, error) { return nil, tt.err }
-			if _, err := Load(t.TempDir(), run, nil); err == nil || !strings.Contains(err.Error(), tt.want) {
+			if _, err := Load(t.TempDir(), one(run), nil, nil); err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("want error with %q, got %v", tt.want, err)
 			}
 		})
@@ -251,7 +259,7 @@ func TestLoadArchived(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(archive, ".DS_Store"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load(project, (&fakeCLI{list: `{"changes":[]}`}).run, nil)
+	got, err := Load(project, one((&fakeCLI{list: `{"changes":[]}`}).run), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +285,7 @@ func TestLoadAfterUpgrade(t *testing.T) {
 	old := files(filepath.Join(project, "openspec", "changes", "a"), setup(project, "1.7.0"))
 	known := map[string]Change{"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Complete, Files: old}}
 	cli := &fakeCLI{list: `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"}]}`, status: map[string]string{"a": proposalOnly}}
-	if _, err := Load(project, cli.run, known); err != nil {
+	if _, err := Load(project, one(cli.run), nil, known); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Contains(cli.calls, "status --change a --json") {
@@ -290,11 +298,86 @@ func TestLoadWithoutVersion(t *testing.T) {
 	known := map[string]Change{"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Complete,
 		Files: files(filepath.Join(project, "openspec", "changes", "a"), setup(project, ""))}}
 	cli := &fakeCLI{list: `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"}]}`, status: map[string]string{"a": proposalOnly}, noVersion: true}
-	got, err := Load(project, cli.run, known)
+	got, err := Load(project, one(cli.run), nil, known)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Contains(cli.calls, "status --change a --json") || got[0].Files != "" {
 		t.Errorf("without a CLI version nothing may be reused or fingerprinted, calls %q, files %q", cli.calls, got[0].Files)
+	}
+}
+
+func TestLoadOtherCheckouts(t *testing.T) {
+	project := withChanges(t, "a", "b")
+	if err := os.MkdirAll(filepath.Join(project, "openspec", "changes", "archive", "2026-10-01-old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wtA, wtN, wtOld := withChanges(t, "a", "x"), withChanges(t, "n"), withChanges(t, "old")
+	noChange, broken, lacking := withChanges(t), withChanges(t, "f"), withChanges(t, "g")
+	clis := map[string]*fakeCLI{
+		project: {list: `{"changes":[
+			{"name":"a","completedTasks":1,"totalTasks":4,"lastModified":"2026-10-28T10:00:00Z"},
+			{"name":"b","completedTasks":2,"totalTasks":2,"lastModified":"2026-10-28T11:00:00Z"}]}`},
+		wtA: {list: `{"changes":[
+			{"name":"a","completedTasks":3,"totalTasks":4,"lastModified":"2026-10-30T10:00:00Z"},
+			{"name":"x","completedTasks":1,"totalTasks":1,"lastModified":"2026-10-30T10:00:00Z"}]}`},
+		wtN:     {list: `{"changes":[{"name":"n","totalTasks":2,"lastModified":"2026-10-30T12:00:00Z"}]}`, status: map[string]string{"n": planned}},
+		wtOld:   {list: `{"changes":[{"name":"old","completedTasks":1,"totalTasks":2}]}`},
+		lacking: {list: `{"changes":[]}`},
+	}
+	cli := func(dir string) herdr.Runner {
+		if dir == broken {
+			return func(...string) ([]byte, error) { return nil, errors.New("exit status 1") }
+		}
+		if c, ok := clis[dir]; ok {
+			return c.run
+		}
+		return func(args ...string) ([]byte, error) { return nil, fmt.Errorf("unexpected call %q in %s", args, dir) }
+	}
+	others := []worktree.Checkout{{Path: wtA, Branch: "a"}, {Path: wtN, Branch: "n"}, {Path: wtOld, Branch: "old"},
+		{Path: noChange, Branch: "fix-typo"}, {Path: broken, Branch: "f"}, {Path: lacking, Branch: "g"}}
+	got, err := Load(project, cli, others, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Change{
+		{Name: "a", Done: 3, Total: 4, Modified: time.Date(2026, 10, 30, 10, 0, 0, 0, time.UTC), Dir: wtA},
+		{Name: "b", Done: 2, Total: 2, Modified: time.Date(2026, 10, 28, 11, 0, 0, 0, time.UTC)},
+		{Name: "n", Total: 2, Modified: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC), Dir: wtN, Planning: Complete,
+			Artifacts: map[string]string{"proposal": "done", "specs": "done", "design": "done", "tasks": "done"},
+			Files:     files(filepath.Join(wtN, "openspec", "changes", "n"), setup(wtN, "1.8.0"))},
+		{Name: "old", Archived: true, ArchivedOn: "2026-10-01"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Load\n got %+v\nwant %+v", got, want)
+	}
+	if want := []string{"status --change n --json"}; !slices.Contains(clis[wtN].calls, want[0]) || slices.Contains(clis[project].calls, want[0]) {
+		t.Errorf("status of n must run in its checkout, project calls %q, worktree calls %q", clis[project].calls, clis[wtN].calls)
+	}
+}
+
+func TestLoadDoesNotReuseAcrossCheckouts(t *testing.T) {
+	project, wt := withChanges(t), withChanges(t, "n")
+	c := &fakeCLI{list: `{"changes":[{"name":"n","lastModified":"2026-10-30T12:00:00Z"}]}`, status: map[string]string{"n": proposalOnly}}
+	empty := &fakeCLI{list: `{"changes":[]}`}
+	cli := func(dir string) herdr.Runner {
+		if dir == wt {
+			return c.run
+		}
+		return empty.run
+	}
+	fp := files(filepath.Join(wt, "openspec", "changes", "n"), setup(wt, "1.8.0"))
+	known := map[string]Change{"n": {Name: "n", Modified: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC), Planning: Complete, Files: fp}}
+	got, err := Load(project, cli, []worktree.Checkout{{Path: wt, Branch: "n"}}, known)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Planning != Incomplete {
+		t.Errorf("planning cached for the Project must not be reused for the checkout, got %+v", got)
+	}
+	known["n"] = got[0]
+	c.calls = nil
+	if _, err := Load(project, cli, []worktree.Checkout{{Path: wt, Branch: "n"}}, known); err != nil || slices.Contains(c.calls, "status --change n --json") {
+		t.Errorf("planning cached for the same checkout must be reused, calls %q, %v", c.calls, err)
 	}
 }

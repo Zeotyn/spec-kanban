@@ -13,11 +13,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 
 // Planning tells whether a Change's planning artifacts are complete; Unknown when not read or unreadable.
@@ -39,6 +41,7 @@ type Change struct {
 	Archived   bool              `json:"archived,omitempty"`
 	ArchivedOn string            `json:"archivedOn,omitempty"` // "2026-10-29"; "" when open or the archive folder has no date
 	Files      string            `json:"files,omitempty"`      // fingerprint of the file paths, only for open Changes without completed tasks
+	Dir        string            `json:"dir,omitempty"`        // Project directory of the checkout the Change is read from; "" for the Project
 }
 
 // maxParallel bounds concurrent `openspec status` calls (each starts a Node process).
@@ -46,34 +49,86 @@ const maxParallel = 8
 
 var dated = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})-(.+)$`)
 
-// Load returns the open Changes, read by run (the openspec CLI inside project), in `openspec list`
-// order, then the archived ones by folder name.
-// Planning state is read only for open Changes without completed tasks; it is copied from known
-// instead when known holds the Change with the same non-zero Modified, the same file fingerprint
-// and a Planning other than Unknown.
-func Load(project string, run herdr.Runner, known map[string]Change) ([]Change, error) {
+// Load returns the open Changes, read by cli(project) (the openspec CLI inside a directory), in
+// `openspec list` order, then the archived ones by folder name.
+// A checkout in others whose branch names a Change it holds supplies that Change, read there with Dir
+// set: it replaces the Project's open Change of that name or is appended, unless the Project archived
+// it; a failed read leaves the Project's Changes.
+// Planning state is read only for open Changes without completed tasks, in their Dir; it is copied
+// from known instead when known holds the Change with the same Dir, the same non-zero Modified, the
+// same file fingerprint and a Planning other than Unknown.
+func Load(project string, cli func(dir string) herdr.Runner, others []worktree.Checkout, known map[string]Change) ([]Change, error) {
+	run := cli(project)
 	version := make(chan string, 1) // in parallel with list, so it costs no extra time
 	go func() {
 		out, _ := run("--version")
 		version <- strings.TrimSpace(string(out))
 	}()
+	found := make([]*Change, len(others)) // in parallel with the Project's list too
+	var lists sync.WaitGroup
+	for i, o := range others {
+		if fi, err := os.Stat(filepath.Join(o.Path, "openspec", "changes", o.Branch)); err != nil || !fi.IsDir() {
+			continue
+		}
+		lists.Add(1)
+		go func() {
+			defer lists.Done()
+			changes, _ := list(cli(o.Path))
+			for _, c := range changes {
+				if c.Name == o.Branch {
+					c.Dir = o.Path
+					found[i] = &c
+				}
+			}
+		}()
+	}
 	changes, err := list(run)
+	lists.Wait()
 	if err != nil {
 		return nil, err
 	}
 
+	entries, err := os.ReadDir(filepath.Join(project, "openspec", "changes", "archive"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	var archived []Change
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		c := Change{Name: e.Name(), Archived: true}
+		if m := dated.FindStringSubmatch(e.Name()); m != nil {
+			c.ArchivedOn, c.Name = m[1], m[2]
+		}
+		archived = append(archived, c)
+	}
+	for _, f := range found {
+		if f == nil || slices.ContainsFunc(archived, func(a Change) bool { return a.Name == f.Name }) {
+			continue
+		}
+		if i := slices.IndexFunc(changes, func(c Change) bool { return c.Name == f.Name }); i >= 0 {
+			changes[i] = *f
+		} else {
+			changes = append(changes, *f)
+		}
+	}
+
 	v := <-version
-	base := setup(project, v)
 	var wg sync.WaitGroup
 	slots := make(chan struct{}, maxParallel)
 	for i := range changes {
 		if changes[i].Done > 0 {
 			continue
 		}
-		if v != "" { // without a version an upgrade would go unnoticed, so leave the fingerprint empty
-			changes[i].Files = files(filepath.Join(project, "openspec", "changes", changes[i].Name), base)
+		dir := project
+		if changes[i].Dir != "" {
+			dir = changes[i].Dir
 		}
-		if k, ok := known[changes[i].Name]; ok && k.Planning != Unknown && !k.Modified.IsZero() &&
+		if v != "" { // without a version an upgrade would go unnoticed, so leave the fingerprint empty
+			changes[i].Files = files(filepath.Join(dir, "openspec", "changes", changes[i].Name), setup(dir, v))
+		}
+		if k, ok := known[changes[i].Name]; ok && k.Dir == changes[i].Dir && k.Planning != Unknown && !k.Modified.IsZero() &&
 			k.Modified.Equal(changes[i].Modified) && k.Files != "" && k.Files == changes[i].Files {
 			changes[i].Planning, changes[i].Artifacts = k.Planning, k.Artifacts
 			continue
@@ -83,26 +138,11 @@ func Load(project string, run herdr.Runner, known map[string]Change) ([]Change, 
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			c.Planning, c.Artifacts = status(run, c.Name)
+			c.Planning, c.Artifacts = status(cli(dir), c.Name)
 		}(&changes[i])
 	}
 	wg.Wait()
-
-	entries, err := os.ReadDir(filepath.Join(project, "openspec", "changes", "archive"))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		c := Change{Name: e.Name(), Archived: true}
-		if m := dated.FindStringSubmatch(e.Name()); m != nil {
-			c.ArchivedOn, c.Name = m[1], m[2]
-		}
-		changes = append(changes, c)
-	}
-	return changes, nil
+	return append(changes, archived...), nil
 }
 
 // files fingerprints the OpenSpec setup (see setup) and the relative file paths under dir. openspec's
