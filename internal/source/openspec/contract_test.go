@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // TestContract runs the real openspec CLI against testdata/project, so a change in its JSON output
@@ -28,20 +29,20 @@ func TestContract(t *testing.T) {
 
 	type want struct {
 		done, total int
-		planning    Planning
+		phase       work.Phase
 		specs       string // status of the specs artifact; "" when planning is not read
 		archivedOn  string
 	}
 	wants := map[string]want{
-		"proposal-only":      {0, 0, Incomplete, "ready", ""},
-		"skip-specs-planned": {0, 3, Complete, "skipped", ""},
-		"ready":              {0, 3, Complete, "done", ""},
-		"nested-specs":       {0, 3, Complete, "done", ""},
-		"no-tasks-file":      {0, 0, Incomplete, "done", ""},
-		"in-progress":        {2, 4, Unknown, "", ""},
-		"all-done":           {2, 2, Unknown, "", ""},
-		"old-change":         {0, 0, Unknown, "", "2026-10-01"},
-		"undated-change":     {0, 0, Unknown, "", ""},
+		"proposal-only":      {0, 0, work.Draft, "ready", ""},
+		"skip-specs-planned": {0, 3, work.Ready, "skipped", ""},
+		"ready":              {0, 3, work.Ready, "done", ""},
+		"nested-specs":       {0, 3, work.Ready, "done", ""},
+		"no-tasks-file":      {0, 0, work.Draft, "done", ""},
+		"in-progress":        {2, 4, work.InProgress, "", ""},
+		"all-done":           {2, 2, work.Review, "", ""},
+		"old-change":         {0, 0, work.Archived, "", "2026-10-01"},
+		"undated-change":     {0, 0, work.Archived, "", ""},
 	}
 	artifacts := map[string]map[string]string{
 		"proposal-only":      {"proposal": "done", "specs": "ready", "design": "ready", "tasks": "blocked"},
@@ -56,14 +57,14 @@ func TestContract(t *testing.T) {
 			t.Errorf("unexpected change %q", c.Name)
 			continue
 		}
-		got := want{c.Done, c.Total, c.Planning, c.Artifacts["specs"], c.ArchivedOn}
+		got := want{c.Done, c.Total, c.Phase, c.Artifacts["specs"], c.ArchivedOn}
 		if got != w {
 			t.Errorf("%s: got %+v, want %+v", c.Name, got, w)
 		}
 		if a, ok := artifacts[c.Name]; ok && !reflect.DeepEqual(c.Artifacts, a) {
 			t.Errorf("%s: artifacts %v, want %v", c.Name, c.Artifacts, a)
 		}
-		if !c.Archived && c.Modified.IsZero() {
+		if c.Phase != work.Archived && c.Modified.IsZero() {
 			t.Errorf("%s: no modification time", c.Name)
 		}
 	}

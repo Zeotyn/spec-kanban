@@ -61,7 +61,8 @@ type Doc struct {
 	Files []string // what e opens, the first one also when Body is ""
 }
 
-// Docs are an Item's documents as the detail view's tabs.
+// Docs are an Item's documents as the detail view's tabs: 1 to 9 of them, Tasks and First among
+// them, the tasks tab with at least one file.
 type Docs struct {
 	Tabs  []Doc
 	Tasks int    // tab holding the tasks; shown first when Total > 0, prefixed by Next

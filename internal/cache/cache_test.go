@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 const project = "/abs/project"
@@ -40,11 +40,13 @@ func writeFile(t *testing.T, dir, content string) {
 
 func TestReadInvalid(t *testing.T) {
 	for _, tc := range []struct{ name, content string }{
-		{"invalid JSON", `{"version":1,`},
-		{"other version", `{"version":2,"project":"/abs/project","changes":[]}`},
-		{"other project", `{"version":1,"project":"/other","changes":[]}`},
-		{"empty name", `{"version":1,"project":"/abs/project","changes":[{"name":"a"},{"name":""}]}`},
-		{"unknown planning", `{"version":1,"project":"/abs/project","changes":[{"name":"a","planning":7}]}`},
+		{"invalid JSON", `{"version":2,`},
+		{"version 1", `{"version":1,"project":"/abs/project","changes":[]}`},
+		{"other version", `{"version":3,"project":"/abs/project","changes":[]}`},
+		{"other project", `{"version":2,"project":"/other","changes":[]}`},
+		{"empty name", `{"version":2,"project":"/abs/project","changes":[{"name":"a"},{"name":""}]}`},
+		{"phase after Archived", `{"version":2,"project":"/abs/project","changes":[{"name":"a","phase":5}]}`},
+		{"negative phase", `{"version":2,"project":"/abs/project","changes":[{"name":"a","phase":-1}]}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -70,7 +72,7 @@ func TestReadEmptyDir(t *testing.T) {
 
 func TestReadValidEmpty(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, dir, `{"version":1,"project":"/abs/project","changes":[]}`)
+	writeFile(t, dir, `{"version":2,"project":"/abs/project","changes":[]}`)
 	got := Read(dir, project)
 	if got == nil || len(got) != 0 {
 		t.Errorf("Read = %#v, want non-nil empty", got)
@@ -89,11 +91,11 @@ func TestWriteNilReadsEmpty(t *testing.T) {
 
 func TestRoundTrip(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "sub")
-	want := []openspec.Change{
+	want := []work.Item{
 		{Name: "a", Total: 3, Modified: time.Date(2026, 10, 29, 12, 0, 0, 123e6, time.UTC),
-			Planning: openspec.Complete, Artifacts: map[string]string{"proposal": "done"}},
-		{Name: "b", Done: 1, Total: 2, Modified: time.Date(2026, 10, 28, 8, 30, 0, 0, time.UTC)},
-		{Name: "c", Archived: true, ArchivedOn: "2026-10-01"},
+			Phase: work.Ready, Artifacts: map[string]string{"proposal": "done"}, Stamp: "0123abcd", Dir: "/abs/wt"},
+		{Name: "b", Done: 1, Total: 2, Modified: time.Date(2026, 10, 28, 8, 30, 0, 0, time.UTC), Phase: work.InProgress},
+		{Name: "c", Phase: work.Archived, ArchivedOn: "2026-10-01"},
 	}
 	if err := Write(dir, project, want); err != nil {
 		t.Fatal(err)

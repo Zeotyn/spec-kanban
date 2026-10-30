@@ -22,9 +22,9 @@ Every group ends with `go test ./...` green and no golden file changed (`git sta
 
 ## 4. Load returns Items, cache version 2 (TDD)
 
-- [ ] 4.1 Change the `Load` tests to expect `[]work.Item` with `Phase` decided and `Stamp` set; port the reuse tests to the new rule (same `Dir`, same non-zero `Modified`, same non-empty `Stamp`, non-nil `Artifacts` → `Phase` and `Artifacts` copied, no `status` call); keep the change-cache scenarios: nothing changed, one edited, artifact deleted, setup or CLI changed, unknown planning re-read
-- [ ] 4.2 Write failing cache tests: round trip of `work.Item`; a version 1 file is ignored; an entry with empty name or a Phase outside Draft…Archived invalidates the file
-- [ ] 4.3 Implement: `Load` returns `[]work.Item` (`status` failure → nil `Artifacts`, Phase Draft); `cache` stores `[]work.Item` with `Version = 2`; `loader` keys `known` by name for `Phase != work.Archived`; delete `Change`, `Planning`, `Items` and `internal/phase`
+- [x] 4.1 Change the `Load` tests to expect `[]work.Item` with `Phase` decided and `Stamp` set; port the reuse tests to the new rule (same `Dir`, same non-zero `Modified`, same non-empty `Stamp`, non-nil `Artifacts` → `Phase` and `Artifacts` copied, no `status` call); keep the change-cache scenarios: nothing changed, one edited, artifact deleted, setup or CLI changed, unknown planning re-read
+- [x] 4.2 Write failing cache tests: round trip of `work.Item`; a version 1 file is ignored; an entry with empty name or a Phase outside Draft…Archived invalidates the file
+- [x] 4.3 Implement: `Load` returns `[]work.Item` (`status` failure → nil `Artifacts`, Phase Draft); `cache` stores `[]work.Item` with `Version = 2`; `loader` keys `known` by name for `Phase != work.Archived`; delete `Change`, `Planning`, `Items` and `internal/phase`
 
 ## 5. Put the remaining specifics behind `Source` (TDD)
 

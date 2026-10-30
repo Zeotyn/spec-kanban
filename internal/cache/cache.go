@@ -1,4 +1,4 @@
-// Package cache keeps a Project's last loaded Changes on disk so the Board can show them at once.
+// Package cache keeps a Project's last loaded Items on disk so the Board can show them at once.
 package cache
 
 import (
@@ -10,16 +10,16 @@ import (
 	"path/filepath"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 )
 
 // Version is the cache format version; bump it whenever the stored shape or the reuse rule changes.
-const Version = 1
+const Version = 2
 
 type file struct {
-	Version int               `json:"version"`
-	Project string            `json:"project"`
-	Changes []openspec.Change `json:"changes"`
+	Version int         `json:"version"`
+	Project string      `json:"project"`
+	Changes []work.Item `json:"changes"`
 }
 
 // Dir returns $HERDR_PLUGIN_STATE_DIR when set, else os.UserCacheDir()/openspec-kanban; "" if neither is available.
@@ -42,10 +42,10 @@ func hash(project string) string {
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// Read returns the Changes cached for project in dir, or nil when there is no valid cache:
+// Read returns the Items cached for project in dir, or nil when there is no valid cache:
 // missing/unreadable file, invalid JSON, other version, other project path, or an entry with an empty
-// name or an unknown planning value.
-func Read(dir, project string) []openspec.Change {
+// name or a Phase outside Draft…Archived.
+func Read(dir, project string) []work.Item {
 	if dir == "" {
 		return nil
 	}
@@ -58,18 +58,18 @@ func Read(dir, project string) []openspec.Change {
 		return nil
 	}
 	for _, c := range f.Changes {
-		if c.Name == "" || c.Planning < openspec.Unknown || c.Planning > openspec.Complete {
+		if c.Name == "" || c.Phase < work.Draft || c.Phase > work.Archived {
 			return nil
 		}
 	}
 	if f.Changes == nil {
-		return []openspec.Change{} // valid but empty, unlike "no cache"
+		return []work.Item{} // valid but empty, unlike "no cache"
 	}
 	return f.Changes
 }
 
 // Write stores changes for project in dir atomically (temp file in dir + os.Rename), creating dir if needed.
-func Write(dir, project string, changes []openspec.Change) error {
+func Write(dir, project string, changes []work.Item) error {
 	if dir == "" {
 		return errors.New("cache: no directory")
 	}

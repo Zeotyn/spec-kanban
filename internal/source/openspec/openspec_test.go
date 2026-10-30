@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
 
@@ -55,6 +56,12 @@ func (f *fakeCLI) run(args ...string) ([]byte, error) {
 const planned = `{"isPlanningComplete":true,"artifacts":[{"id":"proposal","status":"done"},{"id":"specs","status":"done"},{"id":"design","status":"done"},{"id":"tasks","status":"done"}]}`
 const proposalOnly = `{"isPlanningComplete":false,"artifacts":[{"id":"proposal","status":"done"},{"id":"specs","status":"ready"},{"id":"design","status":"ready"},{"id":"tasks","status":"blocked"}]}`
 
+// the artifacts of planned and proposalOnly
+var (
+	plannedArts      = map[string]string{"proposal": "done", "specs": "done", "design": "done", "tasks": "done"}
+	proposalOnlyArts = map[string]string{"proposal": "done", "specs": "ready", "design": "ready", "tasks": "blocked"}
+)
+
 func TestLoadOpenChanges(t *testing.T) {
 	cli := &fakeCLI{
 		list: `{"changes":[
@@ -68,11 +75,11 @@ func TestLoadOpenChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Change{
-		{Name: "started", Done: 3, Total: 5, Modified: time.Date(2026, 10, 29, 8, 56, 18, 587e6, time.UTC)},
-		{Name: "draft", Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Incomplete,
+	want := []work.Item{
+		{Name: "started", Done: 3, Total: 5, Phase: work.InProgress, Modified: time.Date(2026, 10, 29, 8, 56, 18, 587e6, time.UTC)},
+		{Name: "draft", Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Phase: work.Draft,
 			Artifacts: map[string]string{"proposal": "done", "specs": "ready", "design": "ready", "tasks": "blocked"}},
-		{Name: "ready", Total: 4, Modified: time.Date(2026, 10, 27, 10, 0, 0, 0, time.UTC), Planning: Complete,
+		{Name: "ready", Total: 4, Modified: time.Date(2026, 10, 27, 10, 0, 0, 0, time.UTC), Phase: work.Ready,
 			Artifacts: map[string]string{"proposal": "done", "specs": "done", "design": "done", "tasks": "done"}},
 		{Name: "broken", Total: 2, Modified: time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC)},
 	}
@@ -120,22 +127,22 @@ func TestLoadReusesKnownPlanning(t *testing.T) {
 	project := withChanges(t, "same", "edited", "failed", "started")
 	fp := func(n string) string { return fingerprint(project, n) }
 	done := map[string]string{"proposal": "done", "specs": "done", "design": "done", "tasks": "done"}
-	known := map[string]Change{
-		"same":    {Name: "same", Modified: time.Date(2026, 10, 28, 10, 0, 0, 123e6, time.UTC), Planning: Complete, Artifacts: done, Files: fp("same")},
-		"edited":  {Name: "edited", Modified: time.Date(2026, 10, 27, 11, 0, 0, 0, time.UTC), Planning: Complete, Artifacts: done, Files: fp("edited")},
-		"failed":  {Name: "failed", Modified: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC), Files: fp("failed")},
-		"started": {Name: "started", Modified: time.Date(2026, 10, 28, 13, 0, 0, 0, time.UTC), Planning: Complete, Artifacts: done},
+	known := map[string]work.Item{
+		"same":    {Name: "same", Modified: time.Date(2026, 10, 28, 10, 0, 0, 123e6, time.UTC), Phase: work.Ready, Artifacts: done, Stamp: fp("same")},
+		"edited":  {Name: "edited", Modified: time.Date(2026, 10, 27, 11, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: done, Stamp: fp("edited")},
+		"failed":  {Name: "failed", Modified: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC), Stamp: fp("failed")},
+		"started": {Name: "started", Modified: time.Date(2026, 10, 28, 13, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: done},
 	}
 	got, err := Load(project, one(cli.run), nil, known)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Change{
-		{Name: "same", Total: 4, Modified: time.Date(2026, 10, 28, 10, 0, 0, 123e6, time.UTC), Planning: Complete, Artifacts: done, Files: fp("same")},
-		{Name: "edited", Modified: time.Date(2026, 10, 28, 11, 0, 0, 0, time.UTC), Planning: Incomplete,
-			Artifacts: map[string]string{"proposal": "done", "specs": "ready", "design": "ready", "tasks": "blocked"}, Files: fp("edited")},
-		{Name: "failed", Total: 4, Modified: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC), Planning: Complete, Artifacts: done, Files: fp("failed")},
-		{Name: "started", Done: 1, Total: 4, Modified: time.Date(2026, 10, 28, 13, 0, 0, 0, time.UTC)},
+	want := []work.Item{
+		{Name: "same", Total: 4, Modified: time.Date(2026, 10, 28, 10, 0, 0, 123e6, time.UTC), Phase: work.Ready, Artifacts: done, Stamp: fp("same")},
+		{Name: "edited", Modified: time.Date(2026, 10, 28, 11, 0, 0, 0, time.UTC), Phase: work.Draft,
+			Artifacts: map[string]string{"proposal": "done", "specs": "ready", "design": "ready", "tasks": "blocked"}, Stamp: fp("edited")},
+		{Name: "failed", Total: 4, Modified: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: done, Stamp: fp("failed")},
+		{Name: "started", Done: 1, Total: 4, Phase: work.InProgress, Modified: time.Date(2026, 10, 28, 13, 0, 0, 0, time.UTC)},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load\n got %+v\nwant %+v", got, want)
@@ -150,9 +157,9 @@ func TestLoadReusesKnownPlanning(t *testing.T) {
 func TestLoadUnchangedCallsOnlyList(t *testing.T) {
 	cli := &fakeCLI{list: `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"},{"name":"b","lastModified":"2026-10-28T11:00:00Z"}]}`}
 	project := withChanges(t, "a", "b")
-	known := map[string]Change{
-		"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Incomplete, Artifacts: map[string]string{"proposal": "ready"}, Files: fingerprint(project, "a")},
-		"b": {Modified: time.Date(2026, 10, 28, 11, 0, 0, 0, time.UTC), Planning: Complete, Artifacts: map[string]string{"proposal": "done"}, Files: fingerprint(project, "b")},
+	known := map[string]work.Item{
+		"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Phase: work.Draft, Artifacts: map[string]string{"proposal": "ready"}, Stamp: fingerprint(project, "a")},
+		"b": {Modified: time.Date(2026, 10, 28, 11, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: map[string]string{"proposal": "done"}, Stamp: fingerprint(project, "b")},
 	}
 	got, err := Load(project, one(cli.run), nil, known)
 	if err != nil {
@@ -162,8 +169,8 @@ func TestLoadUnchangedCallsOnlyList(t *testing.T) {
 		t.Errorf("calls %q, want only version and list", cli.calls)
 	}
 	for _, c := range got {
-		if c.Planning != known[c.Name].Planning || !reflect.DeepEqual(c.Artifacts, known[c.Name].Artifacts) {
-			t.Errorf("%s: got %v %v, want %v %v", c.Name, c.Planning, c.Artifacts, known[c.Name].Planning, known[c.Name].Artifacts)
+		if c.Phase != known[c.Name].Phase || !reflect.DeepEqual(c.Artifacts, known[c.Name].Artifacts) {
+			t.Errorf("%s: got %v %v, want %v %v", c.Name, c.Phase, c.Artifacts, known[c.Name].Phase, known[c.Name].Artifacts)
 		}
 	}
 }
@@ -173,40 +180,40 @@ func TestLoadDoesNotReuse(t *testing.T) {
 		name   string
 		list   string
 		modify func(project, dir string) error
-		known  func(fp string) Change
+		known  func(fp string) work.Item
 	}{
 		{"older artifact deleted, newest time unchanged", `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"}]}`,
 			func(_, dir string) error { return os.Remove(filepath.Join(dir, "design.md")) },
-			func(fp string) Change {
-				return Change{Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Complete, Files: fp}
+			func(fp string) work.Item {
+				return work.Item{Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: plannedArts, Stamp: fp}
 			}},
 		{"artifact renamed", `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"}]}`,
 			func(_, dir string) error {
 				return os.Rename(filepath.Join(dir, "design.md"), filepath.Join(dir, "design-old.md"))
 			},
-			func(fp string) Change {
-				return Change{Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Complete, Files: fp}
+			func(fp string) work.Item {
+				return work.Item{Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: plannedArts, Stamp: fp}
 			}},
 		{"config edited", `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"}]}`,
 			func(project, _ string) error {
 				return os.WriteFile(filepath.Join(project, "openspec", "config.yaml"), []byte("schema: custom\n"), 0o644)
 			},
-			func(fp string) Change {
-				return Change{Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Complete, Files: fp}
+			func(fp string) work.Item {
+				return work.Item{Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: plannedArts, Stamp: fp}
 			}},
 		{"no modification time", `{"changes":[{"name":"a"}]}`,
 			func(string, string) error { return nil },
-			func(fp string) Change { return Change{Planning: Complete, Files: fp} }},
+			func(fp string) work.Item { return work.Item{Phase: work.Ready, Artifacts: plannedArts, Stamp: fp} }},
 		{"no fingerprint", `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"}]}`,
 			func(string, string) error { return nil },
-			func(string) Change {
-				return Change{Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Complete}
+			func(string) work.Item {
+				return work.Item{Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: plannedArts}
 			}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			project := withChanges(t, "a")
-			known := map[string]Change{"a": tt.known(fingerprint(project, "a"))}
+			known := map[string]work.Item{"a": tt.known(fingerprint(project, "a"))}
 			if err := tt.modify(project, filepath.Join(project, "openspec", "changes", "a")); err != nil {
 				t.Fatal(err)
 			}
@@ -215,8 +222,8 @@ func TestLoadDoesNotReuse(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !slices.Contains(cli.calls, "status --change a --json") || got[0].Planning != Incomplete {
-				t.Errorf("want a fresh status call, got calls %q, planning %v", cli.calls, got[0].Planning)
+			if !slices.Contains(cli.calls, "status --change a --json") || !reflect.DeepEqual(got[0].Artifacts, proposalOnlyArts) {
+				t.Errorf("want a fresh status call, got calls %q, artifacts %v", cli.calls, got[0].Artifacts)
 			}
 		})
 	}
@@ -263,9 +270,9 @@ func TestLoadArchived(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Change{
-		{Name: "m0-plugin-skeleton", Archived: true, ArchivedOn: "2026-10-29"},
-		{Name: "undated-change", Archived: true},
+	want := []work.Item{
+		{Name: "m0-plugin-skeleton", Phase: work.Archived, ArchivedOn: "2026-10-29"},
+		{Name: "undated-change", Phase: work.Archived},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("archived\n got %+v\nwant %+v", got, want)
@@ -283,7 +290,7 @@ func TestOpenNames(t *testing.T) {
 func TestLoadAfterUpgrade(t *testing.T) {
 	project := withChanges(t, "a")
 	old := files(filepath.Join(project, "openspec", "changes", "a"), setup(project, "1.7.0"))
-	known := map[string]Change{"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Complete, Files: old}}
+	known := map[string]work.Item{"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: plannedArts, Stamp: old}}
 	cli := &fakeCLI{list: `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"}]}`, status: map[string]string{"a": proposalOnly}}
 	if _, err := Load(project, one(cli.run), nil, known); err != nil {
 		t.Fatal(err)
@@ -295,15 +302,15 @@ func TestLoadAfterUpgrade(t *testing.T) {
 
 func TestLoadWithoutVersion(t *testing.T) {
 	project := withChanges(t, "a")
-	known := map[string]Change{"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Planning: Complete,
-		Files: files(filepath.Join(project, "openspec", "changes", "a"), setup(project, ""))}}
+	known := map[string]work.Item{"a": {Modified: time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: plannedArts,
+		Stamp: files(filepath.Join(project, "openspec", "changes", "a"), setup(project, ""))}}
 	cli := &fakeCLI{list: `{"changes":[{"name":"a","lastModified":"2026-10-28T10:00:00Z"}]}`, status: map[string]string{"a": proposalOnly}, noVersion: true}
 	got, err := Load(project, one(cli.run), nil, known)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(cli.calls, "status --change a --json") || got[0].Files != "" {
-		t.Errorf("without a CLI version nothing may be reused or fingerprinted, calls %q, files %q", cli.calls, got[0].Files)
+	if !slices.Contains(cli.calls, "status --change a --json") || got[0].Stamp != "" {
+		t.Errorf("without a CLI version nothing may be reused or fingerprinted, calls %q, files %q", cli.calls, got[0].Stamp)
 	}
 }
 
@@ -340,13 +347,13 @@ func TestLoadOtherCheckouts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Change{
-		{Name: "a", Done: 3, Total: 4, Modified: time.Date(2026, 10, 30, 10, 0, 0, 0, time.UTC), Dir: wtA},
-		{Name: "b", Done: 2, Total: 2, Modified: time.Date(2026, 10, 28, 11, 0, 0, 0, time.UTC)},
-		{Name: "n", Total: 2, Modified: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC), Dir: wtN, Planning: Complete,
+	want := []work.Item{
+		{Name: "a", Done: 3, Total: 4, Phase: work.InProgress, Modified: time.Date(2026, 10, 30, 10, 0, 0, 0, time.UTC), Dir: wtA},
+		{Name: "b", Done: 2, Total: 2, Phase: work.Review, Modified: time.Date(2026, 10, 28, 11, 0, 0, 0, time.UTC)},
+		{Name: "n", Total: 2, Modified: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC), Dir: wtN, Phase: work.Ready,
 			Artifacts: map[string]string{"proposal": "done", "specs": "done", "design": "done", "tasks": "done"},
-			Files:     files(filepath.Join(wtN, "openspec", "changes", "n"), setup(wtN, "1.8.0"))},
-		{Name: "old", Archived: true, ArchivedOn: "2026-10-01"},
+			Stamp:     files(filepath.Join(wtN, "openspec", "changes", "n"), setup(wtN, "1.8.0"))},
+		{Name: "old", Phase: work.Archived, ArchivedOn: "2026-10-01"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load\n got %+v\nwant %+v", got, want)
@@ -371,12 +378,12 @@ func TestLoadDoesNotReuseAcrossCheckouts(t *testing.T) {
 		return empty.run
 	}
 	fp := files(filepath.Join(wt, "openspec", "changes", "n"), setup(wt, "1.8.0"))
-	known := map[string]Change{"n": {Name: "n", Modified: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC), Planning: Complete, Files: fp}}
+	known := map[string]work.Item{"n": {Name: "n", Modified: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC), Phase: work.Ready, Artifacts: plannedArts, Stamp: fp}}
 	got, err := Load(project, cli, []worktree.Checkout{{Path: wt, Branch: "n"}}, known)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Planning != Incomplete {
+	if len(got) != 1 || !reflect.DeepEqual(got[0].Artifacts, proposalOnlyArts) {
 		t.Errorf("planning cached for the Project must not be reused for the checkout, got %+v", got)
 	}
 	known["n"] = got[0]

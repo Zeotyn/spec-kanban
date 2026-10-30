@@ -13,7 +13,6 @@ import (
 
 	"github.com/zeotyn/openspec-kanban/internal/cache"
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
-	"github.com/zeotyn/openspec-kanban/internal/source/openspec"
 )
 
 func TestOpen(t *testing.T) {
@@ -150,7 +149,7 @@ func TestSyncLoadWritesBoardCache(t *testing.T) {
 	if err != nil || len(changes) != 1 || ranIn != proj {
 		t.Fatalf("want one Change read in %s, got %v, %v (ran in %q)", proj, changes, err, ranIn)
 	}
-	if got := openspec.Items(cache.Read(dir, proj)); !reflect.DeepEqual(got, changes) {
+	if got := cache.Read(dir, proj); !reflect.DeepEqual(got, changes) {
 		t.Errorf("the Board's cache must hold the sync's load\n got %v\nwant %v", got, changes)
 	}
 }

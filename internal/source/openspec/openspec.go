@@ -19,45 +19,24 @@ import (
 	"time"
 
 	"github.com/zeotyn/openspec-kanban/internal/herdr"
+	"github.com/zeotyn/openspec-kanban/internal/work"
 	"github.com/zeotyn/openspec-kanban/internal/worktree"
 )
-
-// Planning tells whether a Change's planning artifacts are complete; Unknown when not read or unreadable.
-type Planning int
-
-const (
-	Unknown Planning = iota
-	Incomplete
-	Complete
-)
-
-type Change struct {
-	Name       string            `json:"name"`
-	Done       int               `json:"done"`
-	Total      int               `json:"total"`
-	Modified   time.Time         `json:"modified"`
-	Planning   Planning          `json:"planning"`
-	Artifacts  map[string]string `json:"artifacts,omitempty"` // artifact id → done|ready|blocked|skipped, only when Planning was read
-	Archived   bool              `json:"archived,omitempty"`
-	ArchivedOn string            `json:"archivedOn,omitempty"` // "2026-10-29"; "" when open or the archive folder has no date
-	Files      string            `json:"files,omitempty"`      // fingerprint of the file paths, only for open Changes without completed tasks
-	Dir        string            `json:"dir,omitempty"`        // Project directory of the checkout the Change is read from; "" for the Project
-}
 
 // maxParallel bounds concurrent `openspec status` calls (each starts a Node process).
 const maxParallel = 8
 
 var dated = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})-(.+)$`)
 
-// Load returns the open Changes, read by cli(project) (the openspec CLI inside a directory), in
+// Load returns the open Changes as Items, read by cli(project) (the openspec CLI inside a directory), in
 // `openspec list` order, then the archived ones by folder name.
 // A checkout in others (the Project's own skipped) whose branch names a Change it holds supplies that Change, read there with Dir
 // set: it replaces the Project's open Change of that name or is appended, unless the Project archived
 // it; a failed read leaves the Project's Changes.
-// Planning state is read only for open Changes without completed tasks, in their Dir; it is copied
-// from known instead when known holds the Change with the same Dir, the same non-zero Modified, the
-// same file fingerprint and a Planning other than Unknown.
-func Load(project string, cli func(dir string) herdr.Runner, others []worktree.Checkout, known map[string]Change) ([]Change, error) {
+// Planning state is read only for open Changes without completed tasks, in their Dir, and decides
+// their Phase; Phase and Artifacts are copied from known instead when known holds the Change with the
+// same Dir, the same non-zero Modified, the same Stamp (file fingerprint) and non-nil Artifacts.
+func Load(project string, cli func(dir string) herdr.Runner, others []worktree.Checkout, known map[string]work.Item) ([]work.Item, error) {
 	run := cli(project)
 	version := make(chan string, 1) // in parallel with list, so it costs no extra time
 	go func() {
@@ -69,7 +48,7 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 		return nil, err
 	}
 	isArchived := func(name string) bool { return isIn(archived, name) }
-	found := make([]*Change, len(others)) // in parallel with the Project's list too
+	found := make([]*work.Item, len(others)) // in parallel with the Project's list too
 	var lists sync.WaitGroup
 	for i, o := range others {
 		if filepath.Clean(o.Path) == filepath.Clean(project) || isArchived(o.Branch) {
@@ -100,7 +79,7 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 		if f == nil {
 			continue
 		}
-		if i := slices.IndexFunc(changes, func(c Change) bool { return c.Name == f.Name }); i >= 0 {
+		if i := slices.IndexFunc(changes, func(c work.Item) bool { return c.Name == f.Name }); i >= 0 {
 			changes[i] = *f
 		} else {
 			changes = append(changes, *f)
@@ -113,6 +92,7 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 	slots := make(chan struct{}, maxParallel)
 	for i := range changes {
 		if changes[i].Done > 0 {
+			changes[i].Phase = phaseOf(changes[i].Done, changes[i].Total, false)
 			continue
 		}
 		dir, stamp := project, base
@@ -120,19 +100,21 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 			dir, stamp = changes[i].Dir, setup(changes[i].Dir, v)
 		}
 		if v != "" { // without a version an upgrade would go unnoticed, so leave the fingerprint empty
-			changes[i].Files = files(filepath.Join(dir, "openspec", "changes", changes[i].Name), stamp)
+			changes[i].Stamp = files(filepath.Join(dir, "openspec", "changes", changes[i].Name), stamp)
 		}
-		if k, ok := known[changes[i].Name]; ok && k.Dir == changes[i].Dir && k.Planning != Unknown && !k.Modified.IsZero() &&
-			k.Modified.Equal(changes[i].Modified) && k.Files != "" && k.Files == changes[i].Files {
-			changes[i].Planning, changes[i].Artifacts = k.Planning, k.Artifacts
+		if k, ok := known[changes[i].Name]; ok && k.Dir == changes[i].Dir && k.Artifacts != nil && !k.Modified.IsZero() &&
+			k.Modified.Equal(changes[i].Modified) && k.Stamp != "" && k.Stamp == changes[i].Stamp {
+			changes[i].Phase, changes[i].Artifacts = k.Phase, k.Artifacts
 			continue
 		}
 		wg.Add(1)
-		go func(c *Change) {
+		go func(c *work.Item) {
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			c.Planning, c.Artifacts = status(cli(dir), c.Name)
+			var planned bool
+			c.Artifacts, planned = status(cli(dir), c.Name)
+			c.Phase = phaseOf(c.Done, c.Total, planned)
 		}(&changes[i])
 	}
 	wg.Wait()
@@ -141,17 +123,17 @@ func Load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 
 // archive returns the Changes archived in dir's openspec/changes/archive, by folder name; none when
 // it does not exist.
-func archive(dir string) ([]Change, error) {
+func archive(dir string) ([]work.Item, error) {
 	entries, err := os.ReadDir(filepath.Join(dir, "openspec", "changes", "archive"))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	var archived []Change
+	var archived []work.Item
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		c := Change{Name: e.Name(), Archived: true}
+		c := work.Item{Name: e.Name(), Phase: work.Archived}
 		if m := dated.FindStringSubmatch(e.Name()); m != nil {
 			c.ArchivedOn, c.Name = m[1], m[2]
 		}
@@ -160,8 +142,8 @@ func archive(dir string) ([]Change, error) {
 	return archived, nil
 }
 
-func isIn(changes []Change, name string) bool {
-	return slices.ContainsFunc(changes, func(c Change) bool { return c.Name == name })
+func isIn(changes []work.Item, name string) bool {
+	return slices.ContainsFunc(changes, func(c work.Item) bool { return c.Name == name })
 }
 
 // ArchivedIn reports whether the archive of the checkout dir holds change, dated or not.
@@ -222,7 +204,7 @@ func OpenNames(run herdr.Runner) ([]string, error) {
 	return names, nil
 }
 
-func list(run herdr.Runner) ([]Change, error) {
+func list(run herdr.Runner) ([]work.Item, error) {
 	out, err := run("list", "--json")
 	if errors.Is(err, exec.ErrNotFound) {
 		return nil, errors.New("openspec CLI not found: install it with npm i -g @fission-ai/openspec")
@@ -241,15 +223,16 @@ func list(run herdr.Runner) ([]Change, error) {
 	if err := json.Unmarshal(out, &got); err != nil {
 		return nil, fmt.Errorf("openspec list: %w", err)
 	}
-	changes := make([]Change, len(got.Changes))
+	changes := make([]work.Item, len(got.Changes))
 	for i, c := range got.Changes {
-		changes[i] = Change{Name: c.Name, Done: c.CompletedTasks, Total: c.TotalTasks, Modified: c.LastModified}
+		changes[i] = work.Item{Name: c.Name, Done: c.CompletedTasks, Total: c.TotalTasks, Modified: c.LastModified}
 	}
 	return changes, nil
 }
 
-// status reads one Change's planning state; any failure yields Unknown, per the change-source spec.
-func status(run herdr.Runner, name string) (Planning, map[string]string) {
+// status reads one Change's planning artifacts and whether its planning is complete; any failure
+// yields no artifacts and incomplete planning, per the change-source spec.
+func status(run herdr.Runner, name string) (map[string]string, bool) {
 	out, err := run("status", "--change", name, "--json")
 	var got struct {
 		IsPlanningComplete bool `json:"isPlanningComplete"`
@@ -259,14 +242,11 @@ func status(run herdr.Runner, name string) (Planning, map[string]string) {
 		} `json:"artifacts"`
 	}
 	if err != nil || json.Unmarshal(out, &got) != nil || len(got.Artifacts) == 0 {
-		return Unknown, nil
+		return nil, false
 	}
 	artifacts := make(map[string]string, len(got.Artifacts))
 	for _, a := range got.Artifacts {
 		artifacts[a.ID] = a.Status
 	}
-	if got.IsPlanningComplete {
-		return Complete, artifacts
-	}
-	return Incomplete, artifacts
+	return artifacts, got.IsPlanningComplete
 }

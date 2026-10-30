@@ -2,30 +2,18 @@ package openspec
 
 import "github.com/zeotyn/openspec-kanban/internal/work"
 
-// phaseOf applies the change-phases rules in order; progress outranks planning.
-func phaseOf(c Change) work.Phase {
+// phaseOf applies the change-phases rules to an open Change in order; progress outranks planning.
+func phaseOf(done, total int, planned bool) work.Phase {
 	switch {
-	case c.Archived:
-		return work.Archived
-	case c.Total <= 0: // also guards against bad CLI counts
+	case total <= 0: // also guards against bad CLI counts
 		return work.Draft
-	case c.Done >= c.Total:
+	case done >= total:
 		return work.Review
-	case c.Done > 0:
+	case done > 0:
 		return work.InProgress
-	case c.Planning == Complete:
+	case planned:
 		return work.Ready
 	default:
 		return work.Draft
 	}
-}
-
-// Items converts changes to Items with their Phase decided.
-func Items(changes []Change) []work.Item {
-	items := make([]work.Item, len(changes))
-	for i, c := range changes {
-		items[i] = work.Item{Name: c.Name, Done: c.Done, Total: c.Total, Modified: c.Modified, Phase: phaseOf(c),
-			Artifacts: c.Artifacts, ArchivedOn: c.ArchivedOn, Stamp: c.Files, Dir: c.Dir}
-	}
-	return items
 }

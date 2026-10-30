@@ -182,7 +182,7 @@ func showBoard(proj string) error {
 		}
 		return spawn("resume", change, pane, tab)
 	}
-	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return openspec.ReadDocs(proj, it) }, asItems(loader(dir, proj, openspecCLI, git)), time.Now, openspec.Items(cache.Read(dir, proj)), running, startOne,
+	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return openspec.ReadDocs(proj, it) }, loader(dir, proj, openspecCLI, git), time.Now, cache.Read(dir, proj), running, startOne,
 		resumable, resume, cfg.Hide, notice), tea.WithAltScreen()).Run()
 	return err
 }
@@ -227,7 +227,7 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 		loadGit = func(...string) ([]byte, error) { return nil, errors.New("worktree off") }
 	}
 	start.Watch(start.Watched{Project: proj, Change: change, Main: os.Getenv("KANBAN_MAIN_PANE"), Base: cfg.Base, On: cfg.Worktree,
-		Load:   asItems(loader(dir, proj, openspecCLI, loadGit)),
+		Load:   loader(dir, proj, openspecCLI, loadGit),
 		Record: func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
 	}, run, git)
 	return nil
@@ -246,11 +246,11 @@ func resumeChange(change, pane, tab string, run herdr.Runner) error {
 
 // loader reads the Project's Changes and those worked on in its other checkouts, reusing cached
 // planning state, and caches every successful load.
-func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) func() ([]openspec.Change, error) {
-	return func() ([]openspec.Change, error) {
-		known := map[string]openspec.Change{}
+func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) func() ([]work.Item, error) {
+	return func() ([]work.Item, error) {
+		known := map[string]work.Item{}
 		for _, c := range cache.Read(dir, proj) { // re-read each time, so every refresh reuses the newest load
-			if !c.Archived { // an archived Change may share an open one's name
+			if c.Phase != work.Archived { // an archived Change may share an open one's name
 				known[c.Name] = c
 			}
 		}
@@ -264,15 +264,7 @@ func loader(dir, proj string, cli func(string) herdr.Runner, git herdr.Runner) f
 
 // syncLoad loads a Project for the sidebar through the Board's loader, so every sync warms the Board's cache.
 func syncLoad(dir string, cli, git func(proj string) herdr.Runner) func(string) ([]work.Item, error) {
-	return func(proj string) ([]work.Item, error) { return asItems(loader(dir, proj, cli, git(proj)))() }
-}
-
-// asItems converts load's Changes to Items.
-func asItems(load func() ([]openspec.Change, error)) func() ([]work.Item, error) {
-	return func() ([]work.Item, error) {
-		changes, err := load()
-		return openspec.Items(changes), err
-	}
+	return func(proj string) ([]work.Item, error) { return loader(dir, proj, cli, git(proj))() }
 }
 
 // openspecCLI runs the openspec CLI inside proj.
