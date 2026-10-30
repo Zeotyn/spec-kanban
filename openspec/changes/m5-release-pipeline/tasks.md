@@ -5,9 +5,9 @@
 
 ## 2. Install script
 
-- [ ] 2.1 Write `scripts/build.sh` as in design.md (version from the manifest, OS/arch mapping, `commit.txt` must equal `git rev-parse HEAD`, checksum check with `sha256sum` or `shasum -a 256`, `--version` check, atomic `mv`, `go build` fallback with a reason on stderr); `shellcheck` clean
-- [ ] 2.2 Check the fallback paths by hand with PATH shims for `uname` and `curl` in a scratch copy of the checkout: unknown arch, no release for the version (curl fails), commit mismatch, checksum mismatch, binary printing the wrong version; each ends in `go build` with its reason and leaves no temp file in `bin/`
-- [ ] 2.3 Point `[[build]]` in `herdr-plugin.toml` at `sh scripts/build.sh`
+- [x] 2.1 Write `scripts/build.sh` as in design.md (version from the manifest, OS/arch mapping, `commit.txt` must equal `git rev-parse HEAD`, checksum check with `sha256sum` or `shasum -a 256`, `--version` check, atomic `mv`, `go build` fallback with a reason on stderr); `shellcheck` clean
+- [x] 2.2 Check the fallback paths by hand with PATH shims for `uname` and `curl` in a scratch copy of the checkout: unknown arch, no release for the version (curl fails), commit mismatch, checksum mismatch, binary printing the wrong version; each ends in `go build` with its reason and leaves no temp file in `bin/`
+- [x] 2.3 Point `[[build]]` in `herdr-plugin.toml` at `sh scripts/build.sh`
 
 ## 3. CI
 

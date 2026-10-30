@@ -5,9 +5,10 @@ description = "Kanban board for OpenSpec changes"
 min_herdr_version = "0.9.3"
 platforms = ["macos", "linux"]
 
-# Runs on `herdr plugin install` only; linked checkouts build by hand (see README).
+# Runs on `herdr plugin install` only; linked checkouts build by hand (see README). Downloads the
+# release binary when the checkout is a release, else runs `go build`.
 [[build]]
-command = ["go", "build", "-o", "bin/kanban", "./cmd/kanban"]
+command = ["sh", "scripts/build.sh"]
 
 # Invoke: herdr plugin action invoke openspec-kanban-open  (or via keybinding, see herdr-config.toml)
 [[actions]]
