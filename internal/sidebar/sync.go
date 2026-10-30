@@ -17,7 +17,7 @@ const maxLoads = 4
 // Sync runs one pass: it reports the summary of every herdr workspace's Project, clears it for
 // workspaces without one and leaves workspaces alone whose Project fails to load. It returns
 // herdr's error when it cannot list workspaces or panes, else the joined load and report errors.
-// detect tells a Project directory (project.Find).
+// detect accepts a Project directory (a Source's Detect).
 func Sync(run herdr.Runner, detect func(dir string) bool, load func(project string) ([]work.Item, error)) error {
 	var workspaces struct {
 		Result struct {

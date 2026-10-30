@@ -37,5 +37,5 @@ Every group ends with `go test ./...` green and no golden file changed (`git sta
 
 ## 6. Verification
 
-- [ ] 6.1 `go test -race ./...` (with the openspec contract tests), `go vet ./...` and `gofmt -l .` pass; `git diff --stat main -- '*/testdata/*'` is empty
+- [x] 6.1 `go test -race ./...` (with the openspec contract tests), `go vet ./...` and `gofmt -l .` pass; `git diff --stat main -- '*/testdata/*'` is empty
 - [ ] 6.2 Smoke test in herdr against this repo, compared with 0.2.0: Board opens from cache and reloads (first open after upgrade without snapshot), columns and Cards with planning marks and milestone badges, filter `m6`, detail tabs 1-4, `e` on tasks and specs, sidebar rows; `s` on a Ready Card creates the worktree and sends `/opsx:apply <change>`; a finished agent hands off with `/opsx:archive`; `s` on Review resumes; `kanban start <change>` from a shell; a configured prompt and `hide: ["Archived"]` still apply

@@ -54,7 +54,7 @@ func load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 		if filepath.Clean(o.Path) == filepath.Clean(project) || isArchived(o.Branch) {
 			continue
 		}
-		if fi, err := os.Stat(filepath.Join(o.Path, "openspec", "changes", o.Branch)); err != nil || !fi.IsDir() {
+		if fi, err := os.Stat(filepath.Join(o.Path, rel(o.Branch))); err != nil || !fi.IsDir() {
 			continue
 		}
 		lists.Add(1)
@@ -100,7 +100,7 @@ func load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 			dir, stamp = changes[i].Dir, setup(changes[i].Dir, v)
 		}
 		if v != "" { // without a version an upgrade would go unnoticed, so leave the fingerprint empty
-			changes[i].Stamp = files(filepath.Join(dir, "openspec", "changes", changes[i].Name), stamp)
+			changes[i].Stamp = files(filepath.Join(dir, rel(changes[i].Name)), stamp)
 		}
 		if k, ok := known[changes[i].Name]; ok && k.Dir == changes[i].Dir && k.Artifacts != nil && !k.Modified.IsZero() &&
 			k.Modified.Equal(changes[i].Modified) && k.Stamp != "" && k.Stamp == changes[i].Stamp {

@@ -12,6 +12,7 @@ import (
 // Source is the OpenSpec work.Source; cli runs the openspec CLI inside a directory.
 type Source struct{ cli func(dir string) herdr.Runner }
 
+// New returns the Source that runs the openspec CLI through cli.
 func New(cli func(dir string) herdr.Runner) *Source { return &Source{cli} }
 
 // Detect reports whether dir holds openspec/changes.
@@ -20,6 +21,7 @@ func (*Source) Detect(dir string) bool {
 	return err == nil && fi.IsDir()
 }
 
+// Load returns project's Changes as Items; see load for others and known.
 func (s *Source) Load(project string, others []worktree.Checkout, known map[string]work.Item) ([]work.Item, error) {
 	return load(project, s.cli, others, known)
 }
@@ -43,8 +45,13 @@ func (*Source) ArchivedIn(dir, change string) bool {
 	return isIn(archived, change)
 }
 
-func (*Source) Rel(change string) string { return "openspec/changes/" + change }
+// Rel is where an open change lives below a checkout.
+func (*Source) Rel(change string) string { return rel(change) }
 
+func rel(change string) string { return "openspec/changes/" + change }
+
+// Prompt is the default Start prompt.
 func (*Source) Prompt() string { return "/opsx:apply {change}" }
 
+// Finish is the Handoff instruction after review.
 func (*Source) Finish(change string) string { return "archive it with /opsx:archive " + change }

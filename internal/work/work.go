@@ -75,7 +75,7 @@ type Docs struct {
 // Source reads the Work items of one spec tool and knows its conventions.
 type Source interface {
 	Detect(dir string) bool                                                                 // dir holds this tool's work
-	Load(project string, others []worktree.Checkout, known map[string]Item) ([]Item, error) // see openspec.Load for others and known
+	Load(project string, others []worktree.Checkout, known map[string]Item) ([]Item, error) // others: checkouts that may supply an Item; known: the last load, by name, for reuse
 	Open(project string) ([]string, error)                                                  // names of the open Items, without planning reads
 	ArchivedIn(dir, name string) bool                                                       // archived inside the checkout dir
 	Docs(project string, it Item) Docs                                                      // the detail view's tabs
