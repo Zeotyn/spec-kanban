@@ -34,4 +34,4 @@
 ## 7. Verification
 
 - [x] 7.1 `go test -race ./...` and `go vet ./...` pass
-- [ ] 7.2 Smoke test in herdr: rebuild; open the Board, `s` on a Ready Card → popup closes at once, new tab labelled with the Change is focused and runs `/opsx:apply` in the invoking workspace; reopen → Card shows `●`; `s` again → existing tab focused, no second tab; `s` on Draft/Review/Archived → notices; quit Claude in that tab, reopen the Board and note whether the badge lingers (answers the Open Question); `kanban start <change>` from a shell still works
+- [x] 7.2 Smoke test in herdr: rebuild; open the Board, `s` on a Ready Card → popup closes at once, new tab labelled with the Change is focused and runs `/opsx:apply` in the invoking workspace; reopen → Card shows `●`; `s` again → existing tab focused, no second tab; `s` on Draft/Review/Archived → notices; quit Claude in that tab, reopen the Board and note whether the badge lingers (answers the Open Question); `kanban start <change>` from a shell still works
