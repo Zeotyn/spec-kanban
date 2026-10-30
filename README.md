@@ -5,14 +5,18 @@ A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://gi
 ## Requirements
 
 - herdr ≥ 0.9.3
-- Go (the plugin is built on install)
 - macOS or Linux
+- Go, only to install a commit that is not a release
 
 ## Install
 
+Install a release (see [Releases](https://github.com/zeotyn/openspec-kanban/releases)); this downloads its checksum-verified binary and needs no Go:
+
 ```sh
-herdr plugin install zeotyn/openspec-kanban
+herdr plugin install zeotyn/openspec-kanban --ref v0.1.0
 ```
+
+`herdr plugin update` keeps a release pinned; to upgrade, install the new tag. Installing without `--ref` takes `main`, which builds from source with Go unless `main` is exactly a release.
 
 Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.config/herdr/config.toml` and run `herdr server reload-config`. `prefix+o` opens the board for the project of the focused pane; `q` or `Esc` closes it.
 
@@ -87,6 +91,14 @@ herdr plugin log list
 ```
 
 Tests: `go test ./...` (rewrite golden views with `go test ./... -update`).
+
+To release: bump `version` in `herdr-plugin.toml`, add a `## <version> - <YYYY-MM-DD>` section to [`CHANGELOG.md`](CHANGELOG.md), commit on `main`, then tag and push:
+
+```sh
+git tag v<version> && git push origin v<version>
+```
+
+The release workflow refuses a tag that does not match the manifest, builds the binaries and publishes them with the changelog section as notes.
 
 ## Credits
 

@@ -21,7 +21,7 @@
 
 ## 5. Docs
 
-- [ ] 5.1 README: requirements (Go only for unreleased commits), install of a release with `--ref v<version>` and upgrading by installing the new tag, install of `main` with Go, a short release procedure (bump manifest, changelog, tag, push)
+- [x] 5.1 README: requirements (Go only for unreleased commits), install of a release with `--ref v<version>` and upgrading by installing the new tag, install of `main` with Go, a short release procedure (bump manifest, changelog, tag, push)
 
 ## 6. Verification
 
