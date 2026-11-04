@@ -26,6 +26,8 @@ func TestAgentName(t *testing.T) {
 		"001-user-login-email":                      "f-001-user-login-email",
 		"20261030-142501-user-login":                "f-20261030-142501-user-login",
 		"add-a-change-of-thirty-two-chars":          "add-a-change-of-thirty-two-chars",
+		"add-a-change-of-thirty-three-char":         "add-a-change-of-thirty-th-3495d0",
+		"aaaaaaaaaaaaaaaaaaaaaaa--more-than-enough": "aaaaaaaaaaaaaaaaaaaaaaa-4a9332",
 		"update-a-change-from-its-base-branch":      "update-a-change-from-its-302ef9",
 		"001-a-feature-name-far-too-long-for-herdr": "f-001-a-feature-name-far-8b5dbb",
 	} {

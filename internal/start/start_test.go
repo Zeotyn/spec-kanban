@@ -680,6 +680,17 @@ func TestStartLongName(t *testing.T) {
 	}
 }
 
+func TestRunLongName(t *testing.T) {
+	const long, agent = "update-a-change-from-its-base-branch", "update-a-change-from-its-302ef9"
+	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}}
+	if _, _, err := Run(proj, long, "/opsx:verify "+long, off, h.run, src, noGit); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"agent get " + agent, info, "agent prompt " + agent + " /opsx:verify " + long, tfocus}; !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
+	}
+}
+
 func TestRunningFeatureName(t *testing.T) {
 	run := func(...string) ([]byte, error) {
 		return []byte(`{"result":{"agents":[{"name":"f-001-a","cwd":"` + proj + `"},{"name":"f-x","cwd":"` + proj + `"}]}}`), nil

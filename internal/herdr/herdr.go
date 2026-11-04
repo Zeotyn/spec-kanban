@@ -48,7 +48,7 @@ func AgentName(item string) string {
 		return a
 	}
 	sum := sha256.Sum256([]byte(item))
-	return strings.TrimSuffix(a[:25], "-") + "-" + hex.EncodeToString(sum[:3])
+	return strings.TrimRight(a[:25], "-") + "-" + hex.EncodeToString(sum[:3])
 }
 
 // Session is the agent_session herdr reports for an agent: its kind, "id" or "path", and value.
