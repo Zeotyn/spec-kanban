@@ -79,3 +79,13 @@ When the Project is the top directory of a git checkout, the source SHALL read e
 - **WHEN** `openspec list` fails in the worktree on branch `m1-board-view`
 - **THEN** the source reports the Project's own `m1-board-view` and no error
 
+### Requirement: Verify and archive commands
+Each Source SHALL name its command to verify and its command to archive a finished Work item, or none. OpenSpec SHALL name `/opsx:verify <change>` and `/opsx:archive <change>`. Spec Kit SHALL name none of the two, since it has no step after implementing that checks or archives a Feature.
+
+#### Scenario: OpenSpec commands
+- **WHEN** the verify and archive commands of OpenSpec Change `m1-board-view` are asked for
+- **THEN** they are `/opsx:verify m1-board-view` and `/opsx:archive m1-board-view`
+
+#### Scenario: Spec Kit has none
+- **WHEN** the verify and archive commands of Spec Kit Feature `003-search` are asked for
+- **THEN** there are none
