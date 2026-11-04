@@ -16,6 +16,7 @@ import (
 
 	"github.com/zeotyn/spec-kanban/internal/detail"
 	"github.com/zeotyn/spec-kanban/internal/editor"
+	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/theme"
 	"github.com/zeotyn/spec-kanban/internal/work"
 )
@@ -34,7 +35,7 @@ type loadedMsg struct {
 	err     error
 }
 
-// agentsMsg carries the names of the Changes with a Running agent.
+// agentsMsg carries the names of the running herdr agents.
 type agentsMsg struct {
 	running map[string]bool
 	err     error
@@ -92,7 +93,7 @@ type Model struct {
 	project       string
 	docs          func(work.Item) work.Docs
 	load          func() ([]work.Item, error)
-	agents        func() (map[string]bool, error) // names of the Changes with a Running agent
+	agents        func() (map[string]bool, error) // names of the running herdr agents
 	start         func(change string) error
 	resumable     func(change string) (kind string, ok bool) // the recorded agent kind ("" if none) and whether it can be reopened
 	resume        func(change string) error
@@ -106,7 +107,7 @@ type Model struct {
 	cols          [columns][]work.Item // the Changes of all that match filter
 	filter        string
 	prompting     bool            // keys go to the filter prompt
-	running       map[string]bool // Changes with a Running agent, kept across loads
+	running       map[string]bool // names of running herdr agents, kept across loads
 	starting      string          // the Change being started; keys other than ctrl+c are ignored meanwhile
 	verb          string          // what is done to starting, "" for a Start
 	nav           nav
@@ -410,7 +411,7 @@ func (m Model) startCard(c work.Item, p work.Phase) (Model, tea.Cmd) {
 			kind, ok = m.resumable(c.Name)
 		}
 		switch {
-		case ok || (m.running[c.Name] && m.resume != nil):
+		case ok || (m.running[herdr.AgentName(c.Name)] && m.resume != nil):
 			m.starting = c.Name
 			return m, func() tea.Msg { return startedMsg{m.resume(c.Name)} }
 		case kind != "":
@@ -637,7 +638,7 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	if m.bordered() {
 		inner = w - 2
 	}
-	running := c.Phase != work.Archived && m.running[c.Name]
+	running := c.Phase != work.Archived && m.running[herdr.AgentName(c.Name)]
 	firstW := inner
 	if running {
 		firstW -= 2 // "● "

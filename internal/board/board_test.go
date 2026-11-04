@@ -185,8 +185,8 @@ func TestViews(t *testing.T) {
 	golden(t, "board-120", keys(board(t, 120, 30, fixture), "l", "j").View())
 	golden(t, "board-60", keys(board(t, 60, 30, fixture), "l", "l").View())
 	golden(t, "board-empty", board(t, 120, 30, nil).View())
-	golden(t, "board-scrolled", keys(board(t, 120, 14, fixture), "j").View()) // room for one Card per column
-	running := agentsMsg{running: map[string]bool{"m1-board-view": true, "m5-release-pipeline-with-a-very-long-name": true}}
+	golden(t, "board-scrolled", keys(board(t, 120, 14, fixture), "j").View())                                      // room for one Card per column
+	running := agentsMsg{running: map[string]bool{"m1-board-view": true, "m5-release-pipeline-with-0ec011": true}} // its agent name
 	golden(t, "board-running", keys(send(board(t, 120, 30, fixture), running), "3").View())
 }
 
@@ -669,6 +669,25 @@ func TestResumeRunning(t *testing.T) {
 	}
 	m.Update(cmd())
 	if !slices.Equal(*resumed, []string{"m0-spike-agent-start"}) {
+		t.Errorf("resumed %q", *resumed)
+	}
+}
+
+func TestRunningShortenedAgent(t *testing.T) {
+	long := work.Item{Name: "update-a-change-from-its-base-branch", Done: 1, Total: 1, Phase: work.Review}
+	feature := work.Item{Name: "001-a", Total: 1, Phase: work.InProgress}
+	m := send(board(t, 120, 30, []work.Item{long, feature}), agentsMsg{running: map[string]bool{"update-a-change-from-its-302ef9": true, "f-001-a": true}})
+	if n := strings.Count(m.View(), "●"); n != 2 {
+		t.Fatalf("want the Running badge on both Cards, got %d:\n%s", n, m.View())
+	}
+	m = keys(m, "4")
+	resumed := resumer(&m, "", false, nil)
+	m, cmd := pressKey(m, "s")
+	if cmd == nil {
+		t.Fatalf("the shortened agent must resume its Card:\n%s", m.View())
+	}
+	m.Update(cmd())
+	if !slices.Equal(*resumed, []string{long.Name}) {
 		t.Errorf("resumed %q", *resumed)
 	}
 }

@@ -65,7 +65,7 @@ func Kind(configured, pane string, run herdr.Runner) string {
 // refused. A new worktree's ref must hold the Change at src's Rel. Before it returns a pane, src
 // prepares the checkout the agent works in. git runs git inside project.
 func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab string, err error) {
-	return prepare(project, change, wt, run, src, git, func(string, string) error { return step(run, "agent", "focus", agentName(change)) })
+	return prepare(project, change, wt, run, src, git, func(string, string) error { return step(run, "agent", "focus", herdr.AgentName(change)) })
 }
 
 // Run sends command to the Change's agent when it holds its pane's foreground: when idle or done, it prompts
@@ -77,7 +77,7 @@ func Run(project, change, command string, wt Worktree, run herdr.Runner, src wor
 		if status != "idle" && status != "done" { // done: its turn ended, not yet seen
 			return fmt.Errorf("%s is %s: wait until it is idle", change, cmp.Or(status, "unknown"))
 		}
-		if err := step(run, "agent", "prompt", agentName(change), command); err != nil {
+		if err := step(run, "agent", "prompt", herdr.AgentName(change), command); err != nil {
 			return err
 		}
 		return step(run, "tab", "focus", tab)
@@ -86,9 +86,6 @@ func Run(project, change, command string, wt Worktree, run herdr.Runner, src wor
 
 // prepare is Prepare, calling foreground with the agent's status and tab instead of focusing it.
 func prepare(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner, foreground func(status, tab string) error) (pane, tab string, err error) {
-	if a := agentName(change); len(a) > 32 {
-		return "", "", fmt.Errorf("%s cannot name a herdr agent: %s is longer than 32 characters", change, a)
-	}
 	pane, tab, dir, err := place(project, change, wt, run, src, git, foreground)
 	if err != nil || pane == "" {
 		return "", "", err
@@ -101,7 +98,7 @@ func prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 
 // place is prepare without the Source's preparation; dir is the checkout of the returned pane.
 func place(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner, foreground func(status, tab string) error) (pane, tab, dir string, err error) {
-	out, err := run("agent", "get", agentName(change))
+	out, err := run("agent", "get", herdr.AgentName(change))
 	switch {
 	case err == nil:
 		var got struct {
@@ -236,10 +233,10 @@ func Launch(change, kind, prompt, pane, tab string, run herdr.Runner) error {
 	if _, err := run("tab", "focus", tab); err != nil {
 		return fmt.Errorf("tab focus: %w", err)
 	}
-	if _, err := run("agent", "start", agentName(change), "--kind", kind, "--pane", pane, "--timeout", "60000"); err != nil {
+	if _, err := run("agent", "start", herdr.AgentName(change), "--kind", kind, "--pane", pane, "--timeout", "60000"); err != nil {
 		return fmt.Errorf("%s did not become ready in tab %q, the prompt was not sent: %w", kind, change, err)
 	}
-	if _, err := run("agent", "prompt", agentName(change), prompt); err != nil {
+	if _, err := run("agent", "prompt", herdr.AgentName(change), prompt); err != nil {
 		return fmt.Errorf("%s runs in tab %q but the prompt was not sent: %w", kind, change, err)
 	}
 	return nil
@@ -247,7 +244,7 @@ func Launch(change, kind, prompt, pane, tab string, run herdr.Runner) error {
 
 // Running returns the names of the herdr agents that work in project, one of its checkouts (read by
 // git inside project) or below them. Only agents started with a name count, and Start names them
-// after their Change; every agent_status counts.
+// herdr.AgentName of their Change; every agent_status counts.
 func Running(project string, run, git herdr.Runner) (map[string]bool, error) {
 	out, err := run("agent", "list")
 	if err != nil {
@@ -267,27 +264,10 @@ func Running(project string, run, git herdr.Runner) (map[string]bool, error) {
 	names, d := map[string]bool{}, dirs(project, worktree.List(git))
 	for _, a := range list.Result.Agents {
 		if a.Name != "" && insideAny(a.Cwd, d) {
-			names[a.Name], names[itemName(a.Name)] = true, true // f-2fa may be an OpenSpec Change or Feature 2fa
+			names[a.Name] = true
 		}
 	}
 	return names, nil
-}
-
-// agentName is the herdr agent of the Work item name. herdr names start with a lowercase letter, so a
-// name that does not, like Spec Kit's 001-…, gets the prefix f-.
-func agentName(name string) string {
-	if name != "" && name[0] >= 'a' && name[0] <= 'z' {
-		return name
-	}
-	return "f-" + name
-}
-
-// itemName is the Work item of the herdr agent a, the reverse of agentName.
-func itemName(a string) string {
-	if name, ok := strings.CutPrefix(a, "f-"); ok && agentName(name) == a {
-		return name
-	}
-	return a
 }
 
 // dirs returns project and the paths of checkouts, the directories its agents work in.

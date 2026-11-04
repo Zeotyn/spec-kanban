@@ -2,6 +2,8 @@
 package herdr
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -32,6 +34,21 @@ func Run(bin, dir string, args ...string) ([]byte, error) {
 		err = fmt.Errorf("%s %s: %w: %s", filepath.Base(bin), strings.Join(args, " "), err, strings.TrimSpace(string(exit.Stderr)))
 	}
 	return out, err
+}
+
+// AgentName is the herdr agent of the Work item name. herdr names start with a lowercase letter and
+// have at most 32 characters, so a name that does not start with one, like Spec Kit's 001-…, gets the
+// prefix f-, and a longer one is cut to 25 characters and ends in 6 hex characters of its SHA-256.
+func AgentName(item string) string {
+	a := item
+	if a == "" || a[0] < 'a' || a[0] > 'z' {
+		a = "f-" + a
+	}
+	if len(a) <= 32 {
+		return a
+	}
+	sum := sha256.Sum256([]byte(item))
+	return strings.TrimSuffix(a[:25], "-") + "-" + hex.EncodeToString(sum[:3])
 }
 
 // Session is the agent_session herdr reports for an agent: its kind, "id" or "path", and value.

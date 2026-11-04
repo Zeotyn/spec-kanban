@@ -640,22 +640,6 @@ func TestPrepareSourceFails(t *testing.T) {
 	}
 }
 
-func TestAgentName(t *testing.T) {
-	for name, want := range map[string]string{
-		"m1-board-view":              "m1-board-view",
-		"f-x":                        "f-x",
-		"001-user-login-email":       "f-001-user-login-email",
-		"20261030-142501-user-login": "f-20261030-142501-user-login",
-	} {
-		if got := agentName(name); got != want {
-			t.Errorf("agentName(%q) = %q, want %q", name, got, want)
-		}
-		if got := itemName(want); got != name {
-			t.Errorf("itemName(%q) = %q, want %q", want, got, name)
-		}
-	}
-}
-
 func TestStartFeatureName(t *testing.T) {
 	const feature = "001-user-login-email"
 	h := &fakeHerdr{t: t, out: map[string]string{"tab create": "tab-create.json"}, fail: map[string]error{"agent get": notFound}}
@@ -676,12 +660,23 @@ func TestStartFeatureName(t *testing.T) {
 	}
 }
 
-func TestPrepareNameTooLong(t *testing.T) {
-	const long = "001-a-feature-name-far-too-long-for-herdr"
-	h := &fakeHerdr{t: t}
-	_, _, err := Prepare(proj, long, off, h.run, src, noGit)
-	if err == nil || !strings.Contains(err.Error(), long) || !strings.Contains(err.Error(), "32") || len(h.calls) != 0 {
-		t.Errorf("want an error naming %s and the limit before any herdr call, got %v, %q", long, err, h.calls)
+func TestStartLongName(t *testing.T) {
+	const long, agent = "update-a-change-from-its-base-branch", "update-a-change-from-its-302ef9"
+	h := &fakeHerdr{t: t, out: map[string]string{"tab create": "tab-create.json"}, fail: map[string]error{"agent get": notFound}}
+	if err := Start(proj, long, "claude", "/opsx:apply "+long, off, h.run, fakeList(long), noGit); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"agent get " + agent, "tab create --cwd " + proj + " --label " + long + " --no-focus", tfocus,
+		"agent start " + agent + " --kind claude --pane w2:p1J --timeout 60000", "agent prompt " + agent + " /opsx:apply " + long}
+	if !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
+	}
+	h = &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}}
+	if err := Start(proj, long, "claude", "/opsx:apply "+long, off, h.run, fakeList(long), noGit); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"agent get " + agent, info, "agent focus " + agent}; !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("running agent: herdr calls\n got %q\nwant %q", h.calls, want)
 	}
 }
 
@@ -690,7 +685,7 @@ func TestRunningFeatureName(t *testing.T) {
 		return []byte(`{"result":{"agents":[{"name":"f-001-a","cwd":"` + proj + `"},{"name":"f-x","cwd":"` + proj + `"}]}}`), nil
 	}
 	got, err := Running(proj, run, noGit)
-	if want := map[string]bool{"001-a": true, "f-001-a": true, "f-x": true}; err != nil || !reflect.DeepEqual(got, want) {
+	if want := map[string]bool{"f-001-a": true, "f-x": true}; err != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, %v, want %v", got, err, want)
 	}
 }
