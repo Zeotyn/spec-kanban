@@ -89,7 +89,7 @@ func hiding(t *testing.T, w, h int, changes []work.Item, ps ...work.Phase) Model
 	for _, p := range ps {
 		hide[p] = true
 	}
-	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, hide, "", "test")
+	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, nil, nil, hide, "", "test")
 	m = send(m, tea.WindowSizeMsg{Width: w, Height: h})
 	return send(m, m.Init()())
 }
@@ -135,7 +135,7 @@ func TestQuitKeys(t *testing.T) {
 }
 
 func TestLoading(t *testing.T) {
-	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
+	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	if !strings.Contains(m.View(), "Loading changes…") {
 		t.Errorf("no loading notice before data:\n%s", m.View())
 	}
@@ -148,7 +148,7 @@ func TestLoading(t *testing.T) {
 func TestReload(t *testing.T) {
 	calls := 0
 	changes := fixture
-	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { calls++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
+	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { calls++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	m = send(m, m.Init()())
 	m = keys(m, "3") // In Progress: m1-board-view
 	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
@@ -169,7 +169,7 @@ func TestReload(t *testing.T) {
 func TestLoadError(t *testing.T) {
 	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) {
 		return nil, errors.New("openspec CLI not found: install it with npm i -g @fission-ai/openspec")
-	}, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
+	}, func() time.Time { return now }, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = send(m, m.Init()())
 	golden(t, "error", m.View())
@@ -179,8 +179,8 @@ func TestLoadError(t *testing.T) {
 }
 
 func TestViews(t *testing.T) {
-	golden(t, "no-project", New("", nil, nil, time.Now, nil, nil, nil, nil, nil, [columns]bool{}, "", "test").View())
-	golden(t, "loading", New("/x/proj", docs("/x/proj"), nil, time.Now, nil, nil, nil, nil, nil, [columns]bool{}, "", "test").View())
+	golden(t, "no-project", New("", nil, nil, time.Now, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test").View())
+	golden(t, "loading", New("/x/proj", docs("/x/proj"), nil, time.Now, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test").View())
 	golden(t, "board-200", board(t, 200, 30, fixture).View())
 	golden(t, "board-120", keys(board(t, 120, 30, fixture), "l", "j").View())
 	golden(t, "board-60", keys(board(t, 60, 30, fixture), "l", "l").View())
@@ -311,7 +311,7 @@ func TestHeaderProgress(t *testing.T) {
 
 func TestSnapshot(t *testing.T) {
 	fresh := append([]work.Item{{Name: "m3-new", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, fixture...)
-	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, [columns]bool{}, "", "test")
+	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	if v := m.View(); strings.Contains(v, "Loading changes…") || !strings.Contains(v, "refreshing…") || !strings.Contains(v, "m1-board-view") {
 		t.Fatalf("snapshot must show at once, marked refreshing:\n%s", v)
@@ -332,7 +332,7 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestSnapshotMovesFocusOffEmptyDraft(t *testing.T) {
-	m := New("/x/proj", docs("/x/proj"), nil, func() time.Time { return now }, []work.Item{{Name: "doing", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, nil, nil, nil, nil, [columns]bool{}, "", "test")
+	m := New("/x/proj", docs("/x/proj"), nil, func() time.Time { return now }, []work.Item{{Name: "doing", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	if m.nav.col != 2 {
 		t.Errorf("focus %d, want In Progress (2)", m.nav.col)
 	}
@@ -431,7 +431,7 @@ func TestEditTasksFromBoard(t *testing.T) {
 	}
 	changes := fixture
 	loads := 0
-	m := New(proj, docs(proj), func() ([]work.Item, error) { loads++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
+	m := New(proj, docs(proj), func() ([]work.Item, error) { loads++; return changes, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = keys(send(m, m.Init()()), "3") // In Progress: m1-board-view 5/11
 	args := fakeEditor(t, func() {
@@ -534,7 +534,7 @@ func agents(calls *int, names ...string) func() (map[string]bool, error) {
 func TestRunningBadge(t *testing.T) {
 	calls := 0
 	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil,
-		agents(&calls, "m1-board-view", "m0-plugin-skeleton", "not-a-change"), nil, nil, nil, [columns]bool{}, "", "test")
+		agents(&calls, "m1-board-view", "m0-plugin-skeleton", "not-a-change"), nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	m = run(send(m, tea.WindowSizeMsg{Width: 200, Height: 30}), m.Init())
 	v := m.View()
 	if calls != 1 || !strings.Contains(v, "m1-board-view") {
@@ -558,7 +558,7 @@ func TestRunningBadgeSurvivesReloads(t *testing.T) {
 	calls := 0
 	fresh := append([]work.Item{{Name: "m3-new", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, fixture...)
 	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fresh, nil }, func() time.Time { return now }, fixture,
-		agents(&calls, "m1-board-view"), nil, nil, nil, [columns]bool{}, "", "test")
+		agents(&calls, "m1-board-view"), nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	if v := m.View(); !strings.Contains(v, "m1-board-view") || strings.Contains(v, "●") {
 		t.Fatalf("the snapshot must show before the lookup answers, without badges:\n%s", v)
@@ -756,6 +756,83 @@ func TestStartNotInDetail(t *testing.T) {
 	}
 }
 
+// actor fakes the act and lacks funcs: act records "<action> <change>" and returns err; lacks is the
+// notice for every action, "" when the Source names its commands.
+func actor(m *Model, err error, lacks string) *[]string {
+	var acted []string
+	m.act = func(change string, a work.Action) error {
+		acted = append(acted, string(a)+" "+change)
+		return err
+	}
+	m.lacks = func(work.Action) string { return lacks }
+	return &acted
+}
+
+func TestVerifyArchive(t *testing.T) {
+	for k, verb := range map[string]string{"v": "verifying", "a": "archiving"} {
+		m := keys(board(t, 120, 30, fixture), "4")
+		acted := actor(&m, nil, "")
+		m, cmd := pressKey(m, k)
+		if cmd == nil || len(*acted) != 0 || !strings.HasSuffix(m.View(), verb+" m0-spike-agent-start…") {
+			t.Fatalf("%s must act in a command and say so: acted %q, view:\n%s", k, *acted, m.View())
+		}
+		if got, _ := pressKey(m, "j"); got.View() != m.View() {
+			t.Errorf("%s: keys are ignored until act returns", k)
+		}
+		want := map[string]string{"v": "verify", "a": "archive"}[k] + " m0-spike-agent-start"
+		if _, cmd = m.Update(cmd()); !slices.Equal(*acted, []string{want}) || cmd == nil || cmd() != tea.Quit() {
+			t.Errorf("%s: acted %q, want %q, then quit", k, *acted, want)
+		}
+	}
+}
+
+func TestVerifyBusy(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "4")
+	actor(&m, errors.New("m0-spike-agent-start is working: wait until it is idle"), "")
+	m.agents = func() (map[string]bool, error) { return nil, nil }
+	m, cmd := pressKey(m, "v")
+	next, cmd := m.Update(cmd())
+	if m = next.(Model); !strings.HasSuffix(m.View(), "\nm0-spike-agent-start is working: wait until it is idle") {
+		t.Fatalf("a failed act shows its error as the notice:\n%s", m.View())
+	}
+	if cmd == nil {
+		t.Fatal("want an agent lookup after a failed act")
+	}
+	if _, ok := cmd().(agentsMsg); !ok {
+		t.Error("want an agent lookup after a failed act")
+	}
+	if m = keys(m, "h"); m.nav.col != 2 || strings.Contains(m.View(), "verifying") {
+		t.Error("keys must work again after a failed act")
+	}
+}
+
+func TestVerifyArchiveRefused(t *testing.T) {
+	for _, tt := range []struct{ col, key, lacks, notice string }{
+		{"3", "a", "", "m1-board-view is not in Review"},
+		{"5", "v", "", "m0-plugin-skeleton is not in Review"},
+		{"4", "v", "Spec Kit has no verify", "Spec Kit has no verify"},
+	} {
+		m := keys(board(t, 120, 30, fixture), tt.col)
+		acted := actor(&m, nil, tt.lacks)
+		if m, cmd := pressKey(m, tt.key); cmd != nil || len(*acted) != 0 || m.starting != "" || !strings.HasSuffix(m.View(), "\n"+tt.notice) {
+			t.Errorf("column %s %s: cmd %v, acted %q, view:\n%s", tt.col, tt.key, cmd != nil, *acted, m.View())
+		}
+	}
+	m := board(t, 120, 30, nil)
+	acted := actor(&m, nil, "")
+	if m, cmd := pressKey(m, "v"); cmd != nil || len(*acted) != 0 || m.notice != "" {
+		t.Error("v in an empty column must do nothing")
+	}
+	if m, cmd := pressKey(keys(board(t, 120, 30, fixture), "4"), "a"); cmd != nil || m.starting != "" || m.notice != "" {
+		t.Error("a Board without an act func must ignore a")
+	}
+	m, _ = enter(keys(board(t, 120, 30, fixture), "4"))
+	acted = actor(&m, nil, "")
+	if m, cmd := pressKey(m, "v"); cmd != nil || m.starting != "" || len(*acted) != 0 {
+		t.Error("v in the detail must do nothing")
+	}
+}
+
 // shown lists the names of the Cards on the Board, column by column.
 func shown(m Model) []string {
 	var got []string
@@ -887,7 +964,7 @@ func TestFilterKeepsSelectionByName(t *testing.T) {
 
 func TestFilterSurvivesReload(t *testing.T) {
 	fresh := append([]work.Item{{Name: "m1-new", Done: 1, Total: 2, Phase: work.InProgress, Modified: now}}, fixture...)
-	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, [columns]bool{}, "", "test")
+	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fresh, nil }, func() time.Time { return now }, fixture, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	m = keys(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), "/", "m", "1", "enter")
 	m = send(m, m.Init()()) // cached → fresh
 	want := []string{"m1-phase-derivation", "m1-new", "m1-board-view"}
@@ -1010,7 +1087,7 @@ func TestHiddenNarrow(t *testing.T) {
 }
 
 func TestInitialNotice(t *testing.T) {
-	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil,
+	m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, nil, nil,
 		[columns]bool{}, "config.json: unknown key promt", "test")
 	m = send(send(m, tea.WindowSizeMsg{Width: 120, Height: 30}), m.Init()())
 	if !strings.HasSuffix(m.View(), "\nconfig.json: unknown key promt") {
@@ -1077,7 +1154,7 @@ func TestHelpInDetail(t *testing.T) {
 	if err := os.WriteFile(proposal, []byte(strings.Repeat("line\n\n", 40)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m := New(proj, docs(proj), func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
+	m := New(proj, docs(proj), func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
 	m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m, _ = enter(keys(send(m, m.Init()()), "3"))
 	top := keys(m, "2").View()

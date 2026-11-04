@@ -2,6 +2,7 @@ package board
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -425,6 +426,72 @@ func TestMenuInDetail(t *testing.T) {
 	}
 }
 
+func TestMenuVerifyArchive(t *testing.T) {
+	m := board(t, 200, 30, fixture)
+	acted := actor(&m, nil, "")
+	m, _ = click(t, m, "m0-spike-agent-start", tea.MouseButtonRight)
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "│ ↻ Resume  s  │") || !strings.Contains(v, "│ ✓ Verify  v  │") || !strings.Contains(v, "│ ⇥ Archive  a │") {
+		t.Fatalf("Review Card: want Resume, Verify and Archive:\n%s", v)
+	}
+	m, cmd := click(t, m, "✓ Verify", tea.MouseButtonLeft)
+	if m.menu != nil || !strings.HasSuffix(m.View(), "verifying m0-spike-agent-start…") {
+		t.Fatalf("a click on Verify must close the menu and verify:\n%s", m.View())
+	}
+	if run(m, cmd); !slices.Equal(*acted, []string{"verify m0-spike-agent-start"}) {
+		t.Errorf("acted %q", *acted)
+	}
+	m = board(t, 200, 30, fixture)
+	acted = actor(&m, nil, "")
+	m, _ = click(t, m, "m0-spike-agent-start", tea.MouseButtonRight)
+	m, cmd = pressKey(m, "a")
+	if run(m, cmd); m.menu != nil || !slices.Equal(*acted, []string{"archive m0-spike-agent-start"}) {
+		t.Errorf("a in the menu must archive: %q", *acted)
+	}
+}
+
+func TestMenuVerifyFaintOutsideReview(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.ANSI)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+	m := board(t, 200, 30, fixture)
+	acted := actor(&m, nil, "")
+	m, _ = click(t, m, "m1-board-view", tea.MouseButtonRight)
+	if v := m.View(); !strings.Contains(v, "\x1b[2m✓ Verify  v") || !strings.Contains(v, "\x1b[2m⇥ Archive  a") || strings.Contains(v, "\x1b[2m▶ Start") {
+		t.Fatalf("In Progress: Verify and Archive faint, Start not:\n%q", v)
+	}
+	m, cmd := click(t, m, "⇥ Archive", tea.MouseButtonLeft)
+	if m.menu != nil || cmd != nil || len(*acted) != 0 || m.notice != "m1-board-view is not in Review" {
+		t.Errorf("a faint entry shows its key's notice: menu %v notice %q", m.menu != nil, m.notice)
+	}
+}
+
+func TestMenuSpecKit(t *testing.T) {
+	m := board(t, 200, 30, fixture)
+	acted := actor(&m, nil, "Spec Kit has no verify")
+	m, _ = click(t, m, "m0-spike-agent-start", tea.MouseButtonRight)
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "│ ↻ Resume  s │") || strings.Contains(v, "✓ Verify") || strings.Contains(v, "⇥ Archive") {
+		t.Fatalf("a Source without the commands: Resume only:\n%s", v)
+	}
+	if m, cmd := pressKey(m, "v"); m.menu != nil || cmd != nil || len(*acted) != 0 || m.notice != "" {
+		t.Errorf("v is no entry here: it only closes the menu, notice %q", m.notice)
+	}
+}
+
+func TestMenuOfThreeAtEdges(t *testing.T) {
+	m := board(t, 120, 30, fixture)
+	actor(&m, nil, "")
+	m, _ = mouse(m, 118, 6, tea.MouseButtonRight) // the archived Card at the right edge
+	x, y := at(t, m, "⇥ Archive  a", false)
+	if lines := strings.Split(ansi.Strip(m.View()), "\n"); x+14 > 120 || x >= 118 || y != 9 || ansi.Cut(lines[y+1], x-2, x+14) != "╰──────────────╯" {
+		t.Errorf("menu entry at %d,%d must end inside the popup, left of the pointer:\n%s", x, y, m.View())
+	}
+	m, _ = enter(keys(board(t, 120, 30, fixture), "4"))
+	actor(&m, nil, "")
+	m, _ = mouse(m, 0, 29, tea.MouseButtonRight)
+	if _, y := at(t, m, "⇥ Archive  a", false); y != 28 || strings.Count(m.View(), "\n") != 29 {
+		t.Errorf("menu ending at row %d must end inside 30 rows:\n%s", y+1, m.View())
+	}
+}
+
 // settle feeds the messages of cmd back into the Board, as bubbletea does, until there is none.
 func settle(m Model, cmd tea.Cmd) Model {
 	for cmd != nil {
@@ -505,7 +572,7 @@ func TestHelpAndTheWheel(t *testing.T) {
 	if got, _ := mouse(m, 40, 10, tea.MouseButtonWheelDown); !got.help || got.nav != m.nav {
 		t.Error("the wheel is no click: the help stays and nothing moves")
 	}
-	none := keys(New("", nil, nil, time.Now, nil, nil, nil, nil, nil, [columns]bool{}, "", "test"), "?")
+	none := keys(New("", nil, nil, time.Now, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test"), "?")
 	if got, _ := mouse(none, 0, 0, tea.MouseButtonLeft); got.help {
 		t.Error("a click closes the help without a project too")
 	}

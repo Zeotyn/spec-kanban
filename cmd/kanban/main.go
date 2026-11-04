@@ -186,6 +186,15 @@ func showBoard(proj string) error {
 		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
 		return spawn("launch", change, pane, tab, kind, cfg.PromptFor(change, src.Prompt(proj, kind)))
 	}
+	act := func(change string, a work.Action) error { // the Source's command alone: prompt and instructions are for Start
+		command := src.Command(a, change)
+		pane, tab, err := start.Run(proj, change, command, wt, herdr.Exec, src, git)
+		if err != nil || pane == "" {
+			return err
+		}
+		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec)
+		return spawn("run", change, pane, tab, kind, command)
+	}
 	reopenable := func(change string) bool { return start.ResumeArgs(cache.ReadSession(dir, proj, change)) != nil }
 	resumable := func(change string) (string, bool) {
 		return cache.ReadSession(dir, proj, change).Agent, reopenable(change)
@@ -201,8 +210,22 @@ func showBoard(proj string) error {
 		return spawn("resume", change, pane, tab)
 	}
 	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), running, startOne,
-		resumable, resume, cfg.Hide, notice, versionString()), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString()), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
+}
+
+// lacking returns why src cannot do an action, "" when it names the action's command.
+func lacking(src work.Source) func(work.Action) string {
+	return func(a work.Action) string {
+		if src.Command(a, "") != "" {
+			return ""
+		}
+		name := "OpenSpec"
+		if _, ok := src.(*speckit.Source); ok {
+			name = "Spec Kit"
+		}
+		return name + " has no " + string(a)
+	}
 }
 
 // spawn runs kanban with args detached in its own session, so it outlives the Board's popup.

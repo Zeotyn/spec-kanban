@@ -111,30 +111,52 @@ func (m Model) footer() (string, []hit) {
 	return build(true)
 }
 
-// menu is the open Card menu: the Card it acts on and the cell it was opened at.
+// menu is the open Card menu: the Card it acts on, the cell it was opened at and the keys of its entries.
 type menu struct {
 	card work.Item
 	x, y int
+	keys []string
+}
+
+// menuFor opens the Card menu for c at cell x, y: Start or Resume, then the actions the Source names.
+func (m Model) menuFor(c work.Item, x, y int) *menu {
+	keys := []string{"s"}
+	for _, a := range actions {
+		if m.act != nil && m.lacking(a.step) == "" {
+			keys = append(keys, a.key)
+		}
+	}
+	return &menu{c, x, y, keys}
 }
 
 // box renders the menu and the cell of its top-left corner: at the pointer, shifted to stay inside width × height.
 func (c menu) box(width, height int) (lines []string, x, y int) {
-	entry := "▶ Start  s"
+	entries := []string{"▶ Start  s"}
 	switch c.card.Phase {
 	case work.Review:
-		entry = "↻ Resume  s"
+		entries[0] = "↻ Resume  s"
 	case work.Draft, work.Archived: // s only explains why not
-		entry = theme.Faint.Render(entry)
+		entries[0] = theme.Faint.Render(entries[0])
 	}
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(theme.Dim).Padding(0, 1).Render(entry)
+	for _, k := range c.keys[1:] {
+		e := actionOf(k).entry
+		if c.card.Phase != work.Review { // its key only explains why not
+			e = theme.Faint.Render(e)
+		}
+		entries = append(entries, e)
+	}
+	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(theme.Dim).Padding(0, 1).Render(strings.Join(entries, "\n"))
 	lines = strings.Split(box, "\n")
 	return lines, max(0, min(c.x, width-lipgloss.Width(box))), max(0, min(c.y, height-len(lines)))
 }
 
-// onEntry reports whether cell x, y is on the menu's entry line.
-func (c menu) onEntry(x, y, width, height int) bool {
+// entryAt returns the key of the entry drawn at cell x, y, "" when there is none.
+func (c menu) entryAt(x, y, width, height int) string {
 	lines, x0, y0 := c.box(width, height)
-	return y == y0+1 && x >= x0 && x < x0+lipgloss.Width(lines[1])
+	if i := y - y0 - 1; i >= 0 && i < len(c.keys) && x >= x0 && x < x0+lipgloss.Width(lines[0]) {
+		return c.keys[i]
+	}
+	return ""
 }
 
 // overlay draws box over view with its top-left corner at cell x, y, cutting the lines by display cells so
@@ -160,10 +182,14 @@ func overlay(view string, box []string, x, y int) string {
 	return strings.Join(lines, "\n")
 }
 
-// choose does what s does on the menu's Card, on the Board: a Start or a notice shows in the Board's footer.
-func (m Model) choose(c work.Item) (Model, tea.Cmd) {
+// choose does what key k does on the menu's Card, on the Board: what it starts or its notice shows in
+// the Board's footer.
+func (m Model) choose(c work.Item, k string) (Model, tea.Cmd) {
 	m.detail = nil
-	return m.startCard(c, c.Phase)
+	if k == "s" {
+		return m.startCard(c, c.Phase)
+	}
+	return m.actCard(c, c.Phase, actionOf(k))
 }
 
 // press feeds key k through the key handling, as a click on its footer action does.
@@ -192,8 +218,8 @@ func (m Model) mouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 	if m.menu != nil {
 		open := *m.menu
 		m.menu = nil
-		if msg.Button == tea.MouseButtonLeft && open.onEntry(msg.X, msg.Y, m.width, m.height) {
-			return m.choose(open.card)
+		if k := open.entryAt(msg.X, msg.Y, m.width, m.height); msg.Button == tea.MouseButtonLeft && k != "" {
+			return m.choose(open.card, k)
 		}
 		if msg.Button != tea.MouseButtonRight { // a right click opens the menu again where it is
 			return m, nil
@@ -201,7 +227,7 @@ func (m Model) mouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 	}
 	if m.detail != nil {
 		if msg.Button == tea.MouseButtonRight {
-			m.menu = &menu{m.detailOf, msg.X, msg.Y}
+			m.menu = m.menuFor(m.detailOf, msg.X, msg.Y)
 			return m, nil
 		}
 		d, cmd := m.detail.Update(msg)
@@ -238,7 +264,7 @@ func (m Model) mouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 	case tea.MouseButtonRight:
 		if c, i, ok := m.cardAt(msg.X, msg.Y); ok {
 			m.notice, m.nav.pendingG, m.nav.col, m.nav.sel[c] = "", false, c, i
-			m.menu = &menu{m.cols[c][i], msg.X, msg.Y}
+			m.menu = m.menuFor(m.cols[c][i], msg.X, msg.Y)
 		}
 	case tea.MouseButtonWheelDown, tea.MouseButtonWheelUp:
 		body := msg.Y >= 2 && msg.Y < 2+lipgloss.Height(m.body()) // below the header and a blank line
