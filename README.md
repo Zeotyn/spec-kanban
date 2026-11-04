@@ -2,6 +2,11 @@
   <img src="docs/assets/spec-kanban.svg" alt="spec-kanban" width="240">
 </p>
 
+<p align="center">
+  <a href="https://github.com/Zeotyn/spec-kanban/actions/workflows/pipeline.yml"><img src="https://github.com/Zeotyn/spec-kanban/actions/workflows/pipeline.yml/badge.svg?branch=main" alt="Pipeline"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Zeotyn/spec-kanban" alt="License: MIT"></a>
+</p>
+
 # spec-kanban
 
 A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes or [Spec Kit](https://github.com/github/spec-kit) features as a kanban board.
