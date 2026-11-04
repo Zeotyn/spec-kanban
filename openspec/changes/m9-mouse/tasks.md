@@ -35,8 +35,8 @@
 
 ## 7. Docs
 
-- [ ] 7.1 README: a Mouse section (click, second click, wheel, right click menu, clickable footers, Shift to select text); key help unchanged
-- [ ] 7.2 CONTEXT.md: **Card menu**; CHANGELOG `## Unreleased` entry
+- [x] 7.1 README: a Mouse section (click, second click, wheel, right click menu, clickable footers, Shift to select text); key help unchanged
+- [x] 7.2 CONTEXT.md: **Card menu**; CHANGELOG `## Unreleased` entry
 
 ## 8. Verification
 

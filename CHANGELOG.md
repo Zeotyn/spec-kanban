@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Mouse: click a Card to select it and again to open its details, scroll a column or the details with the wheel, click `◀`/`▶` in a narrow popup, tabs in the details and the actions in both footers. A right click on a Card, or in its details, opens the Card menu, whose entry starts or resumes the Change like `s`. Hold `Shift` (or your terminal's modifier) while dragging to select text.
+
 ## 0.3.0 - 2026-11-02
 
 - Spec Kit Source: a Project with `.specify` and `specs` shows its Features on the Board, in the details and in the sidebar, and `s` starts the implement command of the agent kind in a worktree after writing `.specify/feature.json`; the Handoff asks to delete that file before removing the worktree. A Feature whose tasks are done and whose branch is merged is Archived. A Project with both tools is read as OpenSpec unless `source` says otherwise. The no-project notice and the `kanban start` error name both tools.

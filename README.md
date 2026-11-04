@@ -59,6 +59,19 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 
 The worktree is a checkout on a branch named like the Change, created by herdr at `<dir>/<repo>/<change>`, where `<dir>` is `[worktrees] directory` in herdr's config (default `~/.herdr/worktrees`). New branches start from the project's default branch (`origin/HEAD`, else `main`, `master` or `develop`, else the current branch), or from `base` when set. An existing checkout on that branch is reused. The Change must be committed on the start branch before you press `s`; otherwise Start reports that the Change is not on the base. The Board and the sidebar read the Change's Progress from its worktree. The plugin never removes a worktree or deletes a branch; after a [Handoff](#handoff) the Main agent removes the worktree. Without a git repository, `s` opens the tab in the project.
 
+### Mouse
+
+The Board and the details also work with the mouse; the keys stay as they are.
+
+- Click a Card to select it, click the selected Card again to open its details.
+- The wheel over a column selects the next or previous Card there, like `j`/`k`. In the details it scrolls three lines per step.
+- In a narrow popup, which shows one column at a time, click `◀` or `▶` for the previous or next column.
+- Right-click a Card for its Card menu: `▶ Start  s` on Ready and In Progress Cards, `↻ Resume  s` on Review Cards, faint on Draft and Archived Cards, where it only says why not. Click the entry or press `s` to do what `s` does; any other click or key closes the menu. A right click in the details opens the menu for the shown Change.
+- The actions in the footers (`⏎ details`, `e edit tasks`, `s start`, `/ filter`, `r reload`, `? help`, `q close`; `e edit`, `? help`, `q back` in the details) act like their key, and a click on a tab in the details shows that document.
+- A click closes the key help, like any key. While the filter prompt is open or a Start runs, the mouse does nothing.
+
+Since the popup takes the mouse, select text by holding your terminal's modifier while dragging, usually `Shift`.
+
 ### Handoff
 
 After `s` the plugin watches the agent in the background. Each time it stops after working, the plugin checks the Change's Progress (in its worktree):

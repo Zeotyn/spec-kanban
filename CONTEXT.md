@@ -75,6 +75,10 @@ _Avoid_: Live session, worker
 The Board's only action: hands a Change to a new agent session in its own tab, in the Change's checkout.
 _Avoid_: Move, apply button
 
+**Card menu**:
+The menu a right click on a Card opens; its one entry does what `s` does on that Card.
+_Avoid_: Context menu, popup menu
+
 **Change checkout**:
 The git checkout whose branch is named like a Change, where Start runs its agent; usually a linked worktree.
 _Avoid_: Sandbox, clone
