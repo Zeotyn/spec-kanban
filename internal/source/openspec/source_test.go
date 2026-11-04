@@ -60,3 +60,13 @@ func TestPrepareWritesNothing(t *testing.T) {
 		t.Errorf("Prepare wrote %v", entries)
 	}
 }
+
+func TestCommand(t *testing.T) {
+	src := New(nil)
+	if got := src.Command(work.Verify, "m1-board-view"); got != "/opsx:verify m1-board-view" {
+		t.Errorf("verify = %q", got)
+	}
+	if got := src.Command(work.Archive, "m1-board-view"); got != "/opsx:archive m1-board-view" {
+		t.Errorf("archive = %q", got)
+	}
+}

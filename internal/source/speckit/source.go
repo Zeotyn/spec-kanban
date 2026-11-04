@@ -12,6 +12,7 @@ import (
 	"slices"
 
 	"github.com/zeotyn/spec-kanban/internal/herdr"
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 // Source is the Spec Kit work.Source; git runs git inside a directory, base is the configured base
@@ -94,3 +95,6 @@ func (*Source) Finish(_, checkout string) string {
 	}
 	return "delete " + filepath.Join(checkout, ".specify", "feature.json") + " unless git tracks it"
 }
+
+// Command is none: Spec Kit has no step after implementing that checks or archives a Feature.
+func (*Source) Command(work.Action, string) string { return "" }

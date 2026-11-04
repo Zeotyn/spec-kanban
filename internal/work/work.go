@@ -72,6 +72,14 @@ type Docs struct {
 	Next  string // "next ▸ …", "all tasks done" or ""
 }
 
+// Action is a step a Source may name a command for, after a Work item is implemented.
+type Action string
+
+const (
+	Verify  Action = "verify"
+	Archive Action = "archive"
+)
+
 // Source reads the Work items of one spec tool and knows its conventions.
 type Source interface {
 	Detect(dir string) bool                                                                 // dir holds this tool's work
@@ -83,4 +91,5 @@ type Source interface {
 	Prepare(dir, name string) error                                                         // make the checkout dir ready for name's agent
 	Prompt(project, kind string) string                                                     // default Start prompt for an agent of kind, may hold {change}
 	Finish(name, checkout string) string                                                    // Handoff step after review; checkout "" = no linked worktree; "" = no step
+	Command(a Action, name string) string                                                   // the command that does a for name; "" = none
 }
