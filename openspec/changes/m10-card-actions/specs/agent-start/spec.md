@@ -2,7 +2,7 @@
 
 ### Requirement: Verify and Archive run the Source's command
 Verify and Archive SHALL send the Source's verify or archive command for the Change (see "Verify and archive commands"), never the configured `prompt` or `instructions`. When a herdr agent of the Change exists in the Project or one of its checkouts and its agent runs in the foreground of its pane:
-- with agent status `idle` the command SHALL be sent to it as a prompt and its tab focused, without opening a tab;
+- with agent status `idle`, or `done` (its turn ended and nobody has looked yet), the command SHALL be sent to it as a prompt and its tab focused, without opening a tab;
 - with any other status nothing SHALL be sent, and the caller reports the status.
 
 Otherwise the command SHALL go to a new agent of the configured or detected kind in the Change's checkout, opened as for Start, reusing the Change's tab when its agent has exited. No watcher SHALL follow Verify or Archive: when the agent finishes, no Handoff prompt and no notification is sent. An agent of the Change's name outside the Project and its checkouts SHALL be refused as for Start.

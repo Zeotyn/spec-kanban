@@ -68,13 +68,13 @@ func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 	return prepare(project, change, wt, run, src, git, func(string, string) error { return step(run, "agent", "focus", agentName(change)) })
 }
 
-// Run sends command to the Change's agent when it holds its pane's foreground: when idle, it prompts
+// Run sends command to the Change's agent when it holds its pane's foreground: when idle or done, it prompts
 // it and focuses its tab; otherwise it sends nothing and returns an error carrying the status. With no
 // such agent it places a tab as Prepare does and returns it, for the caller to launch an agent with
 // command in. Unlike Start, nothing watches the agent afterwards.
 func Run(project, change, command string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab string, err error) {
 	return prepare(project, change, wt, run, src, git, func(status, tab string) error {
-		if status != "idle" {
+		if status != "idle" && status != "done" { // done: its turn ended, not yet seen
 			return fmt.Errorf("%s is %s: wait until it is idle", change, status)
 		}
 		if err := step(run, "agent", "prompt", agentName(change), command); err != nil {

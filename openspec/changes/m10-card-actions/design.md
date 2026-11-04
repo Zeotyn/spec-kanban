@@ -27,7 +27,7 @@ The Board starts work in two ways: Start (`startCard`, then `startOne` in `cmd/k
 
 2. **`start.Run(project, change, action, kind, wt, run, src, git)`** next to `Prepare`.
    - It reads the agent with `agent get`, the same lookup `Prepare` does, refusing a foreign one in the same way.
-   - If the agent process holds the foreground: status `idle` → `agent prompt <agent> <command>` and `tab focus`. Any other status → an error that carries the status.
+   - If the agent process holds the foreground: status `idle` or `done` (turn ended, not yet seen) → `agent prompt <agent> <command>` and `tab focus`. Any other status → an error that carries the status.
    - Otherwise → `Prepare`, and the caller spawns a detached `kanban run <change> <pane> <tab> <kind> <command>`: `Launch` without `Watch`.
    - Rejected: a flag on `kanban launch`. Its fixed argument count is part of the spawn contract, and a separate subcommand reads clearer than a positional flag.
    - Rejected: reading the status in `start.Running` for the menu's faint state. That status is only as fresh as the last lookup, while `Run` checks at the moment of the action anyway. The menu shows an entry faint only for what the Board knows for sure (Phase, Source); a busy agent shows as a notice on click.

@@ -440,10 +440,10 @@ func (m Model) lacking(a work.Action) string {
 
 // actCard hands the Source's command for a on c to an agent in a command, or explains why not.
 func (m Model) actCard(c work.Item, p work.Phase, a action) (Model, tea.Cmd) {
-	switch {
+	switch lacks := m.lacking(a.step); {
 	case m.act == nil:
-	case m.lacking(a.step) != "":
-		m.notice = m.lacking(a.step)
+	case lacks != "":
+		m.notice = lacks
 	case p != work.Review:
 		m.notice = c.Name + " is not in Review"
 	default:
