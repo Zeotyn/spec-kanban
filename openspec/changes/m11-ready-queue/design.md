@@ -20,12 +20,12 @@ See proposal.md for why Ready needs a queue, and the `change-phases` delta for t
 
 ## Decisions
 
-1. **A rank and a number from the name.** A small unexported helper returns `(rank, n, ok)` for a name: rank 0 for `f<digits>-`, rank 1 for `m<digits>-`, rank 2 for everything else. The Ready comparator orders by rank, then by number (ranks 0 and 1), then by natural name order (rank 2), then by name. The `f`/`m` check mirrors `milestone()`: a letter, at least one digit, then `-`. So `fix-login` and `m-foo` fall into rank 2.
+1. **A rank from the name.** A small unexported helper returns the rank of a name: 0 for `f<digits>-`, 1 for `m<digits>-`, 2 for everything else. The Ready comparator orders by rank, then by natural name order, then by name. Within rank 0 or 1 all names start with the same letter, so natural order compares the fix or milestone number first. The `f`/`m` check mirrors `milestone()`: a letter, at least one digit, then `-`. So `fix-login` and `m-foo` fall into rank 2.
 
 2. **Natural order compares digit runs without parsing to int.** Walk both names; outside digits compare bytes; for two digit runs strip leading zeros, compare by length, then by bytes. This never overflows, also for Spec Kit timestamp names such as `20261030-142501-user-login`. When digit runs are equal in value but differ in leading zeros (`m01-` vs `m1-`), the final tie by name decides.
    - Rejected: `strconv.Atoi` on the digit runs. It fails on very long runs and needs an error path.
 
-3. **The milestone and fix number use the same digit-run compare** as decision 2, so `m010-` and `m10-` sort together and no int parsing is needed at all.
+3. **No separate number.** The fix or milestone number is compared through the natural order on the full name (decision 2), so `m010-` and `m10-` sort together and no int parsing is needed at all.
 
 4. **No cache version bump.** The cache stores Items with their Phase, not the order; `Group` sorts after every load.
 
