@@ -58,3 +58,8 @@ func (*Source) Prompt(string, string) string { return "/opsx:apply {change}" }
 
 // Finish is the Handoff instruction after review, with or without a worktree.
 func (*Source) Finish(change, _ string) string { return "archive it with /opsx:archive " + change }
+
+// Command is /opsx:verify or /opsx:archive for change.
+func (*Source) Command(a work.Action, change string) string {
+	return "/opsx:" + string(a) + " " + change
+}

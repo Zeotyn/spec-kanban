@@ -130,3 +130,11 @@ func TestFinish(t *testing.T) {
 		t.Errorf("Finish in a worktree = %q", got)
 	}
 }
+
+func TestCommandNone(t *testing.T) {
+	for _, a := range []work.Action{work.Verify, work.Archive} {
+		if got := New(nil, "").Command(a, "003-search"); got != "" {
+			t.Errorf("Command(%v) = %q, want none", a, got)
+		}
+	}
+}

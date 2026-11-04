@@ -1,7 +1,7 @@
 ## 1. Source commands
 
-- [ ] 1.1 `internal/work`: `Action` (`Verify`, `Archive`) and `Command(action, name) string` on the Source interface ("" = none)
-- [ ] 1.2 `internal/source/openspec`: `/opsx:verify <name>`, `/opsx:archive <name>`; `internal/source/speckit`: "" for both (tests per scenario of "Verify and archive commands")
+- [x] 1.1 `internal/work`: `Action` (`Verify`, `Archive`) and `Command(action, name) string` on the Source interface ("" = none)
+- [x] 1.2 `internal/source/openspec`: `/opsx:verify <name>`, `/opsx:archive <name>`; `internal/source/speckit`: "" for both (tests per scenario of "Verify and archive commands")
 
 ## 2. Run a command for a Change
 
