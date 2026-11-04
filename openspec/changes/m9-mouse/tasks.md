@@ -45,6 +45,6 @@
 
 ## 9. Smoke test (user only: agents never tick these)
 
-- [ ] 9.1 Board: click to select, click again for details, wheel in a long column, `◀`/`▶` in a narrow popup, `q close` in the footer
-- [ ] 9.2 Card menu: right click on Ready (Start runs), on Review (Resume shown), on Draft (faint, notice), at the right edge, Esc closes; right click in the details starts the shown Card
-- [ ] 9.3 Details: click tabs, wheel scroll, `q back`; key help closes on a click; Shift-drag still selects text
+- [x] 9.1 Board: click to select, click again for details, wheel in a long column, `◀`/`▶` in a narrow popup, `q close` in the footer
+- [x] 9.2 Card menu: right click on Ready (Start runs), on Review (Resume shown), on Draft (faint, notice), at the right edge, Esc closes; right click in the details starts the shown Card
+- [x] 9.3 Details: click tabs, wheel scroll, `q back`; key help closes on a click; Shift-drag still selects text
