@@ -6,7 +6,7 @@
 ## 2. Run a command for a Change
 
 - [x] 2.1 `internal/start`: `Run` reads the Change's agent like `Prepare` (foreign agent refused); a foreground agent with status `idle` gets `agent prompt` and `tab focus`; any other status returns an error carrying it; otherwise `Prepare` places a tab and `Run` returns its pane and tab (tests with fake herdr output for idle, working, blocked, exited, none, foreign)
-- [ ] 2.2 `cmd/kanban`: subcommand `kanban run <change> <pane> <tab> <kind> <command>` runs `start.Launch` without `Watch`, reports a failure as a herdr notification; usage text updated
+- [x] 2.2 `cmd/kanban`: subcommand `kanban run <change> <pane> <tab> <kind> <command>` runs `start.Launch` without `Watch`, reports a failure as a herdr notification; usage text updated
 - [ ] 2.3 `cmd/kanban`: the Board's `act` callback resolves the kind like Start, calls `start.Run`, spawns `kanban run` when a tab was placed, and passes the Source's command without `prompt` or `instructions`
 
 ## 3. Board
