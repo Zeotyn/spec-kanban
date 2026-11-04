@@ -84,15 +84,34 @@ func TestWheel(t *testing.T) {
 	}
 }
 
+// follow feeds the key a footer click sends back into m, as bubbletea does through the Board.
+func follow(t *testing.T, m Model, cmd tea.Cmd) (Model, tea.Cmd) {
+	t.Helper()
+	if cmd == nil {
+		t.Fatal("the click sends no key")
+	}
+	k, ok := cmd().(tea.KeyMsg)
+	if !ok {
+		t.Fatal("the click must send its key as a message")
+	}
+	return m.Update(k)
+}
+
 func TestClickBack(t *testing.T) {
 	for _, width := range []int{120, 40} {
-		_, cmd := click(t, open(t, change, width, 24), "q back")
-		if cmd == nil {
+		m, cmd := click(t, open(t, change, width, 24), "q back")
+		if _, cmd = follow(t, m, cmd); cmd == nil {
 			t.Fatalf("width %d: no command", width)
 		}
 		if _, ok := cmd().(CloseMsg); !ok {
 			t.Errorf("width %d: want CloseMsg", width)
 		}
+	}
+}
+
+func TestClickHelp(t *testing.T) {
+	if _, cmd := click(t, open(t, change, 120, 24), "? help"); cmd == nil || cmd().(tea.KeyMsg).String() != "?" {
+		t.Error("? help must send ? for the Board, which shows the help")
 	}
 }
 
@@ -105,8 +124,8 @@ func TestClickEdit(t *testing.T) {
 			text = "gg/G e"
 		}
 		x, y := at(t, m.View(), text)
-		m, _ = mouse(m, x+len(text)-1, y, tea.MouseButtonLeft, tea.MouseActionPress)
-		if !strings.Contains(m.View(), "archived changes are read-only") {
+		m, cmd := mouse(m, x+len(text)-1, y, tea.MouseButtonLeft, tea.MouseActionPress)
+		if m, _ = follow(t, m, cmd); !strings.Contains(m.View(), "archived changes are read-only") {
 			t.Errorf("width %d: no read-only notice:\n%s", width, m.View())
 		}
 	}

@@ -5,27 +5,27 @@
 ## 2. Mouse reporting and layout
 
 - [x] 2.1 `cmd/kanban`: start the Board program with `tea.WithMouseCellMotion()`
-- [ ] 2.2 `internal/board`: a pure layout function computes the x ranges of the shown columns, the y ranges of the visible Cards (including the `↑ n more` line and both Card heights) and the `◀`/`▶` cells of single-column mode. `View` uses it for its geometry
-- [ ] 2.3 Test helper: render `View()`, strip ANSI, find a text and return its cell; send a `tea.MouseMsg` press there
+- [x] 2.2 `internal/board`: a pure layout function computes the x ranges of the shown columns, the y ranges of the visible Cards (including the `↑ n more` line and both Card heights) and the `◀`/`▶` cells of single-column mode. `View` uses it for its geometry
+- [x] 2.3 Test helper: render `View()`, strip ANSI, find a text and return its cell; send a `tea.MouseMsg` press there
 
 ## 3. Board mouse
 
-- [ ] 3.1 Left click on a Card focuses its column and selects it; left click on the selected Card opens its details; clicks elsewhere change nothing (tests per scenario of "Mouse on the Board", bordered and borderless)
-- [ ] 3.2 Wheel down/up over a column with Cards focuses it and acts like `j`/`k`, scrolling with the existing `nav`; over an empty column nothing changes
-- [ ] 3.3 Single-column mode: clicks on `◀`/`▶` act like `h`/`l`; the wheel acts on the shown column
-- [ ] 3.4 Mouse events are ignored while the filter prompt is open or a Start runs; a press closes the key help without any other effect
+- [x] 3.1 Left click on a Card focuses its column and selects it; left click on the selected Card opens its details; clicks elsewhere change nothing (tests per scenario of "Mouse on the Board", bordered and borderless)
+- [x] 3.2 Wheel down/up over a column with Cards focuses it and acts like `j`/`k`, scrolling with the existing `nav`; over an empty column nothing changes
+- [x] 3.3 Single-column mode: clicks on `◀`/`▶` act like `h`/`l`; the wheel acts on the shown column
+- [x] 3.4 Mouse events are ignored while the filter prompt is open or a Start runs; a press closes the key help without any other effect
 
 ## 4. Card menu
 
-- [ ] 4.1 Board state for the open menu (Card, Phase, anchor); a right click on a Card selects it and opens the menu, a right click elsewhere closes it, a right click on another Card moves it
-- [ ] 4.2 Entry by Phase: `▶ Start  s` (Ready, In Progress), `↻ Resume  s` (Review), faint `▶ Start  s` (Draft, Archived); a click on it or `s` closes the menu and calls `startCard`; a click outside, `Esc` or another key only closes it
-- [ ] 4.3 Draw the menu as a dim-bordered box spliced into the `View` lines with `github.com/charmbracelet/x/ansi` (direct requirement in `go.mod`), shifted to stay inside the popup; tests at the right and bottom edges and over a Card name with a wide character, with a colour profile
-- [ ] 4.4 Detail view: the Board catches a right click and opens the menu for the shown Card; `s` in the open menu starts it; outside the menu the detail view still ignores `s`
+- [x] 4.1 Board state for the open menu (Card, Phase, anchor); a right click on a Card selects it and opens the menu, a right click elsewhere closes it, a right click on another Card moves it
+- [x] 4.2 Entry by Phase: `▶ Start  s` (Ready, In Progress), `↻ Resume  s` (Review), faint `▶ Start  s` (Draft, Archived); a click on it or `s` closes the menu and calls `startCard`; a click outside, `Esc` or another key only closes it
+- [x] 4.3 Draw the menu as a dim-bordered box spliced into the `View` lines with `github.com/charmbracelet/x/ansi` (direct requirement in `go.mod`), shifted to stay inside the popup; tests at the right and bottom edges and over a Card name with a wide character, with a colour profile
+- [x] 4.4 Detail view: the Board catches a right click and opens the menu for the shown Card; `s` in the open menu starts it; outside the menu the detail view still ignores `s`
 
 ## 5. Clickable footers
 
-- [ ] 5.1 Build the Board's full and short footer from one segment list (label, description, optional action key); the short footer's text stays as today
-- [ ] 5.2 Clicks on `⏎ details`, `e edit tasks`, `s start`, `/ filter`, `r reload`, `? help`, `q close` feed their key through the existing key handling, in both forms; no effect while a notice, the prompt or the starting Change is shown
+- [x] 5.1 Build the Board's full and short footer from one segment list (label, description, optional action key); the short footer's text stays as today
+- [x] 5.2 Clicks on `⏎ details`, `e edit tasks`, `s start`, `/ filter`, `r reload`, `? help`, `q close` feed their key through the existing key handling, in both forms; no effect while a notice, the prompt or the starting Change is shown
 - [x] 5.3 Detail footer the same for `e edit`, `? help`, `q back`
 
 ## 6. Detail mouse

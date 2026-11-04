@@ -134,7 +134,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			_, hits := m.footer()
 			for _, h := range hits {
 				if msg.X >= h.x0 && msg.X < h.x1 {
-					return m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(h.key)})
+					// as a message, so the Board sees the key too: ? is the Board's
+					return m, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(h.key)} }
 				}
 			}
 		case msg.Button == tea.MouseButtonWheelDown, msg.Button == tea.MouseButtonWheelUp:

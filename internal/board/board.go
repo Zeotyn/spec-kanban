@@ -41,20 +41,20 @@ type agentsMsg struct {
 // startedMsg reports that Start has returned.
 type startedMsg struct{ err error }
 
-// key is a key and what it does, for the footer and the help.
+// key is a key and what it does, for the help.
 type key struct{ key, desc string }
 
-var footerKeys = []key{{"h/l", "column"}, {"j/k", "card"}, {"⏎", "details"}, {"e", "edit tasks"}, {"s", "start"}, {"/", "filter"},
-	{"gg/G", "first/last"}, {"ctrl+d/u", "half page"}, {"1-5", "column"}, {"r", "reload"}, {"?", "help"}, {"q", "close"}}
+// segment is a footer entry: key and faint description in the full footer, short in the short one;
+// a click on it presses action, when set.
+type segment struct{ key, desc, short, action string }
 
-// keyList renders keys as "key description" pairs separated by " · ", the descriptions faint.
-func keyList(keys []key) string {
-	parts := make([]string, len(keys))
-	for i, k := range keys {
-		parts[i] = k.key + " " + theme.Faint.Render(k.desc)
-	}
-	return strings.Join(parts, " · ")
-}
+var footerKeys = []segment{{"h/l", "column", "h/l", ""}, {"j/k", "card", "j/k", ""}, {"⏎", "details", "⏎", "enter"},
+	{"e", "edit tasks", "e", "e"}, {"s", "start", "s", "s"}, {"/", "filter", "/", "/"}, {"gg/G", "first/last", "gg/G", ""},
+	{"ctrl+d/u", "half page", "^d/^u", ""}, {"1-5", "column", "1-5", ""}, {"r", "reload", "r", "r"}, {"?", "help", "?", "?"},
+	{"q", "close", "q", "q"}}
+
+// shortApart is the first footer segment that the short footer sets apart with " · " instead of a space.
+const shortApart = 9
 
 // helpGroups lists every key by view; README's keys table says the same.
 var helpGroups = []struct {
@@ -95,6 +95,7 @@ type Model struct {
 	notice        string        // one-line message in place of the footer, cleared by the next key
 	hide          [columns]bool // Phases whose columns are not shown
 	help          bool          // the key help is shown; the next key closes it
+	menu          *menu         // the open Card menu; the next key or click closes it
 	version       string        // shown in the help
 	width, height int
 }
@@ -138,6 +139,20 @@ func (m Model) reload() tea.Msg {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if msg, ok := msg.(tea.MouseMsg); ok {
+		return m.mouse(msg)
+	}
+	if k, ok := msg.(tea.KeyMsg); ok && m.menu != nil {
+		open := *m.menu
+		m.menu, m.notice = nil, ""
+		switch k.String() {
+		case "s":
+			return m.startCard(open.card, open.phase)
+		case "ctrl+c":
+			return m, tea.Quit
+		}
+		return m, nil
+	}
 	if k, ok := msg.(tea.KeyMsg); ok && m.starting == "" && !m.prompting {
 		switch {
 		case m.help && k.String() == "ctrl+c":
@@ -426,6 +441,15 @@ func (m Model) visible() int {
 }
 
 func (m Model) View() string {
+	v := m.view()
+	if m.menu != nil {
+		box, x, y := m.menu.box(m.width, m.height)
+		v = overlay(v, box, x, y)
+	}
+	return v
+}
+
+func (m Model) view() string {
 	if m.help {
 		return m.helpView()
 	}
@@ -437,20 +461,7 @@ func (m Model) View() string {
 			"Open the board from a pane inside a project (a directory containing openspec/changes, or .specify and specs).\n\n" +
 			"q close\n"
 	}
-	var body string
-	switch {
-	case m.err != nil:
-		// openspec errors can be long or multi-line; keep them inside the view
-		body = lipgloss.NewStyle().Width(m.width).MaxHeight(max(1, m.height-6)).Render(m.err.Error()) + "\n\nr retry · q close"
-	case !m.loaded:
-		body = "Loading changes…"
-	default:
-		body = lipgloss.NewStyle().MaxHeight(max(1, m.height-4)).Render(m.columns()) // too low for one Card: cut it
-	}
-	footer := keyList(footerKeys)
-	if lipgloss.Width(footer) > m.width {
-		footer = "h/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q " + theme.Faint.Render("close")
-	}
+	footer, _ := m.footer()
 	if m.prompting {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("/" + m.filter + "█")
 	}
@@ -460,7 +471,19 @@ func (m Model) View() string {
 	if m.starting != "" {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("starting " + m.starting + "…")
 	}
-	return m.header() + "\n\n" + body + "\n\n" + footer // no trailing newline: the view fills the height exactly
+	return m.header() + "\n\n" + m.body() + "\n\n" + footer // no trailing newline: the view fills the height exactly
+}
+
+// body is what the Board shows between the header and the footer.
+func (m Model) body() string {
+	switch {
+	case m.err != nil:
+		// openspec errors can be long or multi-line; keep them inside the view
+		return lipgloss.NewStyle().Width(m.width).MaxHeight(max(1, m.height-6)).Render(m.err.Error()) + "\n\nr retry · q close"
+	case !m.loaded:
+		return "Loading changes…"
+	}
+	return lipgloss.NewStyle().MaxHeight(max(1, m.height-4)).Render(m.columns()) // too low for one Card: cut it
 }
 
 // helpView renders the key help, framed when the frame fits, else cut to the view.
@@ -504,29 +527,19 @@ func (m Model) header() string {
 }
 
 func (m Model) columns() string {
-	n := columns
-	for _, h := range m.hide {
-		if h {
-			n--
-		}
+	l := m.layout()
+	if l.single {
+		return m.column(l.col, l.w, l.title)
 	}
-	if m.width < n*minColWidth+n-1 {
-		c := m.nav.col
-		for m.hide[c] { // only when nothing shown has Cards and focus fell back to Draft
-			c++
-		}
-		return m.column(c, m.width, fmt.Sprintf("◀ %d/%d %s %d ▶", c+1, columns, work.Phase(c), len(m.cols[c])))
-	}
-	w := (m.width - (n - 1)) / n
-	parts := make([]string, 0, 2*n-1)
+	parts := make([]string, 0, 2*columns-1)
 	for i := range columns {
-		if m.hide[i] {
+		if l.x[i] < 0 {
 			continue
 		}
 		if len(parts) > 0 {
 			parts = append(parts, " ")
 		}
-		parts = append(parts, m.column(i, w, fmt.Sprintf("%s %d", work.Phase(i), len(m.cols[i]))))
+		parts = append(parts, m.column(i, l.w, fmt.Sprintf("%s %d", work.Phase(i), len(m.cols[i]))))
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
 }
