@@ -75,7 +75,7 @@ func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 func Run(project, change, command string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab string, err error) {
 	return prepare(project, change, wt, run, src, git, func(status, tab string) error {
 		if status != "idle" && status != "done" { // done: its turn ended, not yet seen
-			return fmt.Errorf("%s is %s: wait until it is idle", change, status)
+			return fmt.Errorf("%s is %s: wait until it is idle", change, cmp.Or(status, "unknown"))
 		}
 		if err := step(run, "agent", "prompt", agentName(change), command); err != nil {
 			return err
@@ -84,12 +84,12 @@ func Run(project, change, command string, wt Worktree, run herdr.Runner, src wor
 	})
 }
 
-// prepare is Prepare, calling busy with the agent's status and tab instead of focusing it.
-func prepare(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner, busy func(status, tab string) error) (pane, tab string, err error) {
+// prepare is Prepare, calling foreground with the agent's status and tab instead of focusing it.
+func prepare(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner, foreground func(status, tab string) error) (pane, tab string, err error) {
 	if a := agentName(change); len(a) > 32 {
 		return "", "", fmt.Errorf("%s cannot name a herdr agent: %s is longer than 32 characters", change, a)
 	}
-	pane, tab, dir, err := place(project, change, wt, run, src, git, busy)
+	pane, tab, dir, err := place(project, change, wt, run, src, git, foreground)
 	if err != nil || pane == "" {
 		return "", "", err
 	}
@@ -100,7 +100,7 @@ func prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 }
 
 // place is prepare without the Source's preparation; dir is the checkout of the returned pane.
-func place(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner, busy func(status, tab string) error) (pane, tab, dir string, err error) {
+func place(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner, foreground func(status, tab string) error) (pane, tab, dir string, err error) {
 	out, err := run("agent", "get", agentName(change))
 	switch {
 	case err == nil:
@@ -127,7 +127,7 @@ func place(project, change string, wt Worktree, run herdr.Runner, src work.Sourc
 			return "", "", "", err
 		}
 		if running {
-			return "", "", "", busy(a.Status, a.TabID)
+			return "", "", "", foreground(a.Status, a.TabID)
 		}
 		return a.PaneID, a.TabID, containing(a.Cwd, d), nil
 	case !strings.Contains(err.Error(), "agent_not_found"):

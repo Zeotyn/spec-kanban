@@ -21,8 +21,8 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass; only the help goldens change
-- [ ] 5.2 `openspec validate m10-card-actions --strict` passes
+- [x] 5.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass; only the help goldens change
+- [x] 5.2 `openspec validate m10-card-actions --strict` passes
 
 ## Smoke test (user, in herdr)
 
