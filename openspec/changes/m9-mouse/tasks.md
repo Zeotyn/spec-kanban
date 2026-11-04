@@ -40,8 +40,8 @@
 
 ## 8. Verification
 
-- [ ] 8.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass; the existing board and detail goldens stay unchanged
-- [ ] 8.2 `openspec validate m9-mouse --strict` passes
+- [x] 8.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass; the existing board and detail goldens stay unchanged
+- [x] 8.2 `openspec validate m9-mouse --strict` passes
 
 ## 9. Smoke test (user only: agents never tick these)
 
