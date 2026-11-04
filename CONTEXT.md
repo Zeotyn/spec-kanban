@@ -72,11 +72,15 @@ A herdr agent session currently working on a Change; shown on its Card without c
 _Avoid_: Live session, worker
 
 **Start**:
-The Board's only action: hands a Change to a new agent session in its own tab, in the Change's checkout.
+The Board's action that hands a Change to a new agent session in its own tab, in the Change's checkout.
 _Avoid_: Move, apply button
 
+**Verify**, **Archive**:
+Card actions on a Review Change that send the Source's verify or archive command to the Change's idle agent, or to a new one in the Change's checkout; nothing watches them and no Handoff follows.
+_Avoid_: Check, close
+
 **Card menu**:
-The menu a right click on a Card opens; its one entry does what `s` does on that Card.
+The menu a right click on a Card opens; its entries do what `s`, `v` and `a` do on that Card.
 _Avoid_: Context menu, popup menu
 
 **Change checkout**:
