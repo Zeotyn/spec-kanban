@@ -26,12 +26,12 @@
 
 - [ ] 5.1 Build the Board's full and short footer from one segment list (label, description, optional action key); the short footer's text stays as today
 - [ ] 5.2 Clicks on `⏎ details`, `e edit tasks`, `s start`, `/ filter`, `r reload`, `? help`, `q close` feed their key through the existing key handling, in both forms; no effect while a notice, the prompt or the starting Change is shown
-- [ ] 5.3 Detail footer the same for `e edit`, `? help`, `q back`
+- [x] 5.3 Detail footer the same for `e edit`, `? help`, `q back`
 
 ## 6. Detail mouse
 
-- [ ] 6.1 `internal/detail`: clicks on a tab in the full and the short tab bar show that document
-- [ ] 6.2 Wheel scrolls three lines per step, stopping at both ends; each tab keeps its scroll position
+- [x] 6.1 `internal/detail`: clicks on a tab in the full and the short tab bar show that document
+- [x] 6.2 Wheel scrolls three lines per step, stopping at both ends; each tab keeps its scroll position
 
 ## 7. Docs
 

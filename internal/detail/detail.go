@@ -117,6 +117,34 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if msg.Err != nil {
 			m.notice = "editor failed: " + msg.Err.Error()
 		}
+	case tea.MouseMsg:
+		if msg.Action != tea.MouseActionPress {
+			break
+		}
+		switch {
+		case msg.Button == tea.MouseButtonLeft && msg.Y == 1:
+			_, hits := m.tabBar()
+			for _, h := range hits {
+				if msg.X >= h.x0 && msg.X < h.x1 {
+					m.notice = ""
+					m.tab = h.tab
+				}
+			}
+		case msg.Button == tea.MouseButtonLeft && msg.Y == m.body()+chrome-1 && m.notice == "": // header, tab bar, rule, body, rule, footer
+			_, hits := m.footer()
+			for _, h := range hits {
+				if msg.X >= h.x0 && msg.X < h.x1 {
+					return m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(h.key)})
+				}
+			}
+		case msg.Button == tea.MouseButtonWheelDown, msg.Button == tea.MouseButtonWheelUp:
+			m.notice = ""
+			step := 3
+			if msg.Button == tea.MouseButtonWheelUp {
+				step = -3
+			}
+			m.off[m.tab] = max(0, min(m.off[m.tab]+step, m.maxOff(m.tab)))
+		}
 	case tea.KeyMsg:
 		m.notice = ""
 		g := m.pendingG
@@ -171,9 +199,18 @@ func (m Model) edit() (Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) View() string {
-	bar := func(short bool) string {
-		parts := make([]string, m.tabs())
+// span is the cells [x0, x1) of a row that a click acts on: it shows tab, or presses key.
+type span struct {
+	x0, x1 int
+	tab    int
+	key    string
+}
+
+// tabBar returns the tab bar and where each tab is on it, the short form when the full one is too wide.
+func (m Model) tabBar() (string, []span) {
+	bar := func(short bool) (string, []span) {
+		var b strings.Builder
+		var hits []span
 		for t := range m.tabs() {
 			mark, name := " ", m.name(t)
 			switch {
@@ -189,23 +226,56 @@ func (m Model) View() string {
 			if t == m.tab {
 				style = theme.AccentBold
 			}
-			parts[t] = style.Render(mark + string(rune('1'+t)) + " " + name)
+			if t > 0 {
+				b.WriteString(" │ ")
+			}
+			x := lipgloss.Width(b.String())
+			part := style.Render(mark + string(rune('1'+t)) + " " + name)
+			hits = append(hits, span{x0: x, x1: x + lipgloss.Width(part), tab: t})
+			b.WriteString(part)
 		}
-		return strings.Join(parts, " │ ")
+		return b.String(), hits
 	}
-	tabBar := bar(false)
-	if lipgloss.Width(tabBar) > m.width { // keep the tab bar on one line
-		tabBar = bar(true)
+	if s, hits := bar(false); lipgloss.Width(s) <= m.width { // keep the tab bar on one line
+		return s, hits
 	}
+	return bar(true)
+}
+
+// footer returns the footer and where its clickable actions are, the short form when the full one is too wide.
+func (m Model) footer() (string, []span) {
+	type piece struct{ text, key string }
+	build := func(pieces ...piece) (string, []span) {
+		var b strings.Builder
+		var hits []span
+		for _, p := range pieces {
+			x := lipgloss.Width(b.String())
+			if p.key != "" {
+				hits = append(hits, span{x0: x, x1: x + lipgloss.Width(p.text), key: p.key})
+			}
+			b.WriteString(p.text)
+		}
+		return b.String(), hits
+	}
+	s, hits := build(
+		piece{text: fmt.Sprintf("1-%d/tab tab · j/k scroll · ctrl+d/u half page · gg/G top/end · ", m.tabs())},
+		piece{"e edit", "e"}, piece{text: " · "}, piece{"? help", "?"}, piece{text: " · "}, piece{"q back", "q"})
+	if lipgloss.Width(s) <= m.width {
+		return s, hits
+	}
+	return build(
+		piece{text: fmt.Sprintf("1-%d j/k ^d/^u gg/G ", m.tabs())},
+		piece{"e", "e"}, piece{text: " · "}, piece{"?", "?"}, piece{text: " · "}, piece{"q back", "q"})
+}
+
+func (m Model) View() string {
+	tabBar, _ := m.tabBar()
 	rule := strings.Repeat("─", m.width)
 	lines := m.lines[m.tab][m.off[m.tab]:min(len(m.lines[m.tab]), m.off[m.tab]+m.body())]
 	// glamour does not wrap code, tables or long URLs: cut them, or the terminal wraps them and the view grows
 	fit := lipgloss.NewStyle().MaxWidth(m.width)
 	body := fit.Height(m.body()).MaxHeight(m.body()).Render(strings.Join(lines, "\n"))
-	footer := fmt.Sprintf("1-%d/tab tab · j/k scroll · ctrl+d/u half page · gg/G top/end · e edit · ? help · q back", m.tabs())
-	if lipgloss.Width(footer) > m.width {
-		footer = fmt.Sprintf("1-%d j/k ^d/^u gg/G e · ? · q back", m.tabs())
-	}
+	footer, _ := m.footer()
 	if m.notice != "" {
 		footer = m.notice
 	}
