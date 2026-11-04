@@ -65,10 +65,31 @@ func Kind(configured, pane string, run herdr.Runner) string {
 // refused. A new worktree's ref must hold the Change at src's Rel. Before it returns a pane, src
 // prepares the checkout the agent works in. git runs git inside project.
 func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab string, err error) {
+	return prepare(project, change, wt, run, src, git, func(string, string) error { return step(run, "agent", "focus", agentName(change)) })
+}
+
+// Run sends command to the Change's agent when it holds its pane's foreground: when idle, it prompts
+// it and focuses its tab; otherwise it sends nothing and returns an error carrying the status. With no
+// such agent it places a tab as Prepare does and returns it, for the caller to launch an agent with
+// command in. Unlike Start, nothing watches the agent afterwards.
+func Run(project, change, command string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab string, err error) {
+	return prepare(project, change, wt, run, src, git, func(status, tab string) error {
+		if status != "idle" {
+			return fmt.Errorf("%s is %s: wait until it is idle", change, status)
+		}
+		if err := step(run, "agent", "prompt", agentName(change), command); err != nil {
+			return err
+		}
+		return step(run, "tab", "focus", tab)
+	})
+}
+
+// prepare is Prepare, calling busy with the agent's status and tab instead of focusing it.
+func prepare(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner, busy func(status, tab string) error) (pane, tab string, err error) {
 	if a := agentName(change); len(a) > 32 {
 		return "", "", fmt.Errorf("%s cannot name a herdr agent: %s is longer than 32 characters", change, a)
 	}
-	pane, tab, dir, err := place(project, change, wt, run, src, git)
+	pane, tab, dir, err := place(project, change, wt, run, src, git, busy)
 	if err != nil || pane == "" {
 		return "", "", err
 	}
@@ -78,8 +99,8 @@ func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 	return pane, tab, nil
 }
 
-// place is Prepare without the Source's preparation; dir is the checkout of the returned pane.
-func place(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab, dir string, err error) {
+// place is prepare without the Source's preparation; dir is the checkout of the returned pane.
+func place(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner, busy func(status, tab string) error) (pane, tab, dir string, err error) {
 	out, err := run("agent", "get", agentName(change))
 	switch {
 	case err == nil:
@@ -89,6 +110,7 @@ func place(project, change string, wt Worktree, run herdr.Runner, src work.Sourc
 					PaneID string `json:"pane_id"`
 					TabID  string `json:"tab_id"`
 					Cwd    string `json:"cwd"`
+					Status string `json:"agent_status"`
 				} `json:"agent"`
 			} `json:"result"`
 		}
@@ -105,7 +127,7 @@ func place(project, change string, wt Worktree, run herdr.Runner, src work.Sourc
 			return "", "", "", err
 		}
 		if running {
-			return "", "", "", step(run, "agent", "focus", agentName(change))
+			return "", "", "", busy(a.Status, a.TabID)
 		}
 		return a.PaneID, a.TabID, containing(a.Cwd, d), nil
 	case !strings.Contains(err.Error(), "agent_not_found"):
