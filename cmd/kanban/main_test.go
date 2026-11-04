@@ -214,6 +214,38 @@ func TestLaunchWatches(t *testing.T) {
 	}
 }
 
+func TestRunCommand(t *testing.T) {
+	t.Setenv("KANBAN_PROJECT", t.TempDir()) // from the Board, and still not watched
+	var calls []string
+	run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
+	if err := runCommand("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:verify m1-board-view", run); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"tab focus w2:tG", "agent start m1-board-view --kind claude --pane w2:p1J --timeout 60000", "agent prompt m1-board-view /opsx:verify m1-board-view"}
+	if !reflect.DeepEqual(calls, want) {
+		t.Errorf("want Launch only, no watcher\n got %q\nwant %q", calls, want)
+	}
+}
+
+func TestRunCommandNotifiesOnFailure(t *testing.T) {
+	var calls [][]string
+	run := func(args ...string) ([]byte, error) {
+		calls = append(calls, args)
+		if args[0] == "agent" && args[1] == "start" {
+			return nil, errors.New("timeout")
+		}
+		return nil, nil
+	}
+	err := runCommand("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:archive m1-board-view", run)
+	if err == nil {
+		t.Fatal("want the Launch error")
+	}
+	want := []string{"notification", "show", "spec-kanban: run failed", "--body", err.Error()}
+	if len(calls) != 3 || !reflect.DeepEqual(calls[2], want) {
+		t.Errorf("herdr calls %q, want tab focus, agent start then %q", calls, want)
+	}
+}
+
 func TestResumeNotifiesOnFailure(t *testing.T) {
 	t.Setenv("KANBAN_PROJECT", "/x/proj")
 	t.Setenv("HERDR_PLUGIN_STATE_DIR", t.TempDir()) // no record

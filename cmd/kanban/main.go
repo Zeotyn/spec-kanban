@@ -54,6 +54,9 @@ Usage:
   kanban launch <change> <pane> <tab> <kind> <prompt>
                     Focus tab, start an agent of kind in pane, send prompt and watch it until it hands
                     the Change off or goes away (internal, spawned by the Board)
+  kanban run <change> <pane> <tab> <kind> <command>
+                    Focus tab, start an agent of kind in pane and send command, without watching it
+                    (internal, spawned by the Board for Verify and Archive)
   kanban resume <change> <pane> <tab>
                     Focus tab and reopen the session recorded for <change> in pane (internal, spawned by the Board)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
@@ -82,6 +85,12 @@ func main() {
 			os.Exit(2)
 		}
 		err = launch(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], herdr.Exec)
+	case "run":
+		if len(os.Args) != 7 {
+			fmt.Fprintf(os.Stderr, "kanban: run needs a change name, a pane, a tab, an agent kind and a command\n\n%s", usage)
+			os.Exit(2)
+		}
+		err = runCommand(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], herdr.Exec)
 	case "resume":
 		if len(os.Args) != 5 {
 			fmt.Fprintf(os.Stderr, "kanban: resume needs a change name, a pane and a tab\n\n%s", usage)
@@ -243,6 +252,16 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 		Record: func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
 	}, run, git)
 	return nil
+}
+
+// runCommand runs start.Launch with command and reports a failure as a herdr notification; nothing
+// watches the agent.
+func runCommand(change, pane, tab, kind, command string, run herdr.Runner) error {
+	err := start.Launch(change, kind, command, pane, tab, run)
+	if err != nil {
+		run("notification", "show", "spec-kanban: run failed", "--body", err.Error())
+	}
+	return err
 }
 
 // resumeChange reopens the session recorded for change of $KANBAN_PROJECT and reports a failure as
