@@ -45,6 +45,8 @@ Done on 2026-11-04 in a herdr popup (the `board` pane, 90%×90%) with a bubblete
 6. **The Board owns the Card menu, also over the detail view.**
    - The state lives in the Board model: the Card, its Phase and the anchor cell.
    - In the detail view the Board catches the right click before it forwards mouse events, because the detail model knows nothing about Start.
+   - Choosing the entry from the detail view closes the details first. The Board's footer then shows the Start or the notice, and the Board's rules for keys during a Start apply unchanged.
+   - The menu and the open details follow a reload by name, so the entry and its action use the Card's current Phase.
    - The menu is a small box drawn with the theme's dim border. It is shifted left or up when it would cross the popup edge. It is spliced into the finished `View` lines with `ansi.Cut`/`ansi.Truncate` from `github.com/charmbracelet/x/ansi`, which lipgloss already depends on and which only becomes a direct requirement in `go.mod`. Cutting by display cells keeps colour codes and wide characters intact.
    - Rejected: lipgloss v2 layers, which mean a major-version migration for one box.
 

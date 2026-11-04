@@ -147,7 +147,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.menu, m.notice = nil, ""
 		switch k.String() {
 		case "s":
-			return m.startCard(open.card, open.phase)
+			return m.choose(open.card)
 		case "ctrl+c":
 			return m, tea.Quit
 		}
@@ -199,7 +199,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err == nil {
 			m.all, m.loaded = work.Group(msg.changes), true
 			m.refilter()
-			m.updateDetailHeader()
+			m.follow()
 		}
 		if m.stale {
 			m.stale = false
@@ -327,19 +327,25 @@ func (m Model) refresh() (Model, tea.Cmd) {
 	return m, m.reload
 }
 
-// updateDetailHeader refreshes the open detail's header from the freshly loaded Change.
-func (m *Model) updateDetailHeader() {
-	if m.detail == nil {
-		return
-	}
-	for p, col := range m.all {
-		for _, c := range col {
-			if c.Name == m.detailOf.Name && (c.Phase == work.Archived) == (m.detailOf.Phase == work.Archived) {
-				d := m.detail.WithHeader(detailHeader(c, work.Phase(p)))
-				m.detail = &d
-				return
+// follow moves the open details and the Card menu to the freshly loaded Change, matched by name and archive state.
+func (m *Model) follow() {
+	fresh := func(old work.Item) work.Item {
+		for _, col := range m.all {
+			for _, c := range col {
+				if c.Name == old.Name && (c.Phase == work.Archived) == (old.Phase == work.Archived) {
+					return c
+				}
 			}
 		}
+		return old
+	}
+	if m.detail != nil {
+		m.detailOf = fresh(m.detailOf)
+		d := m.detail.WithHeader(detailHeader(m.detailOf, m.detailOf.Phase))
+		m.detail = &d
+	}
+	if m.menu != nil {
+		m.menu = &menu{fresh(m.menu.card), m.menu.x, m.menu.y}
 	}
 }
 

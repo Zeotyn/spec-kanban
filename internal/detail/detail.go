@@ -121,6 +121,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if msg.Action != tea.MouseActionPress {
 			break
 		}
+		m.pendingG = false
 		switch {
 		case msg.Button == tea.MouseButtonLeft && msg.Y == 1:
 			_, hits := m.tabBar()

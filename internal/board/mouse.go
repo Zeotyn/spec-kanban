@@ -111,17 +111,16 @@ func (m Model) footer() (string, []hit) {
 	return build(true)
 }
 
-// menu is the open Card menu: the Card it acts on, its Phase and the cell it was opened at.
+// menu is the open Card menu: the Card it acts on and the cell it was opened at.
 type menu struct {
-	card  work.Item
-	phase work.Phase
-	x, y  int
+	card work.Item
+	x, y int
 }
 
 // box renders the menu and the cell of its top-left corner: at the pointer, shifted to stay inside width × height.
 func (c menu) box(width, height int) (lines []string, x, y int) {
 	entry := "▶ Start  s"
-	switch c.phase {
+	switch c.card.Phase {
 	case work.Review:
 		entry = "↻ Resume  s"
 	case work.Draft, work.Archived: // s only explains why not
@@ -161,6 +160,12 @@ func overlay(view string, box []string, x, y int) string {
 	return strings.Join(lines, "\n")
 }
 
+// choose does what s does on the menu's Card, on the Board: a Start or a notice shows in the Board's footer.
+func (m Model) choose(c work.Item) (Model, tea.Cmd) {
+	m.detail = nil
+	return m.startCard(c, c.Phase)
+}
+
 // press feeds key k through the key handling, as a click on its footer action does.
 func (m Model) press(k string) (Model, tea.Cmd) {
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
@@ -174,18 +179,21 @@ func (m Model) press(k string) (Model, tea.Cmd) {
 // mouse handles a press of a mouse button; releases and motion are ignored, and so is everything while
 // the filter prompt is open or a Start runs.
 func (m Model) mouse(msg tea.MouseMsg) (Model, tea.Cmd) {
-	if msg.Action != tea.MouseActionPress || m.prompting || m.starting != "" || m.project == "" {
+	if msg.Action != tea.MouseActionPress || m.prompting || m.starting != "" {
 		return m, nil
 	}
-	if m.help {
-		m.help = false
+	if m.help { // a click closes it; a trackpad swipe of wheel events would close it and scroll on
+		m.help = m.help && tea.MouseEvent(msg).IsWheel()
+		return m, nil
+	}
+	if m.project == "" {
 		return m, nil
 	}
 	if m.menu != nil {
 		open := *m.menu
 		m.menu = nil
 		if msg.Button == tea.MouseButtonLeft && open.onEntry(msg.X, msg.Y, m.width, m.height) {
-			return m.startCard(open.card, open.phase)
+			return m.choose(open.card)
 		}
 		if msg.Button != tea.MouseButtonRight { // a right click opens the menu again where it is
 			return m, nil
@@ -193,7 +201,7 @@ func (m Model) mouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 	}
 	if m.detail != nil {
 		if msg.Button == tea.MouseButtonRight {
-			m.menu = &menu{m.detailOf, m.detailOf.Phase, msg.X, msg.Y}
+			m.menu = &menu{m.detailOf, msg.X, msg.Y}
 			return m, nil
 		}
 		d, cmd := m.detail.Update(msg)
@@ -230,10 +238,11 @@ func (m Model) mouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 	case tea.MouseButtonRight:
 		if c, i, ok := m.cardAt(msg.X, msg.Y); ok {
 			m.notice, m.nav.pendingG, m.nav.col, m.nav.sel[c] = "", false, c, i
-			m.menu = &menu{m.cols[c][i], work.Phase(c), msg.X, msg.Y}
+			m.menu = &menu{m.cols[c][i], msg.X, msg.Y}
 		}
 	case tea.MouseButtonWheelDown, tea.MouseButtonWheelUp:
-		if c := l.at(msg.X); c >= 0 && len(m.cols[c]) > 0 && m.loaded && m.err == nil {
+		body := msg.Y >= 2 && msg.Y < 2+lipgloss.Height(m.body()) // below the header and a blank line
+		if c := l.at(msg.X); c >= 0 && body && len(m.cols[c]) > 0 && m.loaded && m.err == nil {
 			k := "j"
 			if msg.Button == tea.MouseButtonWheelUp {
 				k = "k"

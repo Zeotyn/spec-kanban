@@ -1,6 +1,7 @@
 package board
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -458,5 +459,75 @@ func TestClickDetailFooter(t *testing.T) {
 	m, _ := enter(keys(board(t, 120, 30, fixture), "3"))
 	if got := left(t, m, "Proposal"); !strings.Contains(got.View(), "▌") || got.detail == nil {
 		t.Error("a click on a tab must reach the details")
+	}
+}
+
+func TestMenuInDetailShowsNotices(t *testing.T) {
+	m, _ := enter(board(t, 120, 30, fixture)) // Draft: m2-change-detail
+	m, _ = mouse(m, 40, 15, tea.MouseButtonRight)
+	m, _ = pressKey(m, "s")
+	if m.detail != nil || !strings.HasSuffix(m.View(), "m2-change-detail is a draft: plan it first") || m.nav.col != 0 || m.nav.sel[0] != 0 {
+		t.Errorf("the menu's action returns to the Board, where the notice shows:\n%s", m.View())
+	}
+}
+
+func TestStartFromDetail(t *testing.T) {
+	m, _ := enter(keys(board(t, 120, 30, fixture), "3"))
+	starter(&m, nil)
+	m, _ = mouse(m, 40, 15, tea.MouseButtonRight)
+	m, _ = click(t, m, "Start", tea.MouseButtonLeft)
+	if v := m.View(); m.detail != nil || !strings.HasSuffix(v, "starting m1-board-view…") {
+		t.Fatalf("the Board must say what is starting:\n%s", v)
+	}
+	for _, k := range []string{"q", "j", "enter"} {
+		if got, cmd := pressKey(m, k); cmd != nil || got.detail != nil || got.View() != m.View() {
+			t.Errorf("%s while starting must do nothing", k)
+		}
+	}
+	m = send(m, startedMsg{errors.New("no tab")})
+	if !strings.HasSuffix(m.View(), "start failed: no tab") {
+		t.Errorf("a failed Start shows in the footer:\n%s", m.View())
+	}
+}
+
+func TestDetailMenuFollowsReload(t *testing.T) {
+	m, _ := enter(keys(board(t, 120, 30, fixture), "2")) // Ready: m1-phase-derivation
+	moved := append([]work.Item(nil), fixture...)
+	moved[2].Phase, moved[2].Done = work.Review, 6
+	m = send(m, loadedMsg{changes: moved})
+	if m, _ = mouse(m, 40, 15, tea.MouseButtonRight); !strings.Contains(m.View(), "↻ Resume  s") {
+		t.Errorf("the menu must show the Change's current Phase:\n%s", m.View())
+	}
+}
+
+func TestHelpAndTheWheel(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "?")
+	if got, _ := mouse(m, 40, 10, tea.MouseButtonWheelDown); !got.help || got.nav != m.nav {
+		t.Error("the wheel is no click: the help stays and nothing moves")
+	}
+	none := keys(New("", nil, nil, time.Now, nil, nil, nil, nil, nil, [columns]bool{}, "", "test"), "?")
+	if got, _ := mouse(none, 0, 0, tea.MouseButtonLeft); got.help {
+		t.Error("a click closes the help without a project too")
+	}
+}
+
+func TestWheelOutsideColumns(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "2")
+	x, _ := at(t, m, "Ready 2", false)
+	for _, y := range []int{0, 1, strings.Count(m.View(), "\n")} { // the header, the blank line, the footer
+		if got, _ := mouse(m, x, y, tea.MouseButtonWheelDown); got.nav != m.nav {
+			t.Errorf("wheel on row %d changed the Board", y)
+		}
+	}
+}
+
+func TestMenuFollowsReload(t *testing.T) {
+	m := open(t, "m1-phase-derivation") // Ready
+	started := starter(&m, nil)
+	moved := append([]work.Item(nil), fixture...)
+	moved[2].Phase, moved[2].Done = work.Review, 6
+	m = send(m, loadedMsg{changes: moved})
+	if m, _ = pressKey(m, "s"); m.starting != "" || len(*started) != 0 || !strings.Contains(m.notice, "are done") {
+		t.Errorf("the menu must act on the Card's current Phase: starting %q notice %q", m.starting, m.notice)
 	}
 }
