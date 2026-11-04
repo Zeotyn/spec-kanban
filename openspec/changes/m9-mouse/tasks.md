@@ -4,7 +4,7 @@
 
 ## 2. Mouse reporting and layout
 
-- [ ] 2.1 `cmd/kanban`: start the Board program with `tea.WithMouseCellMotion()`
+- [x] 2.1 `cmd/kanban`: start the Board program with `tea.WithMouseCellMotion()`
 - [ ] 2.2 `internal/board`: a pure layout function computes the x ranges of the shown columns, the y ranges of the visible Cards (including the `↑ n more` line and both Card heights) and the `◀`/`▶` cells of single-column mode. `View` uses it for its geometry
 - [ ] 2.3 Test helper: render `View()`, strip ANSI, find a text and return its cell; send a `tea.MouseMsg` press there
 

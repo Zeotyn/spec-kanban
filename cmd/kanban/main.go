@@ -192,7 +192,7 @@ func showBoard(proj string) error {
 		return spawn("resume", change, pane, tab)
 	}
 	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), running, startOne,
-		resumable, resume, cfg.Hide, notice, versionString()), tea.WithAltScreen()).Run()
+		resumable, resume, cfg.Hide, notice, versionString()), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
 }
 
