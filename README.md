@@ -39,6 +39,7 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `e` | edit `tasks.md` | edit the shown document |
 | `r` | reload | – |
 | `s` | start the Change in a new agent tab in its worktree | – |
+| `v` `a` | verify / archive a Review Change through an agent | – |
 | `/` | filter Cards by name | – |
 | `n` `N` | next/previous match | – |
 | `?` | key help | key help |
@@ -57,6 +58,8 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 
 `s` works on Ready and In Progress Cards. It opens a new tab named after the Change in a git worktree of the project and closes the Board at once; the tab then gets focus, the agent starts in it and gets the prompt (`/opsx:apply <change>` plus `instructions` unless `prompt` is configured, see [Settings](#settings)). If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (agent not ready, prompt not sent) as a herdr notification. On a Review Card, `s` reopens the Change's recorded session (see [Handoff](#handoff)) in its worktree without a prompt, or focuses its running agent; without a recorded session, or for an agent kind that cannot resume, the footer says why not, as it does on Draft and Archived Cards. A green `●` before a Card's name marks a Change with a Running agent. From a shell, `kanban start <change>` does the same without the Phase check.
 
+`v` and `a` send `/opsx:verify <change>` and `/opsx:archive <change>` for a Review Card, exactly that, without `prompt` or `instructions`. When the Change's agent is idle in its tab, the command goes to it and its tab gets focus; while that agent works or waits for an answer, the footer says so (`m1-board-view is working: wait until it is idle`) and nothing is sent. Without an agent, a new one starts where `s` would start it, in the Change's worktree, and gets the command. Either way the Board closes, nothing watches the agent and no [Handoff](#handoff) follows: read the result in the agent's tab. After Archive in a worktree, merging its branch and removing the worktree stay up to you or the Main agent. On a Card outside Review, `v` and `a` only show a notice.
+
 The worktree is a checkout on a branch named like the Change, created by herdr at `<dir>/<repo>/<change>`, where `<dir>` is `[worktrees] directory` in herdr's config (default `~/.herdr/worktrees`). New branches start from the project's default branch (`origin/HEAD`, else `main`, `master` or `develop`, else the current branch), or from `base` when set. An existing checkout on that branch is reused. The Change must be committed on the start branch before you press `s`; otherwise Start reports that the Change is not on the base. The Board and the sidebar read the Change's Progress from its worktree. The plugin never removes a worktree or deletes a branch; after a [Handoff](#handoff) the Main agent removes the worktree. Without a git repository, `s` opens the tab in the project.
 
 ### Mouse
@@ -66,7 +69,7 @@ The Board and the details also work with the mouse; the keys stay as they are.
 - Click a Card to select it, click the selected Card again to open its details.
 - The wheel over a column selects the next or previous Card there, like `j`/`k`. In the details it scrolls three lines per step.
 - In a narrow popup, which shows one column at a time, click `◀` or `▶` for the previous or next column.
-- Right-click a Card for its Card menu: `▶ Start  s` on Ready and In Progress Cards, `↻ Resume  s` on Review Cards, faint on Draft and Archived Cards, where it only says why not. Click the entry or press `s` to do what `s` does; any other click or key closes the menu. A right click in the details opens the menu for the shown Change.
+- Right-click a Card for its Card menu: `▶ Start  s` on Ready and In Progress Cards, `↻ Resume  s` on Review Cards, faint on Draft and Archived Cards, where it only says why not. Below it `✓ Verify  v` and `⇥ Archive  a`, faint outside Review. Click an entry or press its key to do what that key does; any other click or key closes the menu. A right click in the details opens the menu for the shown Change.
 - The actions in the footers (`⏎ details`, `e edit tasks`, `s start`, `/ filter`, `r reload`, `? help`, `q close`; `e edit`, `? help`, `q back` in the details) act like their key, and a click on a tab in the details shows that document.
 - A click closes the key help, like any key. While the filter prompt is open or a Start runs, the mouse does nothing.
 
@@ -92,6 +95,7 @@ A directory with both `.specify` and `specs` is a Spec Kit Project; its Work ite
 - **Details** have the tabs Tasks and Spec, then Plan and Research when those files exist.
 - **Start** writes `.specify/feature.json` (`{"feature_directory":"specs/<name>"}`) into the checkout the agent works in before it starts, so Spec Kit finds the Feature. With `worktree` off that is the Project, and it overwrites your current feature. The [Handoff](#handoff) asks the Main agent to delete the file in the worktree, unless git tracks it, before `git worktree remove`.
 - **Prompt**: the implement command of the agent kind being started, from `.specify/integration.json`: `/speckit-implement` (claude), `$speckit-implement` (codex, zcode), `/speckit.implement` for integrations with the separator `.`. Without the file, `/speckit-implement`. It has no `{change}`, since `feature.json` names the Feature. `instructions` follow it; a configured `prompt` replaces it and applies to every Project.
+- **Verify and Archive** do not exist: Spec Kit has no step after implementing that checks or archives a Feature. The Card menu shows only Start or Resume, and `v` and `a` say so.
 - Commit `specs/<feature>` before pressing `s`; otherwise Start reports that the Feature is not on the base.
 - herdr agent names must start with a lowercase letter, so the agent of `001-user-login-email` is named `f-001-user-login-email` (`herdr agent list`). A name whose agent name would exceed herdr's 32 characters cannot be started.
 

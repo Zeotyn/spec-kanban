@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Mouse: click a Card to select it and again to open its details, scroll a column or the details with the wheel, click `◀`/`▶` in a narrow popup, tabs in the details and the actions in both footers. A right click on a Card, or in its details, opens the Card menu, whose entry starts or resumes the Change like `s`. Hold `Shift` (or your terminal's modifier) while dragging to select text.
+- Verify and Archive: `v` and `a` on a Review Card, or the Card menu's new entries, send `/opsx:verify <change>` or `/opsx:archive <change>` to the Change's idle agent, or start a new one in its worktree; without a watcher or Handoff. Spec Kit has neither.
 
 ## 0.3.0 - 2026-11-02
 

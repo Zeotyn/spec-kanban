@@ -17,7 +17,7 @@
 
 ## 4. Docs
 
-- [ ] 4.1 README: Verify and Archive (when available, where they run, no Handoff, merge after Archive in a worktree stays manual); CONTEXT.md: Verify and Archive as Card actions; CHANGELOG `## Unreleased`
+- [x] 4.1 README: Verify and Archive (when available, where they run, no Handoff, merge after Archive in a worktree stays manual); CONTEXT.md: Verify and Archive as Card actions; CHANGELOG `## Unreleased`
 
 ## 5. Verification
 
