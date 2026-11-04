@@ -8,7 +8,7 @@
 │  1-5          column by number            │
 │  enter        details                     │
 │  e            edit tasks                  │
-│  s            start the agent             │
+│  s/v/a        start, verify, archive      │
 │  /            filter by name              │
 │  n/N          next/previous match         │
 │  esc          clear the filter, else close│

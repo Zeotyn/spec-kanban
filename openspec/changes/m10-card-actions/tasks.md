@@ -7,13 +7,13 @@
 
 - [x] 2.1 `internal/start`: `Run` reads the Change's agent like `Prepare` (foreign agent refused); a foreground agent with status `idle` gets `agent prompt` and `tab focus`; any other status returns an error carrying it; otherwise `Prepare` places a tab and `Run` returns its pane and tab (tests with fake herdr output for idle, working, blocked, exited, none, foreign)
 - [x] 2.2 `cmd/kanban`: subcommand `kanban run <change> <pane> <tab> <kind> <command>` runs `start.Launch` without `Watch`, reports a failure as a herdr notification; usage text updated
-- [ ] 2.3 `cmd/kanban`: the Board's `act` callback resolves the kind like Start, calls `start.Run`, spawns `kanban run` when a tab was placed, and passes the Source's command without `prompt` or `instructions`
+- [x] 2.3 `cmd/kanban`: the Board's `act` callback resolves the kind like Start, calls `start.Run`, spawns `kanban run` when a tab was placed, and passes the Source's command without `prompt` or `instructions`
 
 ## 3. Board
 
-- [ ] 3.1 `v` and `a`: notices outside Review, without the Source's command, and for a busy agent (`<name> is <status>: wait until it is idle`); otherwise the footer says `verifying <name>…` / `archiving <name>…` and the Board ignores input until `act` returns, then closes or shows the error (tests per scenario of "Verify and archive from the Board")
-- [ ] 3.2 Card menu: entries `✓ Verify  v` and `⇥ Archive  a` below Start/Resume when the Source has the command, faint outside Review; a click or the entry's key runs it; Spec Kit Cards keep one entry; menu edge and click tests extended to three lines
-- [ ] 3.3 Key help: `v` and `a` under Board; the footer and its goldens stay unchanged
+- [x] 3.1 `v` and `a`: notices outside Review, without the Source's command, and for a busy agent (`<name> is <status>: wait until it is idle`); otherwise the footer says `verifying <name>…` / `archiving <name>…` and the Board ignores input until `act` returns, then closes or shows the error (tests per scenario of "Verify and archive from the Board")
+- [x] 3.2 Card menu: entries `✓ Verify  v` and `⇥ Archive  a` below Start/Resume when the Source has the command, faint outside Review; a click or the entry's key runs it; Spec Kit Cards keep one entry; menu edge and click tests extended to three lines
+- [x] 3.3 Key help: `v` and `a` under Board; the footer and its goldens stay unchanged
 
 ## 4. Docs
 

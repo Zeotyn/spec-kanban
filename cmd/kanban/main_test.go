@@ -416,3 +416,16 @@ func TestStartChangeKeepsPromptOverInstructions(t *testing.T) {
 		t.Errorf("last herdr call %q, want the configured prompt", last)
 	}
 }
+
+func TestLacking(t *testing.T) {
+	op, sk := lacking(openspec.New(nil)), lacking(speckit.New(nil, ""))
+	if got := op(work.Verify) + op(work.Archive); got != "" {
+		t.Errorf("OpenSpec names both commands, got %q", got)
+	}
+	if got := sk(work.Verify); got != "Spec Kit has no verify" {
+		t.Errorf("Spec Kit verify: %q", got)
+	}
+	if got := sk(work.Archive); got != "Spec Kit has no archive" {
+		t.Errorf("Spec Kit archive: %q", got)
+	}
+}

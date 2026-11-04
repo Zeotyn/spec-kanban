@@ -2,9 +2,11 @@
 package board
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -62,11 +64,27 @@ var helpGroups = []struct {
 	keys  []key
 }{
 	{"Board", []key{{"h/l j/k", "column, card"}, {"gg/G", "first/last card"}, {"ctrl+d/u", "half page down/up"}, {"1-5", "column by number"},
-		{"enter", "details"}, {"e", "edit tasks"}, {"s", "start the agent"}, {"/", "filter by name"}, {"n/N", "next/previous match"},
+		{"enter", "details"}, {"e", "edit tasks"}, {"s/v/a", "start, verify, archive"}, {"/", "filter by name"}, {"n/N", "next/previous match"},
 		{"esc", "clear the filter, else close"}, {"r", "reload"}, {"?", "this help"}, {"q", "close"}}},
 	{"Filter prompt", []key{{"enter/esc", "keep/clear the filter"}, {"backspace", "delete, close when empty"}}},
 	{"Details", []key{{"1-4, tab", "switch document"}, {"shift+tab", "previous document"}, {"j/k gg/G", "scroll, top/end"},
 		{"ctrl+d/u", "half page down/up"}, {"e", "edit the document"}, {"q/esc", "back to the Board"}}},
+}
+
+// action is a Card action after Start: its key, the Source's step, its Card menu entry and the
+// footer's verb while it is handed over.
+type action struct {
+	key   string
+	step  work.Action
+	entry string
+	verb  string
+}
+
+// actions are the Card actions after Start, in Card menu order.
+var actions = []action{{"v", work.Verify, "✓ Verify  v", "verifying"}, {"a", work.Archive, "⇥ Archive  a", "archiving"}}
+
+func actionOf(k string) action {
+	return actions[slices.IndexFunc(actions, func(a action) bool { return a.key == k })]
 }
 
 // Model shows the Board of one Project; an empty project means none was found.
@@ -78,6 +96,8 @@ type Model struct {
 	start         func(change string) error
 	resumable     func(change string) (kind string, ok bool) // the recorded agent kind ("" if none) and whether it can be reopened
 	resume        func(change string) error
+	act           func(change string, a work.Action) error // hand the Source's command for a to an agent
+	lacks         func(a work.Action) string               // why the Source cannot do a, "" when it names its command
 	now           func() time.Time
 	loading       bool
 	loaded        bool // a load has succeeded at least once
@@ -88,6 +108,7 @@ type Model struct {
 	prompting     bool            // keys go to the filter prompt
 	running       map[string]bool // Changes with a Running agent, kept across loads
 	starting      string          // the Change being started; keys other than ctrl+c are ignored meanwhile
+	verb          string          // what is done to starting, "" for a Start
 	nav           nav
 	detail        *detail.Model // the open detail view, nil on the Board
 	detailOf      work.Item     // the Change the detail shows, matched by name and archive state
@@ -101,12 +122,15 @@ type Model struct {
 }
 
 // New builds the Board; docs reads an Item's documents. A non-nil snapshot (the cached last load) is shown while Init loads afresh.
-// agents, start, resumable and resume may be nil (no badges, s does nothing, no record to resume).
+// agents, start, resumable, resume, act and lacks may be nil (no badges, s does nothing, no record to
+// resume, v and a do nothing, the Source names every command).
 // hide marks Phases not shown as columns; notice replaces the footer until the first key; version is shown in the help.
 func New(project string, docs func(work.Item) work.Docs, load func() ([]work.Item, error), now func() time.Time, snapshot []work.Item,
 	agents func() (map[string]bool, error), start func(change string) error,
-	resumable func(change string) (string, bool), resume func(change string) error, hide [columns]bool, notice, version string) Model {
-	m := Model{project: project, docs: docs, load: load, agents: agents, start: start, resumable: resumable, resume: resume, now: now, hide: hide, notice: notice,
+	resumable func(change string) (string, bool), resume func(change string) error, act func(change string, a work.Action) error,
+	lacks func(a work.Action) string, hide [columns]bool, notice, version string) Model {
+	m := Model{project: project, docs: docs, load: load, agents: agents, start: start, resumable: resumable, resume: resume, act: act, lacks: lacks,
+		now: now, hide: hide, notice: notice,
 		version: version, loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
 		m.all, m.loaded = work.Group(snapshot), true
@@ -145,10 +169,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if k, ok := msg.(tea.KeyMsg); ok && m.menu != nil {
 		open := *m.menu
 		m.menu, m.notice = nil, ""
-		switch k.String() {
-		case "s":
-			return m.choose(open.card)
-		case "ctrl+c":
+		switch {
+		case slices.Contains(open.keys, k.String()):
+			return m.choose(open.card, k.String())
+		case k.String() == "ctrl+c":
 			return m, tea.Quit
 		}
 		return m, nil
@@ -213,7 +237,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err == nil {
 			return m, tea.Quit
 		}
-		m.starting, m.notice = "", "start failed: "+msg.err.Error()
+		m.notice = "start failed: " + msg.err.Error()
+		if m.verb != "" { // act's errors say what went wrong, like a busy agent
+			m.notice = msg.err.Error()
+		}
+		m.starting, m.verb = "", ""
 		return m, m.lookup() // a half-done Start may have left an agent behind
 	case detail.EditedMsg: // the detail closed before the editor reported back
 		return m.refresh()
@@ -261,6 +289,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.nav.pendingG = false
 			if col := m.cols[m.nav.col]; len(col) > 0 {
 				return m.startCard(col[m.nav.sel[m.nav.col]], work.Phase(m.nav.col))
+			}
+		case k == "v" || k == "a":
+			m.nav.pendingG = false
+			if col := m.cols[m.nav.col]; len(col) > 0 {
+				return m.actCard(col[m.nav.sel[m.nav.col]], work.Phase(m.nav.col), actionOf(k))
 			}
 		case k == "r" && m.project != "":
 			m.nav.pendingG = false
@@ -345,7 +378,9 @@ func (m *Model) follow() {
 		m.detail = &d
 	}
 	if m.menu != nil {
-		m.menu = &menu{fresh(m.menu.card), m.menu.x, m.menu.y}
+		next := *m.menu
+		next.card = fresh(next.card)
+		m.menu = &next
 	}
 }
 
@@ -391,6 +426,29 @@ func (m Model) startCard(c work.Item, p work.Phase) (Model, tea.Cmd) {
 		}
 		m.starting = c.Name
 		return m, func() tea.Msg { return startedMsg{m.start(c.Name)} }
+	}
+	return m, nil
+}
+
+// lacking is why the Source cannot do a, "" when it names its command.
+func (m Model) lacking(a work.Action) string {
+	if m.lacks == nil {
+		return ""
+	}
+	return m.lacks(a)
+}
+
+// actCard hands the Source's command for a on c to an agent in a command, or explains why not.
+func (m Model) actCard(c work.Item, p work.Phase, a action) (Model, tea.Cmd) {
+	switch {
+	case m.act == nil:
+	case m.lacking(a.step) != "":
+		m.notice = m.lacking(a.step)
+	case p != work.Review:
+		m.notice = c.Name + " is not in Review"
+	default:
+		m.starting, m.verb = c.Name, a.verb
+		return m, func() tea.Msg { return startedMsg{m.act(c.Name, a.step)} }
 	}
 	return m, nil
 }
@@ -475,7 +533,7 @@ func (m Model) view() string {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(m.notice)
 	}
 	if m.starting != "" {
-		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("starting " + m.starting + "…")
+		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(cmp.Or(m.verb, "starting") + " " + m.starting + "…")
 	}
 	return m.header() + "\n\n" + m.body() + "\n\n" + footer // no trailing newline: the view fills the height exactly
 }
