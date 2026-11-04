@@ -694,3 +694,46 @@ func TestRunningFeatureName(t *testing.T) {
 		t.Errorf("got %v, %v, want %v", got, err, want)
 	}
 }
+
+func TestRun(t *testing.T) {
+	verify := "/opsx:verify " + change
+	sent := "agent prompt " + change + " " + verify
+	tests := []struct {
+		name     string
+		out      map[string]string
+		fail     map[string]error
+		want     []string
+		wantPane string
+		wantTab  string
+		wantErr  string
+	}{
+		{"idle agent: prompt and focus its tab", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info, sent, tfocus}, "", "", ""},
+		{"working agent: nothing sent", map[string]string{"agent get": "agent-get-working.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info}, "", "", change + " is working: wait until it is idle"},
+		{"blocked agent: nothing sent", map[string]string{"agent get": "agent-get-blocked.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info}, "", "", change + " is blocked: wait until it is idle"},
+		{"agent exited: its tab", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{get, info}, "w2:p1J", "w2:tG", ""},
+		{"no agent: new tab", map[string]string{"tab create": "tab-create.json"}, map[string]error{"agent get": notFound}, []string{get, create}, "w2:p1J", "w2:tG", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &fakeHerdr{t: t, out: tt.out, fail: tt.fail}
+			pane, tab, err := Run(proj, change, verify, off, h.run, src, noGit)
+			if tt.wantErr == "" && err != nil || tt.wantErr != "" && (err == nil || err.Error() != tt.wantErr) {
+				t.Fatalf("err = %v, want %q", err, tt.wantErr)
+			}
+			if pane != tt.wantPane || tab != tt.wantTab {
+				t.Errorf("got pane %q tab %q, want %q %q", pane, tab, tt.wantPane, tt.wantTab)
+			}
+			if !reflect.DeepEqual(h.calls, tt.want) {
+				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunRefusesAnotherProjectsAgent(t *testing.T) {
+	h := &fakeHerdr{t: t, out: map[string]string{"agent get": "agent-get.json"}}
+	_, _, err := Run(proj+"2", change, "/opsx:verify "+change, off, h.run, src, noGit)
+	if err == nil || !strings.Contains(err.Error(), "already runs in "+proj) || !reflect.DeepEqual(h.calls, []string{get}) {
+		t.Errorf("want the already-runs error and no other call, got %v, %q", err, h.calls)
+	}
+}
