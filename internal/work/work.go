@@ -4,6 +4,7 @@ package work
 import (
 	"cmp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/zeotyn/spec-kanban/internal/worktree"
@@ -38,8 +39,9 @@ type Item struct {
 	Dir        string            `json:"dir,omitempty"`        // Project directory of the checkout the Item is read from; "" for the Project
 }
 
-// Group splits items into columns indexed by Phase: open Phases newest first, Archived by archive
-// date newest first with undated last; ties by name.
+// Group splits items into columns indexed by Phase: Ready as a queue (fixes, then milestones, both
+// by number, then the rest in natural name order), the other open Phases newest first, Archived by
+// archive date newest first with undated last; ties by name.
 func Group(items []Item) [len(names)][]Item {
 	var cols [len(names)][]Item
 	for _, it := range items {
@@ -49,6 +51,9 @@ func Group(items []Item) [len(names)][]Item {
 		slices.SortFunc(cols[p], func(a, b Item) int {
 			if Phase(p) == Archived { // descending puts undated ("") last
 				return cmp.Or(cmp.Compare(b.ArchivedOn, a.ArchivedOn), cmp.Compare(a.Name, b.Name))
+			}
+			if Phase(p) == Ready {
+				return cmp.Or(cmp.Compare(queueRank(a.Name), queueRank(b.Name)), natural(a.Name, b.Name), cmp.Compare(a.Name, b.Name))
 			}
 			return cmp.Or(b.Modified.Compare(a.Modified), cmp.Compare(a.Name, b.Name))
 		})
@@ -92,4 +97,46 @@ type Source interface {
 	Prompt(project, kind string) string                                                     // default Start prompt for an agent of kind, may hold {change}
 	Finish(name, checkout string) string                                                    // Handoff step after review; checkout "" = no linked worktree; "" = no step
 	Command(a Action, name string) string                                                   // the command that does a for name; "" = none
+}
+
+// queueRank places a name in the Ready queue: 0 for a fix "f<digits>-…", 1 for a milestone
+// "m<digits>-…", 2 for everything else. Within a rank, natural order on the name sorts by number.
+func queueRank(name string) int {
+	if name == "" {
+		return 2
+	}
+	rest := strings.TrimLeft(name[1:], "0123456789")
+	rank := strings.IndexByte("fm", name[0])
+	if rank < 0 || len(rest) == len(name)-1 || !strings.HasPrefix(rest, "-") {
+		return 2
+	}
+	return rank
+}
+
+// natural compares a and b with runs of digits compared by value, so "c2" comes before "c10".
+func natural(a, b string) int {
+	for a != "" && b != "" {
+		if isDigit(a[0]) && isDigit(b[0]) {
+			var x, y string
+			x, a = digitRun(a)
+			y, b = digitRun(b)
+			if c := cmp.Or(cmp.Compare(len(x), len(y)), cmp.Compare(x, y)); c != 0 {
+				return c
+			}
+			continue
+		}
+		if c := cmp.Compare(a[0], b[0]); c != 0 {
+			return c
+		}
+		a, b = a[1:], b[1:]
+	}
+	return cmp.Compare(len(a), len(b))
+}
+
+func isDigit(c byte) bool { return '0' <= c && c <= '9' }
+
+// digitRun splits s after its leading digits and returns them without leading zeros.
+func digitRun(s string) (run, rest string) {
+	rest = strings.TrimLeft(s, "0123456789")
+	return strings.TrimLeft(s[:len(s)-len(rest)], "0"), rest
 }
