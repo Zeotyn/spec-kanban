@@ -708,6 +708,7 @@ func TestRun(t *testing.T) {
 		wantErr  string
 	}{
 		{"idle agent: prompt and focus its tab", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info, sent, tfocus}, "", "", ""},
+		{"done agent: prompt and focus its tab", map[string]string{"agent get": "agent-get-done.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info, sent, tfocus}, "", "", ""},
 		{"working agent: nothing sent", map[string]string{"agent get": "agent-get-working.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info}, "", "", change + " is working: wait until it is idle"},
 		{"blocked agent: nothing sent", map[string]string{"agent get": "agent-get-blocked.json", "pane process-info": "process-info-running.json"}, nil, []string{get, info}, "", "", change + " is blocked: wait until it is idle"},
 		{"agent exited: its tab", map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"}, nil, []string{get, info}, "w2:p1J", "w2:tG", ""},
