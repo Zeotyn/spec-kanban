@@ -1,6 +1,6 @@
 ## 1. Prerequisite
 
-- [ ] 1.1 Spike result recorded in design.md: left click, right click and wheel events reach a bubbletea program with `tea.WithMouseCellMotion()` in a herdr plugin popup, and herdr shows no menu of its own on the right click. If the spike was not done or any of these failed, stop and tell the user before writing code
+- [x] 1.1 Spike result recorded in design.md: left click, right click and wheel events reach a bubbletea program with `tea.WithMouseCellMotion()` in a herdr plugin popup, and herdr shows no menu of its own on the right click. If the spike was not done or any of these failed, stop and tell the user before writing code
 
 ## 2. Mouse reporting and layout
 

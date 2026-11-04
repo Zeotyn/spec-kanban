@@ -7,6 +7,14 @@ The Board (`internal/board`) and the detail view (`internal/detail`) are bubblet
 
 bubbletea v1.3 reports clicks and the wheel as `tea.MouseMsg`, with cell coordinates relative to the program's terminal, which here is the whole popup. lipgloss v1 has no layers.
 
+## Spike result
+
+Done on 2026-11-04 in a herdr popup (the `board` pane, 90%×90%) with a bubbletea v1.3.10 program started with `tea.WithMouseCellMotion()`, logging every `tea.MouseMsg`:
+- Left click: press and release arrive with cell coordinates.
+- Right click: press and release arrive; herdr shows no menu of its own.
+- Wheel: up and down arrive as presses, and a trackpad also sends horizontal wheel events (left/right), which the Board ignores.
+- A trackpad gesture sends many wheel events (about a hundred for one swipe), so a wheel step moving the selection by one Card moves it fast on a trackpad. Accepted for now; see Risks.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -53,6 +61,8 @@ bubbletea v1.3 reports clicks and the wheel as `tea.MouseMsg`, with cell coordin
 - [Mouse reporting stops plain text selection in the popup] → Most terminals select with Shift held while dragging; the README says so. A config switch waits until someone needs it.
 - [Layout code duplicates the drawing arithmetic] → Decision 2 makes the layout the single source that `View` also uses, and decision 3 tests against the drawing.
 - [Splicing the menu over styled lines] → Cutting by display cells with `x/ansi` and focused tests with a colour profile, including a wide character in a Card name.
+
+- [A trackpad swipe sends many wheel events, so the selection races through a column] → Accepted: it stops at the column ends like `j`/`k`. Throttling waits until someone finds it bothersome.
 
 ## Migration Plan
 
