@@ -6,6 +6,7 @@
 - Verify and Archive: `v` and `a` on a Review Card, or the Card menu's new entries, send `/opsx:verify <change>` or `/opsx:archive <change>` to the Change's idle agent, or start a new one in its worktree; without a watcher or Handoff. Spec Kit has neither.
 - Ready is a queue: fixes first, then milestones by number (`m9` before `m10`), then the rest in natural name order (`c2` before `c10`), so editing a Ready Change no longer moves its Card. Draft, In Progress and Review keep newest first.
 - Fixed: a Change or Feature whose agent name would exceed herdr's 32 characters starts with a shortened agent name, like `update-a-change-from-its-302ef9`, instead of being refused. Names that fit keep their agent name.
+- Fixed: starting an agent in a new tab whose shell rc asks a question (like the oh-my-zsh update prompt) typed `laude`. The plugin now waits for the shell prompt with a probe line before every start, resume, verify and archive, and a start that still fails shows the pane's last lines in the notification.
 
 ## 0.3.0 - 2026-11-02
 
