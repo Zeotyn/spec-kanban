@@ -337,8 +337,8 @@ func resumeChange(change, pane, tab string, run herdr.Runner) error {
 
 // escalate hands change to its Main agent because it cannot go on without a human, for reason (its
 // words joined by spaces), and tells stdout who received it. cwd is a checkout the Change's agent
-// works in; the Project is the first of it and its git repository's other checkouts that holds a
-// Main record for change, else cwd's checkout.
+// works in; the Project is the first of it and its git repository's checkouts that holds a Main
+// record for change, else git's main checkout, else cwd's checkout.
 func escalate(change string, reason []string, cwd string, stdout io.Writer, run herdr.Runner,
 	detect func(string) bool, sourceFor func(string) work.Source, git func(string) herdr.Runner) error {
 	checkout := project.Find(cwd, detect)
@@ -346,9 +346,19 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 		return fmt.Errorf("no OpenSpec or Spec Kit project at or above %s", cwd)
 	}
 	dir, proj, mainPane := cache.Dir(), checkout, ""
-	for _, c := range append([]worktree.Checkout{{Path: checkout}}, worktree.List(git(checkout))...) {
-		if mainPane = cache.ReadMain(dir, c.Path, change); mainPane != "" {
-			proj = c.Path
+	checkouts := worktree.List(git(checkout))
+	if len(checkouts) > 0 { // without a record: git's main checkout
+		if p, err := filepath.EvalSymlinks(checkouts[0].Path); err == nil && detect(p) {
+			proj = p
+		}
+	}
+	for _, c := range append([]worktree.Checkout{{Path: checkout}}, checkouts...) {
+		p, err := filepath.EvalSymlinks(c.Path) // the Board's Project has its symlinks resolved
+		if err != nil {
+			continue
+		}
+		if mainPane = cache.ReadMain(dir, p, change); mainPane != "" {
+			proj = p
 			break
 		}
 	}

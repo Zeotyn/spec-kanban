@@ -558,6 +558,8 @@ func TestEscalate(t *testing.T) {
 			[]string{"agent get " + pane, "agent prompt " + pane + " " + inProj}, "Sent to the Main agent. End your turn.\n"},
 		{"No Main agent", proj, "", change,
 			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inProj}, "No Main agent took it; the user got a notification. End your turn.\n"},
+		{"No Main agent in a worktree", wt, "", change,
+			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inWT}, "No Main agent took it; the user got a notification. End your turn.\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

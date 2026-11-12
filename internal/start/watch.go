@@ -92,19 +92,24 @@ func Watch(w Watched, run, git herdr.Runner) {
 		} else if b.Seq != a.Seq {
 			continue // it moved on while being checked, maybe through a whole turn
 		}
-		if a.Status != "blocked" && !w.Escalated() {
+		escalated := w.Escalated() // only this record is cleared: one written later belongs to the next settle
+		if a.Status != "blocked" && !escalated {
 			if _, err := run("agent", "wait", name, "--until", "working", "--timeout", strconv.FormatInt(stallAfter.Milliseconds(), 10)); err == nil {
 				continue
 			}
-			if _, err := w.get(run); err != nil {
+			if b, err := w.get(run); err != nil {
 				return // gone, not timed out
+			} else if b.Seq != a.Seq {
+				continue // the wait failed for another reason while it moved on
 			}
 			Tell(run, w.Main, a.Pane, "spec-kanban: "+w.Change+" stalled", w.stall(progress))
 		}
 		if _, err := run("agent", "wait", name, "--until", "working"); err != nil {
 			return
 		}
-		w.Clear()
+		if escalated {
+			w.Clear()
+		}
 	}
 }
 
