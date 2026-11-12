@@ -179,14 +179,7 @@ func (w Watched) text(git herdr.Runner, checkout, progress string, archived bool
 // then hands text to the Main agent, or shows it as a notification when the Main agent cannot take it.
 func (w Watched) handoff(run herdr.Runner, pane, text string) {
 	run("pane", "close", pane)
-	if w.Main != "" && w.Main != pane {
-		if m, err := getAgent(run, w.Main); err == nil && m.Agent != "" && m.Status != "blocked" {
-			if _, err := run("agent", "prompt", w.Main, text); err == nil {
-				return
-			}
-		}
-	}
-	run("notification", "show", "spec-kanban: "+w.Change+" finished", "--body", text)
+	Tell(run, w.Main, pane, "spec-kanban: "+w.Change+" finished", text)
 }
 
 // resumes holds per agent kind the command that reopens a session, %s standing for its id; only

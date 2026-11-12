@@ -6,10 +6,10 @@
 
 ## 2. Delivery and sentence in `internal/start`
 
-- [ ] 2.1 Tests first for `Tell`: Main agent idle takes the prompt; no Main pane, Main pane equals the Change's own pane, no agent in it, Main agent blocked, and a rejected `agent prompt` each show `notification show <title> --body <text>` ("Main agent falls back to a notification")
-- [ ] 2.2 Implement `Tell` and make `handoff` use it; the existing Handoff tests stay green
-- [ ] 2.3 Tests first for `Sentence`: a plain path ("Escalation sentence from the Board"), a path with a space ("Binary path with a space"), a path with a single quote
-- [ ] 2.4 Implement `Sentence` (design.md decision 5)
+- [x] 2.1 Tests first for `Tell`: Main agent idle takes the prompt; no Main pane, Main pane equals the Change's own pane, no agent in it, Main agent blocked, and a rejected `agent prompt` each show `notification show <title> --body <text>` ("Main agent falls back to a notification")
+- [x] 2.2 Implement `Tell` and make `handoff` use it; the existing Handoff tests stay green
+- [x] 2.3 Tests first for `Sentence`: a plain path ("Escalation sentence from the Board"), a path with a space ("Binary path with a space"), a path with a single quote
+- [x] 2.4 Implement `Sentence` (design.md decision 5)
 
 ## 3. Watch: no notifications, Stall, Resume
 
