@@ -93,7 +93,7 @@ When the Main agent cannot take the prompt (the Board was opened from a shell pa
 
 **Stall.** When a watched agent stops with its Change unfinished, has not escalated and does not work again within 10 minutes, the Main agent gets one prompt for that stop. It says the worker stopped without asking for help and how to read its output and let it continue. Without a Main agent, herdr shows `spec-kanban: <change> stalled`.
 
-The agent kind and session herdr reports are recorded per project and Change under `sessions/` in the plugin's state directory (`$HERDR_PLUGIN_STATE_DIR`, else the user cache directory's `spec-kanban`). Sessions of `claude`, `copilot`, `codex`, `opencode`, `cursor` and `gemini` can be reopened with `s` on the Review Card; the worktree is reopened, or recreated from its branch after it was removed.
+The agent kind and session herdr reports are recorded per project and Change under `sessions/` in the plugin's state directory (`$HERDR_PLUGIN_STATE_DIR`, else the user cache directory's `spec-kanban`). Sessions of `claude`, `copilot`, `codex`, `opencode`, `cursor` and `gemini` can be reopened with `s` on the Review Card; the worktree is reopened, or recreated from its branch after it was removed. The Main pane of each started Change and its pending Escalation are kept under `mains/` and `escalations/` in the user cache directory's `spec-kanban` instead, since the worker's pane, where `kanban escalate` runs, has no `$HERDR_PLUGIN_STATE_DIR`.
 
 ## Spec Kit
 

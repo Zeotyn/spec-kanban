@@ -301,15 +301,15 @@ func watch(change string, resumed bool, run herdr.Runner) {
 	if !cfg.Worktree { // the agent works in the Project: a leftover checkout of the Change must not supply its Progress
 		loadGit = func(...string) ([]byte, error) { return nil, errors.New("worktree off") }
 	}
-	mainPane := os.Getenv("KANBAN_MAIN_PANE")
-	_ = cache.WriteMain(dir, proj, change, mainPane) // a lost record only makes Escalation notify
-	cache.ClearEscalation(dir, proj, change)
+	mainPane, user := os.Getenv("KANBAN_MAIN_PANE"), cache.UserDir() // where kanban escalate finds them
+	_ = cache.WriteMain(user, proj, change, mainPane)                // a lost record only makes Escalation notify
+	cache.ClearEscalation(user, proj, change)
 	start.Watch(start.Watched{Project: proj, Change: change, Main: mainPane, Base: cfg.Base, On: cfg.Worktree, Resumed: resumed,
 		Load:      loader(dir, proj, src, loadGit),
 		Source:    src,
 		Record:    func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
-		Escalated: func() bool { return cache.Escalated(dir, proj, change) },
-		Clear:     func() { cache.ClearEscalation(dir, proj, change) },
+		Escalated: func() bool { return cache.Escalated(user, proj, change) },
+		Clear:     func() { cache.ClearEscalation(user, proj, change) },
 	}, run, git)
 }
 
@@ -345,7 +345,7 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 	if checkout == "" {
 		return fmt.Errorf("no OpenSpec or Spec Kit project at or above %s", cwd)
 	}
-	dir, proj, mainPane := cache.Dir(), checkout, ""
+	dir, user, proj, mainPane := cache.Dir(), cache.UserDir(), checkout, ""
 	checkouts := worktree.List(git(checkout))
 	if len(checkouts) > 0 { // without a record: git's main checkout
 		if p, err := filepath.EvalSymlinks(checkouts[0].Path); err == nil && detect(p) {
@@ -357,7 +357,7 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 		if err != nil {
 			continue
 		}
-		if mainPane = cache.ReadMain(dir, p, change); mainPane != "" {
+		if mainPane = cache.ReadMain(user, p, change); mainPane != "" {
 			proj = p
 			break
 		}
@@ -386,7 +386,7 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 		" 1. Read its open tasks in %s. 2. If you may do the step yourself, do it and tick its task; otherwise tell the user exactly what to do and wait for them."+
 		` 3. Then tell its agent to continue: herdr agent prompt %s "<what changed>". Do not close its tab; when all tasks are done, the normal Handoff follows.`,
 		change, progress, strings.Join(reason, " "), agent, change, where, filepath.Join(checkout, src.Rel(change), "tasks.md"), agent)
-	_ = cache.WriteEscalation(dir, proj, change) // a lost record only lets a Stall follow
+	_ = cache.WriteEscalation(user, proj, change) // a lost record only lets a Stall follow
 	if start.Tell(run, mainPane, os.Getenv("HERDR_PANE_ID"), "spec-kanban: "+change+" needs you", text) {
 		fmt.Fprintln(stdout, "Sent to the Main agent. End your turn.")
 	} else {

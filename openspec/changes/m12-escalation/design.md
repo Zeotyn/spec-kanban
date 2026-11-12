@@ -22,8 +22,9 @@
 
 ## Decisions
 
-1. **Main pane record in the state dir.** `cache.WriteMain(dir, project, change, pane)` and `cache.ReadMain` store the pane id as plain text under `mains/<project hash>/<change>`. An empty pane removes the file.
+1. **Main pane record in the user cache dir.** `cache.WriteMain(dir, project, change, pane)` and `cache.ReadMain` store the pane id as plain text under `mains/<project hash>/<change>`. An empty pane removes the file.
    - `launch` and `resumeChange` write it before they watch, from `$KANBAN_MAIN_PANE`.
+   - `dir` is `cache.UserDir()` (`os.UserCacheDir()/spec-kanban`) for this record and the escalation record, never `$HERDR_PLUGIN_STATE_DIR`: herdr sets that only for plugin commands, not in the worker's pane where `escalate` runs, and offers no command to look it up.
    - Rejected: keying by herdr agent name. The m13 marker is read by the Board and sync per Project, so all records share the Project/Change key.
    - Rejected: passing the Main pane in the sentence. It is not the worker's business, and the pane can change with a later resume.
 

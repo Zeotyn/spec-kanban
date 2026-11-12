@@ -208,10 +208,10 @@ func TestLaunchSucceedsQuietly(t *testing.T) {
 }
 
 func TestLaunchWatches(t *testing.T) {
-	proj, dir := t.TempDir(), t.TempDir()
+	proj, dir := t.TempDir(), userDir(t)
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", t.TempDir()) // set for the watcher, absent in the worker's pane
 	t.Setenv("KANBAN_PROJECT", proj)
 	t.Setenv("KANBAN_MAIN_PANE", "w1:p9")
-	t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
 	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
 	if err := cache.WriteEscalation(dir, proj, "m1-board-view"); err != nil { // left over from an earlier run
 		t.Fatal(err)
@@ -295,12 +295,12 @@ func TestResumeRecordedSession(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
+			dir, state := userDir(t), t.TempDir()
+			t.Setenv("HERDR_PLUGIN_STATE_DIR", state)
 			t.Setenv("KANBAN_PROJECT", tt.proj)
 			t.Setenv("KANBAN_MAIN_PANE", "w1:p9")
-			t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
 			t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
-			if err := cache.WriteSession(dir, tt.proj, "m1-board-view", herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}); err != nil {
+			if err := cache.WriteSession(state, tt.proj, "m1-board-view", herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}); err != nil {
 				t.Fatal(err)
 			}
 			if err := cache.WriteEscalation(dir, tt.proj, "m1-board-view"); err != nil {
@@ -563,8 +563,7 @@ func TestEscalate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
+			dir := userDir(t)                  // the worker's pane has no $HERDR_PLUGIN_STATE_DIR
 			t.Setenv("HERDR_PANE_ID", "w2:p1") // the worker's own pane
 			if tt.main != "" {
 				if err := cache.WriteMain(dir, proj, change, tt.main); err != nil {
@@ -595,8 +594,7 @@ func TestEscalate(t *testing.T) {
 		})
 	}
 	t.Run("Unknown Change", func(t *testing.T) {
-		dir := t.TempDir()
-		t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
+		dir := userDir(t)
 		var calls []string
 		run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
 		var out strings.Builder
@@ -623,4 +621,15 @@ func TestEscalateUsage(t *testing.T) {
 			t.Errorf("%q: want exit 2 with the usage, got %v: %s", args, err, out)
 		}
 	}
+}
+
+// userDir points the user cache directory, where Main and escalation records live, at a temp dir,
+// and the plugin state directory elsewhere, so a test proves both sides agree without the latter.
+func userDir(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", "")
+	return cache.UserDir()
 }

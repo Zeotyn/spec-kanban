@@ -22,11 +22,17 @@ type file struct {
 	Changes []work.Item `json:"changes"`
 }
 
-// Dir returns $HERDR_PLUGIN_STATE_DIR when set, else os.UserCacheDir()/spec-kanban; "" if neither is available.
+// Dir returns $HERDR_PLUGIN_STATE_DIR when set, else UserDir.
 func Dir() string {
 	if d := os.Getenv("HERDR_PLUGIN_STATE_DIR"); d != "" {
 		return d
 	}
+	return UserDir()
+}
+
+// UserDir returns os.UserCacheDir()/spec-kanban, "" if it is not available. The Main and escalation
+// records live here: a worker's pane, where kanban escalate runs, has no $HERDR_PLUGIN_STATE_DIR.
+func UserDir() string {
 	base, err := os.UserCacheDir()
 	if err != nil {
 		return ""

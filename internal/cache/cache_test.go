@@ -249,3 +249,17 @@ func TestEscalation(t *testing.T) {
 		t.Error(`empty dir: want false and an error`)
 	}
 }
+
+func TestUserDirIgnoresPluginStateDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", t.TempDir())
+	base, err := os.UserCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := UserDir(), filepath.Join(base, "spec-kanban"); got != want {
+		t.Errorf("UserDir() = %q, want %q", got, want)
+	}
+}
