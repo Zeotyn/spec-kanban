@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -321,7 +322,7 @@ func TestResume(t *testing.T) {
 	if err := Resume(change, herdr.Session{Agent: "copilot", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", h.run); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{tfocus, "agent start " + change + " --kind copilot --pane w2:p1J --timeout 60000 -- --resume=abc"}
+	want := []string{tfocus, probe, waits, "agent start " + change + " --kind copilot --pane w2:p1J --timeout 60000 -- --resume=abc"}
 	if !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 	}
@@ -335,9 +336,13 @@ func TestResumeFails(t *testing.T) {
 	if err := Resume(change, herdr.Session{Agent: "pi", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", h.run); err == nil || !strings.Contains(err.Error(), "resume not supported for pi") || len(h.calls) != 0 {
 		t.Errorf("want error without herdr calls, got %v, %q", err, h.calls)
 	}
-	h = &fakeHerdr{t: t, fail: map[string]error{"agent start": errors.New("boom")}}
-	if err := Resume(change, herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", h.run); err == nil || !strings.Contains(err.Error(), "boom") {
-		t.Errorf("want agent start error, got %v", err)
+	h = &fakeHerdr{t: t, out: map[string]string{"pane read": "pane-read.txt"}, fail: map[string]error{"agent start": errors.New("boom")}}
+	if err := Resume(change, herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", h.run); err == nil || !strings.Contains(err.Error(), "boom; pane shows: "+shown) {
+		t.Errorf("want agent start error with the pane's lines, got %v", err)
+	}
+	h = &fakeHerdr{t: t, out: map[string]string{"pane read": "pane-read.txt"}, fail: map[string]error{"pane wait-output": errors.New("timeout")}}
+	if err := Resume(change, herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", h.run); err == nil || !strings.Contains(err.Error(), `shell did not reach its prompt in tab "m1-board-view"; pane shows: `) || slices.ContainsFunc(h.calls, func(c string) bool { return strings.HasPrefix(c, "agent start") }) {
+		t.Errorf("want no agent start without a prompt, got %v, %q", err, h.calls)
 	}
 }
 
@@ -419,7 +424,7 @@ func TestWatchAndResumeFeatureName(t *testing.T) {
 	if err := Resume(feature, herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", f.run); err != nil {
 		t.Fatal(err)
 	}
-	if want := "agent start " + agentID + " --kind claude --pane w2:p1J --timeout 60000 -- --resume abc"; f.calls[1] != want {
-		t.Errorf("Resume call %q, want %q", f.calls[1], want)
+	if want := "agent start " + agentID + " --kind claude --pane w2:p1J --timeout 60000 -- --resume abc"; f.calls[3] != want || f.calls[1] != probe {
+		t.Errorf("Resume calls %q, want the probe, then %q", f.calls, want)
 	}
 }

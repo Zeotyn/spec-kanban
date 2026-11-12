@@ -158,6 +158,17 @@ func TestSyncLoadWritesBoardCache(t *testing.T) {
 	}
 }
 
+// noPane keeps the pane calls of Launch and Resume, the probe of the prompt and the read for an
+// error, from run: internal/start tests them.
+func noPane(run herdr.Runner) herdr.Runner {
+	return func(args ...string) ([]byte, error) {
+		if args[0] == "pane" {
+			return nil, nil
+		}
+		return run(args...)
+	}
+}
+
 func TestLaunchNotifiesOnFailure(t *testing.T) {
 	t.Setenv("KANBAN_PROJECT", "/x/proj") // a failed Launch is not watched
 	var calls [][]string
@@ -168,7 +179,7 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 		}
 		return nil, nil
 	}
-	err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view", run)
+	err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view", noPane(run))
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("want the Launch error, got %v", err)
 	}
@@ -182,7 +193,7 @@ func TestLaunchSucceedsQuietly(t *testing.T) {
 	t.Setenv("KANBAN_PROJECT", "") // not from the Board: not watched
 	var calls [][]string
 	run := func(args ...string) ([]byte, error) { calls = append(calls, args); return nil, nil }
-	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view with TDD", run); err != nil {
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "codex", "/opsx-apply m1-board-view with TDD", noPane(run)); err != nil {
 		t.Fatal(err)
 	}
 	want := [][]string{
@@ -206,7 +217,7 @@ func TestLaunchWatches(t *testing.T) {
 		}
 		return nil, nil
 	}
-	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:apply m1-board-view", run); err != nil {
+	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:apply m1-board-view", noPane(run)); err != nil {
 		t.Fatal(err)
 	}
 	if want := "agent get m1-board-view"; len(calls) != 4 || calls[3] != want {
@@ -218,7 +229,7 @@ func TestRunCommand(t *testing.T) {
 	t.Setenv("KANBAN_PROJECT", t.TempDir()) // from the Board, and still not watched
 	var calls []string
 	run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
-	if err := runCommand("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:verify m1-board-view", run); err != nil {
+	if err := runCommand("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:verify m1-board-view", noPane(run)); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"tab focus w2:tG", "agent start m1-board-view --kind claude --pane w2:p1J --timeout 60000", "agent prompt m1-board-view /opsx:verify m1-board-view"}
@@ -236,7 +247,7 @@ func TestRunCommandNotifiesOnFailure(t *testing.T) {
 		}
 		return nil, nil
 	}
-	err := runCommand("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:archive m1-board-view", run)
+	err := runCommand("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:archive m1-board-view", noPane(run))
 	if err == nil {
 		t.Fatal("want the Launch error")
 	}
@@ -270,7 +281,7 @@ func TestResumeRecordedSession(t *testing.T) {
 	}
 	var calls []string
 	run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
-	if err := resumeChange("m1-board-view", "w2:p1J", "w2:tG", run); err != nil {
+	if err := resumeChange("m1-board-view", "w2:p1J", "w2:tG", noPane(run)); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"tab focus w2:tG", "agent start m1-board-view --kind claude --pane w2:p1J --timeout 60000 -- --resume abc"}

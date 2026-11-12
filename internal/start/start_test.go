@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -105,6 +106,12 @@ var (
 	focus  = "agent focus " + change
 	info   = "pane process-info --pane w2:p1J"
 	get    = "agent get " + change
+	// The probe of the prompt with the nonce n of the tests, and the read of the pane for a failure.
+	probe = `pane run w2:p1J  echo kanban-rea""dy-n`
+	waits = "pane wait-output w2:p1J --match kanban-ready-n --timeout 2000"
+	read  = "pane read w2:p1J --source recent-unwrapped --lines 20"
+	// shown is what tail keeps of pane-read.txt.
+	shown = `zsh: command not found: cho | ~/code/spec-kanban main | ❯  echo kanban-rea""dy-n | kanban-ready-n | ❯ claude | nope | ~/code/spec-kanban main | ❯`
 )
 
 func TestStart(t *testing.T) {
@@ -118,7 +125,7 @@ func TestStart(t *testing.T) {
 			name: "new tab",
 			out:  map[string]string{"tab create": "tab-create.json"},
 			fail: map[string]error{"agent get": notFound},
-			want: []string{get, create, tfocus, launch, prompt},
+			want: []string{get, create, tfocus, probe, waits, launch, prompt},
 		},
 		{
 			name: "agent running: focus only",
@@ -128,7 +135,7 @@ func TestStart(t *testing.T) {
 		{
 			name: "agent exited: restart in its tab",
 			out:  map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"},
-			want: []string{get, info, tfocus, launch, prompt},
+			want: []string{get, info, tfocus, probe, waits, launch, prompt},
 		},
 	}
 	for _, tt := range tests {
@@ -217,7 +224,7 @@ func TestLaunchKindAndPrompt(t *testing.T) {
 	if err := Launch(change, "codex", "/opsx-apply "+change+" with TDD", "w2:p1J", "w2:tG", h.run); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{tfocus, "agent start " + change + " --kind codex --pane w2:p1J --timeout 60000", "agent prompt " + change + " /opsx-apply " + change + " with TDD"}
+	want := []string{tfocus, probe, waits, "agent start " + change + " --kind codex --pane w2:p1J --timeout 60000", "agent prompt " + change + " /opsx-apply " + change + " with TDD"}
 	if !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 	}
@@ -242,14 +249,15 @@ func TestLaunch(t *testing.T) {
 		want  []string
 		wants string // substring of the error, "" for none
 	}{
-		{"focuses the tab, starts claude and sends the prompt", nil, []string{tfocus, launch, prompt}, ""},
+		{"focuses the tab, starts claude and sends the prompt", nil, []string{tfocus, probe, waits, launch, prompt}, ""},
 		{"tab focus", map[string]error{"tab focus": boom}, []string{tfocus}, "tab focus: boom"},
-		{"claude not ready", map[string]error{"agent start": boom}, []string{tfocus, launch}, "did not become ready in tab"},
-		{"prompt", map[string]error{"agent prompt": boom}, []string{tfocus, launch, prompt}, "but the prompt was not sent"},
+		{"claude not ready", map[string]error{"agent start": boom}, []string{tfocus, probe, waits, launch, read}, "claude did not become ready in tab \"m1-board-view\", the prompt was not sent: boom; pane shows: " + shown},
+		{"claude not ready, pane unreadable", map[string]error{"agent start": boom, "pane read": errors.New("gone")}, []string{tfocus, probe, waits, launch, read}, "the prompt was not sent: boom; pane could not be read: gone"},
+		{"prompt", map[string]error{"agent prompt": boom}, []string{tfocus, probe, waits, launch, prompt}, "but the prompt was not sent"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &fakeHerdr{t: t, fail: tt.fail}
+			h := &fakeHerdr{t: t, out: map[string]string{"pane read": "pane-read.txt"}, fail: tt.fail}
 			err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run)
 			if tt.wants == "" && err != nil || tt.wants != "" && (err == nil || !strings.Contains(err.Error(), tt.wants)) {
 				t.Fatalf("want error with %q, got %v", tt.wants, err)
@@ -311,7 +319,7 @@ func TestStartReportsFailingStep(t *testing.T) {
 	}{
 		{"herdr unreachable", map[string]error{"agent get": boom}, []string{"agent get", "boom"}, get},
 		{"tab create", map[string]error{"agent get": notFound, "tab create": boom}, []string{"tab create", "boom"}, create},
-		{"claude not ready", map[string]error{"agent get": notFound, "agent start": boom}, []string{"prompt was not sent", change, "boom"}, launch},
+		{"claude not ready", map[string]error{"agent get": notFound, "agent start": boom}, []string{"prompt was not sent", change, "boom", "pane shows: "}, read},
 		{"prompt", map[string]error{"agent get": notFound, "agent prompt": boom}, []string{"prompt was not sent", change, "boom"}, prompt},
 	}
 	for _, tt := range tests {
@@ -646,7 +654,7 @@ func TestStartFeatureName(t *testing.T) {
 	if err := Start(proj, feature, "claude", "/speckit-implement", off, h.run, fakeList(feature), noGit); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"agent get f-" + feature, "tab create --cwd " + proj + " --label " + feature + " --no-focus", tfocus,
+	want := []string{"agent get f-" + feature, "tab create --cwd " + proj + " --label " + feature + " --no-focus", tfocus, probe, waits,
 		"agent start f-" + feature + " --kind claude --pane w2:p1J --timeout 60000", "agent prompt f-" + feature + " /speckit-implement"}
 	if !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
@@ -666,7 +674,7 @@ func TestStartLongName(t *testing.T) {
 	if err := Start(proj, long, "claude", "/opsx:apply "+long, off, h.run, fakeList(long), noGit); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"agent get " + agent, "tab create --cwd " + proj + " --label " + long + " --no-focus", tfocus,
+	want := []string{"agent get " + agent, "tab create --cwd " + proj + " --label " + long + " --no-focus", tfocus, probe, waits,
 		"agent start " + agent + " --kind claude --pane w2:p1J --timeout 60000", "agent prompt " + agent + " /opsx:apply " + long}
 	if !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
@@ -742,5 +750,74 @@ func TestRunRefusesAnotherProjectsAgent(t *testing.T) {
 	_, _, err := Run(proj+"2", change, "/opsx:verify "+change, off, h.run, src, noGit)
 	if err == nil || !strings.Contains(err.Error(), "already runs in "+proj) || !reflect.DeepEqual(h.calls, []string{get}) {
 		t.Errorf("want the already-runs error and no other call, got %v, %q", err, h.calls)
+	}
+}
+
+func init() { nonce = func() string { return "n" } }
+
+// counted makes the probes of t carry the nonces 1, 2, ...
+func counted(t *testing.T) {
+	old, i := nonce, 0
+	nonce = func() string { i++; return strconv.Itoa(i) }
+	t.Cleanup(func() { nonce = old })
+}
+
+func TestLaunchWaitsForPrompt(t *testing.T) {
+	boom := errors.New("boom")
+	run1, wait1 := `pane run w2:p1J  echo kanban-rea""dy-1`, "pane wait-output w2:p1J --match kanban-ready-1 --timeout 2000"
+	run2, wait2 := `pane run w2:p1J  echo kanban-rea""dy-2`, "pane wait-output w2:p1J --match kanban-ready-2 --timeout 2000"
+	t.Run("shell already at its prompt", func(t *testing.T) {
+		counted(t)
+		h := &fakeHerdr{t: t}
+		if err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run); err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{tfocus, run1, wait1, launch, prompt}; !reflect.DeepEqual(h.calls, want) {
+			t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
+		}
+	})
+	t.Run("unanswered probe is followed by one with a fresh nonce", func(t *testing.T) {
+		counted(t)
+		h := &fakeHerdr{t: t, fail: map[string]error{wait1: boom}}
+		if err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run); err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{tfocus, run1, wait1, run2, wait2, launch, prompt}; !reflect.DeepEqual(h.calls, want) {
+			t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
+		}
+	})
+	t.Run("shell never reaches its prompt", func(t *testing.T) {
+		counted(t)
+		h := &fakeHerdr{t: t, out: map[string]string{"pane read": "pane-read.txt"}, fail: map[string]error{"pane wait-output": boom}}
+		err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run)
+		if want := `shell did not reach its prompt in tab "m1-board-view"; pane shows: ` + shown; err == nil || err.Error() != want {
+			t.Errorf("error\n got %v\nwant %s", err, want)
+		}
+		// tab focus, 30 probes of two calls, pane read
+		if len(h.calls) != 62 || h.calls[59] != `pane run w2:p1J  echo kanban-rea""dy-30` || h.calls[61] != read {
+			t.Errorf("want 30 probes, then the pane read and no agent start; got %d calls ending in %q", len(h.calls), h.calls[max(0, len(h.calls)-3):])
+		}
+	})
+	t.Run("pane gone", func(t *testing.T) {
+		counted(t)
+		h := &fakeHerdr{t: t, fail: map[string]error{"pane run": boom}}
+		err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run)
+		if err == nil || err.Error() != "pane run: boom" {
+			t.Errorf("want herdr's error, got %v", err)
+		}
+		if want := []string{tfocus, run1}; !reflect.DeepEqual(h.calls, want) {
+			t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
+		}
+	})
+}
+
+func TestTail(t *testing.T) {
+	h := &fakeHerdr{t: t, out: map[string]string{"pane read": "pane-read.txt"}}
+	if got, want := tail("w2:p1J", h.run), "; pane shows: "+shown; got != want || !reflect.DeepEqual(h.calls, []string{read}) {
+		t.Errorf("tail\n got %q\nwant %q\ncalls %q", got, want, h.calls)
+	}
+	h = &fakeHerdr{t: t, fail: map[string]error{"pane read": errors.New("gone")}}
+	if got, want := tail("w2:p1J", h.run), "; pane could not be read: gone"; got != want {
+		t.Errorf("tail = %q, want %q", got, want)
 	}
 }

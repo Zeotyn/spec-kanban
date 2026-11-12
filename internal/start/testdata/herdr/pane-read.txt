@@ -1,0 +1,14 @@
+Last login: Thu Nov 12 09:14:02 on ttys004
+
+[oh-my-zsh] Would you like to update? [Y/n]
+zsh: command not found: cho
+   
+zsh: command not found: cho
+~/code/spec-kanban main
+❯  echo kanban-rea""dy-n
+kanban-ready-n
+❯ claude
+nope
+
+~/code/spec-kanban main
+❯ 

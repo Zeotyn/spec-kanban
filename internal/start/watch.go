@@ -222,8 +222,8 @@ func ResumeCommand(s herdr.Session) string {
 	return strings.Fields(resumes[s.Agent])[0] + " " + strings.Join(args, " ")
 }
 
-// Resume focuses tab and starts the agent kind that recorded s in pane as the agent of change,
-// reopening s; no prompt is sent.
+// Resume focuses tab, waits for the shell prompt of pane and starts the agent kind that recorded s
+// in it as the agent of change, reopening s; no prompt is sent.
 func Resume(change string, s herdr.Session, pane, tab string, run herdr.Runner) error {
 	args := ResumeArgs(s)
 	switch {
@@ -235,8 +235,11 @@ func Resume(change string, s herdr.Session, pane, tab string, run herdr.Runner) 
 	if _, err := run("tab", "focus", tab); err != nil {
 		return fmt.Errorf("tab focus: %w", err)
 	}
+	if err := prompted(change, pane, run); err != nil {
+		return err
+	}
 	if _, err := run(append([]string{"agent", "start", herdr.AgentName(change), "--kind", s.Agent, "--pane", pane, "--timeout", "60000", "--"}, args...)...); err != nil {
-		return fmt.Errorf("%s did not become ready in tab %q: %w", s.Agent, change, err)
+		return fmt.Errorf("%s did not become ready in tab %q: %w%s", s.Agent, change, err, tail(pane, run))
 	}
 	return nil
 }

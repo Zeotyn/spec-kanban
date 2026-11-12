@@ -3,7 +3,10 @@ package start
 
 import (
 	"cmp"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -227,14 +230,17 @@ func created(cmd string, out []byte) (pane, tab string, err error) {
 	return pane, tab, nil
 }
 
-// Launch focuses tab, starts an agent of kind named <change> in pane, waits until it is ready and
-// sends prompt.
+// Launch focuses tab, waits for the shell prompt of pane, starts an agent of kind named <change> in
+// it, waits until it is ready and sends prompt.
 func Launch(change, kind, prompt, pane, tab string, run herdr.Runner) error {
 	if _, err := run("tab", "focus", tab); err != nil {
 		return fmt.Errorf("tab focus: %w", err)
 	}
+	if err := prompted(change, pane, run); err != nil {
+		return err
+	}
 	if _, err := run("agent", "start", herdr.AgentName(change), "--kind", kind, "--pane", pane, "--timeout", "60000"); err != nil {
-		return fmt.Errorf("%s did not become ready in tab %q, the prompt was not sent: %w", kind, change, err)
+		return fmt.Errorf("%s did not become ready in tab %q, the prompt was not sent: %w%s", kind, change, err, tail(pane, run))
 	}
 	if _, err := run("agent", "prompt", herdr.AgentName(change), prompt); err != nil {
 		return fmt.Errorf("%s runs in tab %q but the prompt was not sent: %w", kind, change, err)
@@ -338,4 +344,55 @@ func step(run herdr.Runner, args ...string) error {
 		return fmt.Errorf("%s %s: %w", args[0], args[1], err)
 	}
 	return nil
+}
+
+// nonce returns six hex characters that tell one probe of ready from another; tests swap it.
+var nonce = func() string {
+	b := make([]byte, 3)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// errNoPrompt is ready's error for a shell that answered no probe.
+var errNoPrompt = errors.New("shell did not reach its prompt")
+
+// ready waits until the shell of pane is at its prompt, which herdr does not report: it types an
+// echo whose output, unlike the typed line, holds the marker, and waits for the marker; after 2 s
+// without it, it types the next one, up to 30 times. The leading space answers an rc's question
+// with "no" and keeps the line out of the shell's history. A refused pane run ends the wait at once.
+func ready(pane string, run herdr.Runner) error {
+	for range 30 {
+		n := nonce()
+		if _, err := run("pane", "run", pane, ` echo kanban-rea""dy-`+n); err != nil {
+			return fmt.Errorf("pane run: %w", err)
+		}
+		if _, err := run("pane", "wait-output", pane, "--match", "kanban-ready-"+n, "--timeout", "2000"); err == nil {
+			return nil
+		}
+	}
+	return errNoPrompt
+}
+
+// prompted is ready with the error Launch and Resume report for a shell that answered no probe.
+func prompted(change, pane string, run herdr.Runner) error {
+	err := ready(pane, run)
+	if errors.Is(err, errNoPrompt) {
+		return fmt.Errorf("%w in tab %q%s", err, change, tail(pane, run))
+	}
+	return err
+}
+
+// tail returns the last 8 non-empty lines of pane as the end of an error, or why they are missing.
+func tail(pane string, run herdr.Runner) string {
+	out, err := run("pane", "read", pane, "--source", "recent-unwrapped", "--lines", "20")
+	if err != nil {
+		return fmt.Sprintf("; pane could not be read: %v", err)
+	}
+	var lines []string
+	for l := range strings.SplitSeq(string(out), "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	return "; pane shows: " + strings.Join(lines[max(0, len(lines)-8):], " | ")
 }
