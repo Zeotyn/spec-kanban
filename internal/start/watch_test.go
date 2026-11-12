@@ -529,3 +529,22 @@ func TestWatchResumed(t *testing.T) {
 		})
 	}
 }
+
+// TestWatchClearsOnlyTheSettlesEscalation: an escalation written after a blocked settle, when the
+// user approved the escalate command, survives that settle and spares the next one its Stall.
+func TestWatchClearsOnlyTheSettlesEscalation(t *testing.T) {
+	h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched-blocked.json", "agent-get-watched-blocked.json", "agent-get-watched-blocked.json",
+		"agent-get-watched.json", "agent-get-watched.json"}, wready: {}, wworking: {"agent-get-watched.json", notFound}}}
+	var rec []herdr.Session
+	w := watched(loads([]work.Item{{Name: change, Done: 3, Total: 7}}), &rec)
+	reads, cleared := 0, 0
+	w.Escalated = func() bool { reads++; return reads > 1 } // written once the user approved it
+	w.Clear = func() { cleared++ }
+	Watch(w, h.run, noGit)
+	if want := []string{wget, wready, wsettle, wget, wget, wworking, wsettle, wget, wget, wworking}; !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
+	}
+	if cleared != 0 {
+		t.Errorf("cleared %d times: the record of the next settle must survive until it works again", cleared)
+	}
+}

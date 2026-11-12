@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Main pane recorded per Change
-A Start or a resume from the Board SHALL record the pane the Board was opened from as the Change's Main pane, per Project and Change in the user's cache directory (not the plugin's state directory, which the Change's agent cannot find), replacing the previous record. When that pane is unknown, the record SHALL be removed. Escalation SHALL read the Main agent from this record. Losing the record SHALL only make Escalation fall back to a notification.
+A Start or a resume from the Board SHALL record the pane the Board was opened from as the Change's Main pane, per Project and Change in the user's cache directory (not the plugin's state directory, which the Change's agent cannot find), replacing the previous record. When that pane is unknown, the record SHALL say so, and Escalation SHALL fall back to a notification. Escalation SHALL read the Main agent from this record. Losing the record SHALL only make Escalation fall back to a notification.
 
 #### Scenario: Board opened from a Claude pane
 - **WHEN** the Board was opened from pane `p1` and the user presses `s` on Card `m1-board-view`

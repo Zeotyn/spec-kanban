@@ -22,7 +22,7 @@
 
 ## Decisions
 
-1. **Main pane record in the user cache dir.** `cache.WriteMain(dir, project, change, pane)` and `cache.ReadMain` store the pane id as plain text under `mains/<project hash>/<change>`. An empty pane removes the file.
+1. **Main pane record in the user cache dir.** `cache.WriteMain(dir, project, change, pane)` and `cache.ReadMain` store the pane id as plain text under `mains/<project hash>/<change>`. An unknown pane is recorded as an empty file, so the record still marks the Project the Change was started in; `ReadMain` also tells whether a record exists.
    - `launch` and `resumeChange` write it before they watch, from `$KANBAN_MAIN_PANE`.
    - `dir` is `cache.UserDir()` (`os.UserCacheDir()/spec-kanban`) for this record and the escalation record, never `$HERDR_PLUGIN_STATE_DIR`: herdr sets that only for plugin commands, not in the worker's pane where `escalate` runs, and offers no command to look it up.
    - Rejected: keying by herdr agent name. The m13 marker is read by the Board and sync per Project, so all records share the Project/Change key.
@@ -33,7 +33,7 @@
 
 3. **`kanban escalate <change> <reason...>`.**
    - The reason is all remaining arguments joined by spaces, so a missing pair of quotes does no harm.
-   - Project: `project.Find(cwd)` gives the checkout the worker runs in. The Project is the first of that checkout and the other checkouts from `worktree.List` that holds a Main record for the Change. Paths are compared with symlinks resolved. Without any record it is git's main checkout (the first one `worktree.List` names) when a Source detects it, else the checkout itself, and the prompt falls back to a notification. So the escalation record still lands under the Project the watcher reads. This works for a linked worktree, for `worktree` off, and for a Project that is itself a linked worktree.
+   - Project: `project.Find(cwd)` gives the checkout the worker runs in. The Project is the first of that checkout and the other checkouts from `worktree.List` that holds a Main record for the Change. Paths are compared with symlinks resolved. An empty record still names the Project, and the prompt falls back to a notification; so the escalation record lands under the Project the watcher reads. Without any record it is the checkout itself. This works for a linked worktree, for `worktree` off, and for a Project that is itself a linked worktree.
    - It checks the Change with the Source's `Open`, loads Progress through the Board's `loader`, and builds the tasks path as `<checkout>/<src.Rel(change)>/tasks.md`. `<where>` names the checkout when it is not the Project.
    - It prints one line for the worker: `Sent to the Main agent. End your turn.` or `No Main agent took it; the user got a notification. End your turn.` Exit status 0 in both cases; usage errors exit 2, other failures 1.
    - Rejected: a `--project` flag in the sentence. Longer sentence, one more thing for the worker to get wrong.

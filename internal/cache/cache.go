@@ -139,30 +139,21 @@ func WriteSession(dir, project, change string, s herdr.Session) error {
 // mains is where the Main pane of each of project's Changes is recorded, one file per Change.
 func mains(dir, project string) string { return filepath.Join(dir, "mains", hash(project)) }
 
-// ReadMain returns the Main pane recorded for change of project in dir, "" when there is none or it
-// is unreadable.
-func ReadMain(dir, project, change string) string {
+// ReadMain returns the Main pane recorded for change of project in dir, "" when it was unknown, and
+// whether there is a readable record at all.
+func ReadMain(dir, project, change string) (string, bool) {
 	if dir == "" {
-		return ""
+		return "", false
 	}
 	data, err := os.ReadFile(filepath.Join(mains(dir, project), change))
-	if err != nil {
-		return ""
-	}
-	return string(data)
+	return string(data), err == nil
 }
 
 // WriteMain records pane as the Main pane of change of project in dir, replacing the previous
-// record; an empty pane removes it.
+// record; "" records that there is none.
 func WriteMain(dir, project, change, pane string) error {
 	if dir == "" {
 		return errors.New("cache: no directory")
-	}
-	if pane == "" {
-		if err := os.Remove(filepath.Join(mains(dir, project), change)); !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		return nil
 	}
 	return writeAtomic(mains(dir, project), change, []byte(pane))
 }

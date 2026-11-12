@@ -230,7 +230,7 @@ func TestLaunchWatches(t *testing.T) {
 	if want := "agent get m1-board-view"; len(calls) != 4 || calls[3] != want {
 		t.Errorf("want Launch's three calls, then %q; got %q", want, calls)
 	}
-	if got := cache.ReadMain(dir, proj, "m1-board-view"); got != "w1:p9" {
+	if got, _ := cache.ReadMain(dir, proj, "m1-board-view"); got != "w1:p9" {
 		t.Errorf("Main pane record %q, want w1:p9", got)
 	}
 	if cache.Escalated(dir, proj, "m1-board-view") {
@@ -325,7 +325,7 @@ func TestResumeRecordedSession(t *testing.T) {
 			if !reflect.DeepEqual(calls, want) {
 				t.Errorf("herdr calls %q, want %q", calls, want)
 			}
-			if got := cache.ReadMain(dir, tt.proj, "m1-board-view"); got != main {
+			if got, _ := cache.ReadMain(dir, tt.proj, "m1-board-view"); got != main {
 				t.Errorf("Main pane record %q, want %q", got, main)
 			}
 			if cache.Escalated(dir, tt.proj, "m1-board-view") == tt.watched {
@@ -516,7 +516,8 @@ func TestBoardPrompt(t *testing.T) {
 }
 
 func TestEscalate(t *testing.T) {
-	root, err := filepath.EvalSymlinks(t.TempDir())
+	raw := t.TempDir() // git names it as created; on macOS /var is a symlink to /private/var
+	root, err := filepath.EvalSymlinks(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -536,7 +537,7 @@ func TestEscalate(t *testing.T) {
 			if args[0] == "rev-parse" {
 				return []byte("\n"), nil
 			}
-			return []byte("worktree " + proj + "\nbranch refs/heads/main\n\nworktree " + wt + "\nbranch refs/heads/" + change + "\n"), nil
+			return []byte("worktree " + filepath.Join(raw, "proj") + "\nbranch refs/heads/main\n\nworktree " + filepath.Join(raw, "wt") + "\nbranch refs/heads/" + change + "\n"), nil
 		}
 	}
 	reason := strings.Fields("needs npm publish and a git tag")
@@ -551,24 +552,29 @@ func TestEscalate(t *testing.T) {
 		name, cwd, main, change string
 		want                    []string
 		out                     string
+		project                 string // where Start recorded the Main pane; proj when ""
 	}{
 		{"Worker cannot publish", filepath.Join(wt, "openspec"), pane, change,
-			[]string{"agent get " + pane, "agent prompt " + pane + " " + inWT}, "Sent to the Main agent. End your turn.\n"},
+			[]string{"agent get " + pane, "agent prompt " + pane + " " + inWT}, "Sent to the Main agent. End your turn.\n", ""},
 		{"Without a worktree", proj, pane, change,
-			[]string{"agent get " + pane, "agent prompt " + pane + " " + inProj}, "Sent to the Main agent. End your turn.\n"},
+			[]string{"agent get " + pane, "agent prompt " + pane + " " + inProj}, "Sent to the Main agent. End your turn.\n", ""},
 		{"No Main agent", proj, "", change,
-			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inProj}, "No Main agent took it; the user got a notification. End your turn.\n"},
+			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inProj}, "No Main agent took it; the user got a notification. End your turn.\n", ""},
 		{"No Main agent in a worktree", wt, "", change,
-			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inWT}, "No Main agent took it; the user got a notification. End your turn.\n"},
+			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inWT}, "No Main agent took it; the user got a notification. End your turn.\n", ""},
+		{"Board opened in the linked worktree", wt, "", change,
+			[]string{"notification show spec-kanban: m1-board-view needs you --body " + head + "." + rest(wt+"/openspec/changes/m1-board-view/tasks.md")},
+			"No Main agent took it; the user got a notification. End your turn.\n", wt},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := userDir(t)                  // the worker's pane has no $HERDR_PLUGIN_STATE_DIR
 			t.Setenv("HERDR_PANE_ID", "w2:p1") // the worker's own pane
-			if tt.main != "" {
-				if err := cache.WriteMain(dir, proj, change, tt.main); err != nil {
-					t.Fatal(err)
-				}
+			if tt.project == "" {
+				tt.project = proj
+			}
+			if err := cache.WriteMain(dir, tt.project, change, tt.main); err != nil { // "" from a shell pane
+				t.Fatal(err)
 			}
 			var calls []string
 			run := func(args ...string) ([]byte, error) {
@@ -588,7 +594,7 @@ func TestEscalate(t *testing.T) {
 			if out.String() != tt.out {
 				t.Errorf("printed %q, want %q", out.String(), tt.out)
 			}
-			if !cache.Escalated(dir, proj, change) {
+			if !cache.Escalated(dir, tt.project, change) {
 				t.Error("want the escalation recorded for the Project")
 			}
 		})
@@ -623,8 +629,8 @@ func TestEscalateUsage(t *testing.T) {
 	}
 }
 
-// userDir points the user cache directory, where Main and escalation records live, at a temp dir,
-// and the plugin state directory elsewhere, so a test proves both sides agree without the latter.
+// userDir points the user cache directory, where Main and escalation records live, at a temp dir
+// and unsets the plugin state directory, as in a worker's pane.
 func userDir(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
