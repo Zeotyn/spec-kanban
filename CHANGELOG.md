@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Escalation: a worker that cannot continue without a human runs `kanban escalate <change> <reason>` and the Main agent gets a prompt at once. A Start from the Board appends a sentence to its prompt that tells the agent how. Without a Main agent, herdr shows `spec-kanban: <change> needs you`.
+- Stall: a watched agent that stopped unfinished and does not work again within 10 minutes, without having escalated, gets one prompt to the Main agent, or the notification `spec-kanban: <change> stalled`.
+- Resume from the Board is watched like a Start: Handoff, Stall and Escalation apply. The plugin evaluates a resumed agent only after its first turn.
+- Removed: the "stopped at x/y tasks" and "waits for input" notifications. Stall replaces the first; herdr's sidebar shows a blocked agent.
 - Mouse: click a Card to select it and again to open its details, scroll a column or the details with the wheel, click `◀`/`▶` in a narrow popup, tabs in the details and the actions in both footers. A right click on a Card, or in its details, opens the Card menu, whose entry starts or resumes the Change like `s`. Hold `Shift` (or your terminal's modifier) while dragging to select text.
 - Verify and Archive: `v` and `a` on a Review Card, or the Card menu's new entries, send `/opsx:verify <change>` or `/opsx:archive <change>` to the Change's idle agent, or start a new one in its worktree; without a watcher or Handoff. Spec Kit has neither.
 - Ready is a queue: fixes first, then milestones by number (`m9` before `m10`), then the rest in natural name order (`c2` before `c10`), so editing a Ready Change no longer moves its Card. Draft, In Progress and Review keep newest first.

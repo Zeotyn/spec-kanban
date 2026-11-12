@@ -31,9 +31,9 @@
 
 ## 5. Docs
 
-- [ ] 5.1 CONTEXT.md: add **Escalation** (a worker's request for a human, delivered to the Main agent at once) and **Stall** (a watched agent that stopped unfinished for 10 minutes without escalating) under Board, next to Running agent
-- [ ] 5.2 README Handoff section: Escalation, the sentence in the Start prompt, Stall, a watched Resume, and that the "stopped" and "waits for input" notifications are gone
-- [ ] 5.3 CHANGELOG `## Unreleased`: Escalation (`kanban escalate`, sentence in the Board's Start prompt), Stall after 10 minutes, Resume from the Board is watched, and the removed "stopped" and "waits for input" notifications
+- [x] 5.1 CONTEXT.md: add **Escalation** (a worker's request for a human, delivered to the Main agent at once) and **Stall** (a watched agent that stopped unfinished for 10 minutes without escalating) under Board, next to Running agent
+- [x] 5.2 README Handoff section: Escalation, the sentence in the Start prompt, Stall, a watched Resume, and that the "stopped" and "waits for input" notifications are gone
+- [x] 5.3 CHANGELOG `## Unreleased`: Escalation (`kanban escalate`, sentence in the Board's Start prompt), Stall after 10 minutes, Resume from the Board is watched, and the removed "stopped" and "waits for input" notifications
 - [ ] 5.4 At archive, update the Purpose of `openspec/specs/agent-handoff/spec.md`: it names Escalation and Stall instead of "a notification when it is not finished"
 
 ## 6. Verification

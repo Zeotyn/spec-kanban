@@ -71,6 +71,14 @@ _Avoid_: Done
 A herdr agent session currently working on a Change; shown on its Card without changing its Phase.
 _Avoid_: Live session, worker
 
+**Escalation**:
+A worker's request for a human, run as `kanban escalate` and delivered to the Main agent at once, not at the next settle.
+_Avoid_: Help request, alert
+
+**Stall**:
+A watched agent that stopped with its Change unfinished and did not work again for 10 minutes, without having escalated.
+_Avoid_: Hang, timeout
+
 **Start**:
 The Board's action that hands a Change to a new agent session in its own tab, in the Change's checkout.
 _Avoid_: Move, apply button
