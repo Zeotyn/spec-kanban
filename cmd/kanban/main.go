@@ -185,7 +185,11 @@ func showBoard(proj string) error {
 			return err
 		}
 		kind := start.Kind(cfg.Agent, os.Getenv("KANBAN_MAIN_PANE"), herdr.Exec) // resolved on s, not on open
-		return spawn("launch", change, pane, tab, kind, cfg.PromptFor(change, src.Prompt(proj, kind)))
+		self, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		return spawn("launch", change, pane, tab, kind, boardPrompt(cfg, src, proj, change, kind, self))
 	}
 	act := func(change string, a work.Action) error { // the Source's command alone: prompt and instructions are for Start
 		command := src.Command(a, change)
@@ -213,6 +217,12 @@ func showBoard(proj string) error {
 	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), running, startOne,
 		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString()), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
+}
+
+// boardPrompt is the prompt of a Start from the Board: what kanban start sends, then the sentence
+// that tells the agent how to escalate with the plugin binary self.
+func boardPrompt(cfg config.Config, src work.Source, proj, change, kind, self string) string {
+	return cfg.PromptFor(change, src.Prompt(proj, kind)) + " " + start.Sentence(self, change)
 }
 
 // lacking returns why src cannot do an action, "" when it names the action's command.

@@ -468,7 +468,7 @@ func TestStartChangeKeepsPromptOverInstructions(t *testing.T) {
 		t.Errorf("stderr %q lacks the warning", got)
 	}
 	if last := calls[len(calls)-1]; last != "agent prompt f-001-a go 001-a" {
-		t.Errorf("last herdr call %q, want the configured prompt", last)
+		t.Errorf("last herdr call %q, want the configured prompt without the escalation sentence", last)
 	}
 }
 
@@ -482,5 +482,34 @@ func TestLacking(t *testing.T) {
 	}
 	if got := sk(work.Archive); got != "Spec Kit has no archive" {
 		t.Errorf("Spec Kit archive: %q", got)
+	}
+}
+
+func TestBoardPrompt(t *testing.T) {
+	const self = "/opt/herdr/plugins/spec-kanban/kanban"
+	sentence := func(change string) string {
+		return " If you cannot continue without a human, run " + self + " escalate " + change + ` "<what you need>" and end your turn.`
+	}
+	sk := t.TempDir()
+	tests := []struct {
+		name   string
+		cfg    config.Config
+		src    work.Source
+		change string
+		want   string
+	}{
+		{"Start a Ready Change", config.Config{}, openspec.New(nil), "m1-board-view", "/opsx:apply m1-board-view"},
+		{"Start with a configured prompt", config.Config{Prompt: "/opsx:apply {change} with ponytail, TDD, subagents and review loops"}, openspec.New(nil), "m1-board-view",
+			"/opsx:apply m1-board-view with ponytail, TDD, subagents and review loops"},
+		{"Start with configured instructions", config.Config{Instructions: "with ponytail, TDD, subagents and review loops"}, openspec.New(nil), "m1-board-view",
+			"/opsx:apply m1-board-view with ponytail, TDD, subagents and review loops"},
+		{"Start a Spec Kit Feature", config.Config{}, speckit.New(nil, ""), "001-user-login-email", "/speckit-implement"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, want := boardPrompt(tt.cfg, tt.src, sk, tt.change, "claude", self), tt.want+sentence(tt.change); got != want {
+				t.Errorf("prompt\n got %q\nwant %q", got, want)
+			}
+		})
 	}
 }

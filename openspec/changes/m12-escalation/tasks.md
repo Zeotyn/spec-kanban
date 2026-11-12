@@ -23,8 +23,8 @@
 
 ## 4. `cmd/kanban`
 
-- [ ] 4.1 Tests first: `startOne`'s prompt is `cfg.PromptFor(...)` plus one space and `start.Sentence(self, change)`, also with a configured `prompt`; `kanban start` sends no sentence ("Start with a configured prompt", "Start with configured instructions", "Start a Spec Kit Feature", "Start a Ready Change")
-- [ ] 4.2 Implement the sentence in `startOne` with `os.Executable`
+- [x] 4.1 Tests first: `startOne`'s prompt is `cfg.PromptFor(...)` plus one space and `start.Sentence(self, change)`, also with a configured `prompt`; `kanban start` sends no sentence ("Start with a configured prompt", "Start with configured instructions", "Start a Spec Kit Feature", "Start a Ready Change")
+- [x] 4.2 Implement the sentence in `startOne` with `os.Executable`
 - [x] 4.3 One helper builds the `Watched` for `launch` and `resumeChange`; both write the Main pane record from `$KANBAN_MAIN_PANE` and clear the escalation record before watching; `resumeChange` watches after a successful `Resume` with `Resumed: true`, only when `$KANBAN_PROJECT` is set (tests for the records written and for no watch without `$KANBAN_PROJECT`)
 - [ ] 4.4 Tests first, one per scenario of "Escalation": "Worker cannot publish" (exact prompt start, tasks path in the worktree, prints that the Main agent received it), "Without a worktree", "No Main agent" (`spec-kanban: <change> needs you`, prints that a notification received it), "Unknown Change" (exit non-zero, nothing sent), "No reason" (usage, exit 2); plus: the reason joins all remaining arguments; the Project is found from a linked worktree through its Main record; the escalation record is written in every delivered case
 - [ ] 4.5 Implement `kanban escalate` (design.md decision 3) and add it to the usage text: `kanban escalate <change> <reason>  Ask the Main agent for a human's help with <change> (run by the Change's agent)`
