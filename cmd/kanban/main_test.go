@@ -207,8 +207,14 @@ func TestLaunchSucceedsQuietly(t *testing.T) {
 }
 
 func TestLaunchWatches(t *testing.T) {
-	t.Setenv("KANBAN_PROJECT", t.TempDir())
+	proj, dir := t.TempDir(), t.TempDir()
+	t.Setenv("KANBAN_PROJECT", proj)
+	t.Setenv("KANBAN_MAIN_PANE", "w1:p9")
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
 	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
+	if err := cache.WriteEscalation(dir, proj, "m1-board-view"); err != nil { // left over from an earlier run
+		t.Fatal(err)
+	}
 	var calls []string
 	run := func(args ...string) ([]byte, error) {
 		calls = append(calls, strings.Join(args, " "))
@@ -222,6 +228,12 @@ func TestLaunchWatches(t *testing.T) {
 	}
 	if want := "agent get m1-board-view"; len(calls) != 4 || calls[3] != want {
 		t.Errorf("want Launch's three calls, then %q; got %q", want, calls)
+	}
+	if got := cache.ReadMain(dir, proj, "m1-board-view"); got != "w1:p9" {
+		t.Errorf("Main pane record %q, want w1:p9", got)
+	}
+	if cache.Escalated(dir, proj, "m1-board-view") {
+		t.Error("a leftover escalation must be cleared before watching")
 	}
 }
 
@@ -273,20 +285,52 @@ func TestResumeNotifiesOnFailure(t *testing.T) {
 }
 
 func TestResumeRecordedSession(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("KANBAN_PROJECT", "/x/proj")
-	t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
-	if err := cache.WriteSession(dir, "/x/proj", "m1-board-view", herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name, proj string
+		watched    bool
+	}{
+		{"from the Board: watched", "/x/proj", true},
+		{"without $KANBAN_PROJECT: not watched", "", false},
 	}
-	var calls []string
-	run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
-	if err := resumeChange("m1-board-view", "w2:p1J", "w2:tG", noPane(run)); err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"tab focus w2:tG", "agent start m1-board-view --kind claude --pane w2:p1J --timeout 60000 -- --resume abc"}
-	if !reflect.DeepEqual(calls, want) {
-		t.Errorf("herdr calls %q, want %q", calls, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("KANBAN_PROJECT", tt.proj)
+			t.Setenv("KANBAN_MAIN_PANE", "w1:p9")
+			t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
+			t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
+			if err := cache.WriteSession(dir, tt.proj, "m1-board-view", herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}); err != nil {
+				t.Fatal(err)
+			}
+			if err := cache.WriteEscalation(dir, tt.proj, "m1-board-view"); err != nil {
+				t.Fatal(err)
+			}
+			var calls []string
+			run := func(args ...string) ([]byte, error) {
+				calls = append(calls, strings.Join(args, " "))
+				if args[0] == "agent" && args[1] == "get" {
+					return nil, errors.New("agent_not_found") // the agent went away: watching ends
+				}
+				return nil, nil
+			}
+			if err := resumeChange("m1-board-view", "w2:p1J", "w2:tG", noPane(run)); err != nil {
+				t.Fatal(err)
+			}
+			want := []string{"tab focus w2:tG", "agent start m1-board-view --kind claude --pane w2:p1J --timeout 60000 -- --resume abc"}
+			main := ""
+			if tt.watched {
+				want, main = append(want, "agent get m1-board-view"), "w1:p9"
+			}
+			if !reflect.DeepEqual(calls, want) {
+				t.Errorf("herdr calls %q, want %q", calls, want)
+			}
+			if got := cache.ReadMain(dir, tt.proj, "m1-board-view"); got != main {
+				t.Errorf("Main pane record %q, want %q", got, main)
+			}
+			if cache.Escalated(dir, tt.proj, "m1-board-view") == tt.watched {
+				t.Errorf("escalation kept: %v, want %v", !tt.watched, tt.watched)
+			}
+		})
 	}
 }
 

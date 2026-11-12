@@ -13,19 +13,19 @@
 
 ## 3. Watch: no notifications, Stall, Resume
 
-- [ ] 3.1 Tests first with the fake herdr runner of `watch_test.go`: an unfinished idle settle and a blocked settle show no notification and prompt nobody ("Agent stops with tasks left", "Agent asks for approval"); "Agent works through several turns"
-- [ ] 3.2 Remove both notifications; `check` returns the Progress text instead of a notification body
-- [ ] 3.3 Tests first, one per scenario of "Stall": "Worker stops silently" (timed wait fails, agent still idle → one Stall prompt with the exact text), "Worker goes on by itself" and "User answers in time" (timed wait succeeds → nothing sent), "Second silent stop"; plus: the agent gone after the timed wait ends watching silently; a blocked settle runs no timed wait; Progress unknown leaves out `at <done>/<total> tasks`; "Stall without a Main agent" falls back to `spec-kanban: <change> stalled`
-- [ ] 3.4 Tests first: an escalation record at the settle skips the timed wait, and the record is cleared once the agent works again ("Escalation is followed by no Stall")
-- [ ] 3.5 Implement Stall in `Watch` with the constant `stallAfter` and `Watched.Escalated`/`Watched.Clear` callbacks (design.md decisions 2 and 6)
-- [ ] 3.6 Tests first: with `Resumed` the watch waits `--until working` without timeout before the first evaluation, and a resumed agent that never works gets no Handoff and no Stall ("Resumed session of a finished Change", "Resumed session finishes the Change")
-- [ ] 3.7 Implement `Watched.Resumed`
+- [x] 3.1 Tests first with the fake herdr runner of `watch_test.go`: an unfinished idle settle and a blocked settle show no notification and prompt nobody ("Agent stops with tasks left", "Agent asks for approval"); "Agent works through several turns"
+- [x] 3.2 Remove both notifications; `check` returns the Progress text instead of a notification body
+- [x] 3.3 Tests first, one per scenario of "Stall": "Worker stops silently" (timed wait fails, agent still idle → one Stall prompt with the exact text), "Worker goes on by itself" and "User answers in time" (timed wait succeeds → nothing sent), "Second silent stop"; plus: the agent gone after the timed wait ends watching silently; a blocked settle runs no timed wait; Progress unknown leaves out `at <done>/<total> tasks`; "Stall without a Main agent" falls back to `spec-kanban: <change> stalled`
+- [x] 3.4 Tests first: an escalation record at the settle skips the timed wait, and the record is cleared once the agent works again ("Escalation is followed by no Stall")
+- [x] 3.5 Implement Stall in `Watch` with the constant `stallAfter` and `Watched.Escalated`/`Watched.Clear` callbacks (design.md decisions 2 and 6)
+- [x] 3.6 Tests first: with `Resumed` the watch waits `--until working` without timeout before the first evaluation, and a resumed agent that never works gets no Handoff and no Stall ("Resumed session of a finished Change", "Resumed session finishes the Change")
+- [x] 3.7 Implement `Watched.Resumed`
 
 ## 4. `cmd/kanban`
 
 - [ ] 4.1 Tests first: `startOne`'s prompt is `cfg.PromptFor(...)` plus one space and `start.Sentence(self, change)`, also with a configured `prompt`; `kanban start` sends no sentence ("Start with a configured prompt", "Start with configured instructions", "Start a Spec Kit Feature", "Start a Ready Change")
 - [ ] 4.2 Implement the sentence in `startOne` with `os.Executable`
-- [ ] 4.3 One helper builds the `Watched` for `launch` and `resumeChange`; both write the Main pane record from `$KANBAN_MAIN_PANE` and clear the escalation record before watching; `resumeChange` watches after a successful `Resume` with `Resumed: true`, only when `$KANBAN_PROJECT` is set (tests for the records written and for no watch without `$KANBAN_PROJECT`)
+- [x] 4.3 One helper builds the `Watched` for `launch` and `resumeChange`; both write the Main pane record from `$KANBAN_MAIN_PANE` and clear the escalation record before watching; `resumeChange` watches after a successful `Resume` with `Resumed: true`, only when `$KANBAN_PROJECT` is set (tests for the records written and for no watch without `$KANBAN_PROJECT`)
 - [ ] 4.4 Tests first, one per scenario of "Escalation": "Worker cannot publish" (exact prompt start, tasks path in the worktree, prints that the Main agent received it), "Without a worktree", "No Main agent" (`spec-kanban: <change> needs you`, prints that a notification received it), "Unknown Change" (exit non-zero, nothing sent), "No reason" (usage, exit 2); plus: the reason joins all remaining arguments; the Project is found from a linked worktree through its Main record; the escalation record is written in every delivered case
 - [ ] 4.5 Implement `kanban escalate` (design.md decision 3) and add it to the usage text: `kanban escalate <change> <reason>  Ask the Main agent for a human's help with <change> (run by the Change's agent)`
 

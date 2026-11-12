@@ -58,7 +58,8 @@ Usage:
                     Focus tab, start an agent of kind in pane and send command, without watching it
                     (internal, spawned by the Board for Verify and Archive)
   kanban resume <change> <pane> <tab>
-                    Focus tab and reopen the session recorded for <change> in pane (internal, spawned by the Board)
+                    Focus tab, reopen the session recorded for <change> in pane and watch it like launch
+                    (internal, spawned by the Board)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
   kanban --version  Print the version
 `
@@ -252,15 +253,22 @@ func childEnv(env []string) []string {
 }
 
 // launch runs start.Launch and reports a failure as a herdr notification: nobody reads its stderr.
-// A Start from the Board ($KANBAN_PROJECT set) is then watched until it hands off or its agent goes away.
+// A Start from the Board is then watched.
 func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 	if err := start.Launch(change, kind, prompt, pane, tab, run); err != nil {
 		run("notification", "show", "spec-kanban: start failed", "--body", err.Error())
 		return err
 	}
+	watch(change, false, run)
+	return nil
+}
+
+// watch records the Main pane of change for Escalation, forgets an earlier escalation, and watches
+// the agent of change until it hands off or goes away; only for the Board ($KANBAN_PROJECT set).
+func watch(change string, resumed bool, run herdr.Runner) {
 	proj := os.Getenv("KANBAN_PROJECT")
 	if proj == "" {
-		return nil
+		return
 	}
 	cfg, _ := config.Load(config.Dir(run)) // a broken config was already shown by the Board
 	_, sourceFor := sources(cfg)
@@ -269,12 +277,16 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 	if !cfg.Worktree { // the agent works in the Project: a leftover checkout of the Change must not supply its Progress
 		loadGit = func(...string) ([]byte, error) { return nil, errors.New("worktree off") }
 	}
-	start.Watch(start.Watched{Project: proj, Change: change, Main: os.Getenv("KANBAN_MAIN_PANE"), Base: cfg.Base, On: cfg.Worktree,
-		Load:   loader(dir, proj, src, loadGit),
-		Source: src,
-		Record: func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
+	mainPane := os.Getenv("KANBAN_MAIN_PANE")
+	_ = cache.WriteMain(dir, proj, change, mainPane) // a lost record only makes Escalation notify
+	cache.ClearEscalation(dir, proj, change)
+	start.Watch(start.Watched{Project: proj, Change: change, Main: mainPane, Base: cfg.Base, On: cfg.Worktree, Resumed: resumed,
+		Load:      loader(dir, proj, src, loadGit),
+		Source:    src,
+		Record:    func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
+		Escalated: func() bool { return cache.Escalated(dir, proj, change) },
+		Clear:     func() { cache.ClearEscalation(dir, proj, change) },
 	}, run, git)
-	return nil
 }
 
 // runCommand runs start.Launch with command and reports a failure as a herdr notification; nothing
@@ -287,15 +299,16 @@ func runCommand(change, pane, tab, kind, command string, run herdr.Runner) error
 	return err
 }
 
-// resumeChange reopens the session recorded for change of $KANBAN_PROJECT and reports a failure as
-// a herdr notification.
+// resumeChange reopens the session recorded for change of $KANBAN_PROJECT, reports a failure as a
+// herdr notification, and watches a resume from the Board.
 func resumeChange(change, pane, tab string, run herdr.Runner) error {
 	s := cache.ReadSession(cache.Dir(), os.Getenv("KANBAN_PROJECT"), change)
-	err := start.Resume(change, s, pane, tab, run)
-	if err != nil {
+	if err := start.Resume(change, s, pane, tab, run); err != nil {
 		run("notification", "show", "spec-kanban: resume failed", "--body", err.Error())
+		return err
 	}
-	return err
+	watch(change, true, run)
+	return nil
 }
 
 // loader reads the Project's Changes and those worked on in its other checkouts, reusing cached

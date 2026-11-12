@@ -78,6 +78,7 @@ var (
 	wready    = "agent wait " + change + " --until working --timeout 60000"
 	wsettle   = "agent wait " + change
 	wworking  = "agent wait " + change + " --until working"
+	wstall    = "agent wait " + change + " --until working --timeout 600000"
 	wclose    = "pane close w5:p1"
 	mget      = "agent get " + mainPane
 	all7      = []work.Item{{Name: "other"}, {Name: change, Done: 7, Total: 7}}
@@ -88,7 +89,18 @@ var (
 
 func watched(load func() ([]work.Item, error), rec *[]herdr.Session) Watched {
 	return Watched{Project: proj, Change: change, Main: mainPane, On: true, Load: load, Source: src,
-		Record: func(s herdr.Session) { *rec = append(*rec, s) }}
+		Record: func(s herdr.Session) { *rec = append(*rec, s) }, Escalated: func() bool { return false }, Clear: func() {}}
+}
+
+// stallText is the Stall prompt for change at progress, "" when unknown.
+func stallText(progress string) string {
+	at := ""
+	if progress != "" {
+		at = " at " + progress
+	}
+	return change + " stopped" + at + " 10 minutes ago without asking for help. Read its output with: herdr agent read " + change + " --lines 40." +
+		" If it waits for something that finishes by itself, do nothing. If it needs a human, tell the user what it needs." +
+		" To let it continue, run: herdr agent prompt " + change + ` "<what to do>". Do not close its tab.`
 }
 
 func notify(title, body string) string {
@@ -109,21 +121,21 @@ func TestWatch(t *testing.T) {
 			loads(all7), append([]string{wget, wready, wsettle, wget}, cleanEnd...)},
 		{"wait for working fails: still evaluated", map[string][]any{wget: {"agent-get-watched.json"}, wready: {notFound}, mget: {"agent-get-main.json"}},
 			loads(all7), append([]string{wget, wready, wsettle, wget}, cleanEnd...)},
-		{"tasks left: notification, then handoff at the next settle", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
+		{"tasks left: no notification, handoff at the next settle", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
 			loads([]work.Item{{Name: change, Done: 3, Total: 7}}, all7),
-			append([]string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 3/7 tasks"), wget, wworking, wsettle, wget}, cleanEnd...)},
-		{"blocked with all tasks done: waits for input", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
-			loads(all7), []string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input at 7/7 tasks"), wget, wworking}},
-		{"load error: stopped", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
-			loads(boom), []string{wget, wready, wsettle, wget, notify("stopped", "boom"), wget, wworking}},
-		{"Change neither open nor archived: not clean", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
-			loads([]work.Item{{Name: "other"}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" is neither open nor archived"), wget, wworking}},
-		{"no tasks: not clean", map[string][]any{wget: {"agent-get-watched.json"}, wready: {}, wworking: {notFound}},
-			loads([]work.Item{{Name: change}}), []string{wget, wready, wsettle, wget, notify("stopped", change+" stopped at 0/0 tasks"), wget, wworking}},
-		{"blocked with a load error: waits for input", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
-			loads(boom), []string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input"), wget, wworking}},
+			append([]string{wget, wready, wsettle, wget, wget, wstall, wsettle, wget}, cleanEnd...)},
+		{"blocked with all tasks done: no notification, no Stall", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
+			loads(all7), []string{wget, wready, wsettle, wget, wget, wworking}},
+		{"load error: unfinished", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched.json", "agent-get-watched.json", notFound}, wready: {}, wstall: {notFound}},
+			loads(boom), []string{wget, wready, wsettle, wget, wget, wstall, wget}},
+		{"Change neither open nor archived: unfinished", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched.json", "agent-get-watched.json", notFound}, wready: {}, wstall: {notFound}},
+			loads([]work.Item{{Name: "other"}}), []string{wget, wready, wsettle, wget, wget, wstall, wget}},
+		{"no tasks: unfinished", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched.json", "agent-get-watched.json", notFound}, wready: {}, wstall: {notFound}},
+			loads([]work.Item{{Name: change}}), []string{wget, wready, wsettle, wget, wget, wstall, wget}},
+		{"blocked with a load error: no notification", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
+			loads(boom), []string{wget, wready, wsettle, wget, wget, wworking}},
 		{"turn ended while evaluating: evaluated again at once", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json", "agent-get-watched-later.json"}, mget: {"agent-get-main.json"}},
-			loads(all7), append([]string{wget, wready, wsettle, wget, notify("stopped", change+" waits for input at 7/7 tasks"), wget, wsettle, wget}, cleanEnd...)},
+			loads(all7), append([]string{wget, wready, wsettle, wget, wget, wsettle, wget}, cleanEnd...)},
 		{"working again when read: no handoff, no notification", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-working.json", "agent-get-watched.json"}, mget: {"agent-get-main.json"}},
 			loads(all7), append([]string{wget, wready, wsettle, wget, wsettle, wget}, cleanEnd...)},
 		{"agent gone while settling", map[string][]any{wget: {"agent-get-watched.json"}, wsettle: {notFound}},
@@ -157,7 +169,7 @@ func TestWatchRecordsWhenReadyAndAtEverySettle(t *testing.T) {
 	var rec []herdr.Session
 	Watch(watched(loads([]work.Item{{Name: change, Done: 3, Total: 7}}, all7), &rec), h.run, noGit)
 	if len(rec) != 4 {
-		t.Errorf("want 4 records (ready, two settles, after the notification), got %v", rec)
+		t.Errorf("want 4 records (ready, two settles, after the first check), got %v", rec)
 	}
 }
 
@@ -412,12 +424,15 @@ func TestWatchSpecKit(t *testing.T) {
 func TestWatchAndResumeFeatureName(t *testing.T) {
 	const feature, agentID = "001-a", "f-001-a"
 	ready, working := "agent wait "+agentID+" --until working --timeout 60000", "agent wait "+agentID+" --until working"
-	h := &script{t: t, answers: map[string][]any{"agent get " + agentID: {"agent-get-watched.json"}, ready: {}, working: {notFound}}}
-	w := Watched{Project: proj, Change: feature, Load: loads([]work.Item{{Name: feature, Done: 3, Total: 7}}), Source: src, Record: func(herdr.Session) {}}
+	h := &script{t: t, answers: map[string][]any{"agent get " + agentID: {"agent-get-watched.json"}, ready: {}, working: {notFound}, working + " --timeout 600000": {notFound}}}
+	w := Watched{Project: proj, Change: feature, Load: loads([]work.Item{{Name: feature, Done: 3, Total: 7}}), Source: src, Record: func(herdr.Session) {},
+		Escalated: func() bool { return false }, Clear: func() {}}
 	Watch(w, h.run, noGit)
 	get := "agent get " + agentID
-	stopped := "notification show spec-kanban: " + feature + " stopped --body " + feature + " stopped at 3/7 tasks"
-	if want := []string{get, ready, "agent wait " + agentID, get, stopped, get, working}; !reflect.DeepEqual(h.calls, want) {
+	stalled := "notification show spec-kanban: " + feature + " stalled --body " + feature + " stopped at 3/7 tasks 10 minutes ago without asking for help." +
+		" Read its output with: herdr agent read " + agentID + " --lines 40. If it waits for something that finishes by itself, do nothing." +
+		" If it needs a human, tell the user what it needs. To let it continue, run: herdr agent prompt " + agentID + ` "<what to do>". Do not close its tab.`
+	if want := []string{get, ready, "agent wait " + agentID, get, get, working + " --timeout 600000", get, stalled, working}; !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("Watch herdr calls %q, want %q", h.calls, want)
 	}
 	f := &fakeHerdr{t: t}
@@ -426,5 +441,86 @@ func TestWatchAndResumeFeatureName(t *testing.T) {
 	}
 	if want := "agent start " + agentID + " --kind claude --pane w2:p1J --timeout 60000 -- --resume abc"; f.calls[3] != want || f.calls[1] != probe {
 		t.Errorf("Resume calls %q, want the probe, then %q", f.calls, want)
+	}
+}
+
+func TestWatchStall(t *testing.T) {
+	left := loads([]work.Item{{Name: change, Done: 3, Total: 7}})
+	stall := "agent prompt " + mainPane + " " + stallText("3/7 tasks")
+	again := []any{"agent-get-watched.json", notFound} // works once more, then goes away
+	tests := []struct {
+		name      string
+		main      string
+		escalated bool
+		answers   map[string][]any
+		load      func() ([]work.Item, error)
+		want      []string
+		cleared   int
+	}{
+		{"Worker stops silently", mainPane, false, map[string][]any{wready: {}, wstall: {notFound}, wworking: {notFound}},
+			left, []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, stall, wworking}, 0},
+		{"Worker goes on by itself", mainPane, false, map[string][]any{wready: {}, wstall: {}, wsettle: again},
+			left, []string{wget, wready, wsettle, wget, wget, wstall, wsettle}, 0},
+		{"User answers in time", mainPane, false, map[string][]any{wready: {}, wstall: {}, wsettle: again},
+			left, []string{wget, wready, wsettle, wget, wget, wstall, wsettle}, 0},
+		{"Second silent stop", mainPane, false, map[string][]any{wready: {}, wstall: {notFound}, wworking: again},
+			left, []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, stall, wworking, wsettle, wget, wget, wstall, wget, mget, stall, wworking}, 1},
+		{"agent gone after the timed wait", mainPane, false, map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched.json", "agent-get-watched.json", notFound}, wstall: {notFound}},
+			left, []string{wget, wready, wsettle, wget, wget, wstall, wget}, 0},
+		{"Progress unknown", mainPane, false, map[string][]any{wready: {}, wstall: {notFound}, wworking: {notFound}},
+			loads(errors.New("boom")), []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, "agent prompt " + mainPane + " " + stallText(""), wworking}, 0},
+		{"Stall without a Main agent", "", false, map[string][]any{wready: {}, wstall: {notFound}, wworking: {notFound}},
+			left, []string{wget, wready, wsettle, wget, wget, wstall, wget, notify("stalled", stallText("3/7 tasks")), wworking}, 0},
+		{"Escalation is followed by no Stall", mainPane, true, map[string][]any{wready: {}, wworking: {}, wsettle: again},
+			left, []string{wget, wready, wsettle, wget, wget, wworking, wsettle}, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			answers := map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}
+			for k, v := range tt.answers {
+				answers[k] = v
+			}
+			h := &script{t: t, answers: answers}
+			var rec []herdr.Session
+			w := watched(tt.load, &rec)
+			w.Main = tt.main
+			cleared := 0
+			w.Escalated = func() bool { return tt.escalated }
+			w.Clear = func() { cleared++ }
+			Watch(w, h.run, noGit)
+			if !reflect.DeepEqual(h.calls, tt.want) {
+				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)
+			}
+			if cleared != tt.cleared {
+				t.Errorf("escalation cleared %d times, want %d", cleared, tt.cleared)
+			}
+		})
+	}
+}
+
+func TestWatchResumed(t *testing.T) {
+	tests := []struct {
+		name    string
+		answers map[string][]any
+		want    []string
+	}{
+		{"Resumed session of a finished Change", map[string][]any{wworking: {notFound}}, []string{wget, wworking}},
+		{"Resumed session finishes the Change", map[string][]any{wworking: {}}, append([]string{wget, wworking, wsettle, wget}, cleanEnd...)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			answers := map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}
+			for k, v := range tt.answers {
+				answers[k] = v
+			}
+			h := &script{t: t, answers: answers}
+			var rec []herdr.Session
+			w := watched(loads(all7), &rec)
+			w.Resumed = true
+			Watch(w, h.run, noGit)
+			if !reflect.DeepEqual(h.calls, tt.want) {
+				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)
+			}
+		})
 	}
 }

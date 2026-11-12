@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/work"
@@ -20,7 +22,13 @@ type Watched struct {
 	Load            func() ([]work.Item, error)
 	Source          work.Source // for ArchivedIn and Finish
 	Record          func(herdr.Session)
+	Escalated       func() bool // whether the Change escalated since its agent last worked
+	Clear           func()      // forgets that escalation
+	Resumed         bool        // a reopened session: evaluated only after it worked once
 }
+
+// stallAfter is how long an unfinished agent may stay settled before the Main agent hears of it.
+const stallAfter = 10 * time.Minute
 
 // agent is what Watch reads from herdr agent get.
 type agent struct {
@@ -48,15 +56,23 @@ func getAgent(run herdr.Runner, target string) (agent, error) {
 }
 
 // Watch follows the agent of w.Change until it goes away or hands off: at each settle it records
-// the agent's session, then either hands the finished Change off to the Main agent or shows a
-// notification and waits for the agent's next turn. git runs git inside w.Project.
+// the agent's session, then either hands the finished Change off to the Main agent or waits for the
+// agent's next turn, telling the Main agent of a Stall when an unfinished agent that did not
+// escalate stays settled for stallAfter. git runs git inside w.Project.
 func Watch(w Watched, run, git herdr.Runner) {
 	if _, err := w.get(run); err != nil {
 		return
 	}
-	run("agent", "wait", herdr.AgentName(w.Change), "--until", "working", "--timeout", "60000") // it may have finished its turn already
+	name := herdr.AgentName(w.Change)
+	if w.Resumed { // a reopened session has nothing to evaluate before its next turn
+		if _, err := run("agent", "wait", name, "--until", "working"); err != nil {
+			return
+		}
+	} else {
+		run("agent", "wait", name, "--until", "working", "--timeout", "60000") // it may have finished its turn already
+	}
 	for {
-		if _, err := run("agent", "wait", herdr.AgentName(w.Change)); err != nil {
+		if _, err := run("agent", "wait", name); err != nil {
 			return // the agent exited, its pane was closed or herdr went away
 		}
 		a, err := w.get(run)
@@ -66,21 +82,41 @@ func Watch(w Watched, run, git herdr.Runner) {
 		if a.Status != "idle" && a.Status != "done" && a.Status != "blocked" {
 			continue // its next turn began before it was read
 		}
-		text, finished, stopped := w.check(git, a)
+		text, finished, progress := w.check(git, a)
 		if finished {
 			w.handoff(run, a.Pane, text)
 			return
 		}
-		run("notification", "show", "spec-kanban: "+w.Change+" stopped", "--body", stopped)
 		if b, err := w.get(run); err != nil {
 			return
 		} else if b.Seq != a.Seq {
 			continue // it moved on while being checked, maybe through a whole turn
 		}
-		if _, err := run("agent", "wait", herdr.AgentName(w.Change), "--until", "working"); err != nil {
+		if a.Status != "blocked" && !w.Escalated() {
+			if _, err := run("agent", "wait", name, "--until", "working", "--timeout", strconv.FormatInt(stallAfter.Milliseconds(), 10)); err == nil {
+				continue
+			}
+			if _, err := w.get(run); err != nil {
+				return // gone, not timed out
+			}
+			Tell(run, w.Main, a.Pane, "spec-kanban: "+w.Change+" stalled", w.stall(progress))
+		}
+		if _, err := run("agent", "wait", name, "--until", "working"); err != nil {
 			return
 		}
+		w.Clear()
 	}
+}
+
+// stall is the Stall prompt for the Change at progress, "" when unknown.
+func (w Watched) stall(progress string) string {
+	at, name := "", herdr.AgentName(w.Change)
+	if progress != "" {
+		at = " at " + progress
+	}
+	return w.Change + " stopped" + at + " 10 minutes ago without asking for help. Read its output with: herdr agent read " + name + " --lines 40." +
+		" If it waits for something that finishes by itself, do nothing. If it needs a human, tell the user what it needs." +
+		" To let it continue, run: herdr agent prompt " + name + ` "<what to do>". Do not close its tab.`
 }
 
 // get reads the watched agent and records its session.
@@ -93,14 +129,14 @@ func (w Watched) get(run herdr.Runner) (agent, error) {
 }
 
 // check tells whether the Change of the settled agent a is finished, and returns the Handoff text
-// for it and the notification body for when the agent stopped without finishing it.
-func (w Watched) check(git herdr.Runner, a agent) (text string, finished bool, stopped string) {
+// for it and its Progress ("3/7 tasks", "" when unknown). A blocked agent is never finished.
+func (w Watched) check(git herdr.Runner, a agent) (text string, finished bool, progress string) {
+	if a.Status == "blocked" {
+		return "", false, ""
+	}
 	changes, err := w.Load()
-	switch {
-	case err != nil && a.Status == "blocked":
-		return "", false, w.Change + " waits for input"
-	case err != nil:
-		return "", false, err.Error()
+	if err != nil {
+		return "", false, ""
 	}
 	checkout := ""
 	if w.On {
@@ -121,21 +157,13 @@ func (w Watched) check(git herdr.Runner, a agent) (text string, finished bool, s
 	}
 	// A Change archived in its checkout is still open in the Project until merged.
 	archived := checkout != "" && w.Source.ArchivedIn(checkout, w.Change) || open == nil && inProject
-	progress := ""
 	if open != nil {
 		progress = fmt.Sprintf("%d/%d tasks", open.Done, open.Total)
 	}
-	switch {
-	case a.Status == "blocked" && open != nil:
-		return "", false, w.Change + " waits for input at " + progress
-	case a.Status == "blocked":
-		return "", false, w.Change + " waits for input"
-	case !archived && open == nil:
-		return "", false, w.Change + " is neither open nor archived"
-	case !archived && (open.Total == 0 || open.Done < open.Total):
-		return "", false, w.Change + " stopped at " + progress
+	if !archived && (open == nil || open.Total == 0 || open.Done < open.Total) {
+		return "", false, progress
 	}
-	return w.text(git, checkout, progress, archived, a.Session), true, ""
+	return w.text(git, checkout, progress, archived, a.Session), true, progress
 }
 
 // text is the Handoff text: review, merge and remove the checkout when there is one, archive unless
