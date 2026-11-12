@@ -184,3 +184,68 @@ func TestSessionEmptyDir(t *testing.T) {
 		t.Errorf(`ReadSession(""): got %v, want zero`, got)
 	}
 }
+
+func TestMainPane(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "state")
+	if got := ReadMain(dir, project, "m1"); got != "" {
+		t.Errorf("missing: got %q", got)
+	}
+	if err := WriteMain(dir, project, "m1", "w1:p1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteMain(dir, "/other", "m1", "w1:p2"); err != nil {
+		t.Fatal(err)
+	}
+	if got := ReadMain(dir, project, "m1"); got != "w1:p1" {
+		t.Errorf("round trip: got %q", got)
+	}
+	if got := ReadMain(dir, "/other", "m1"); got != "w1:p2" {
+		t.Errorf("other project: got %q", got)
+	}
+	if err := WriteMain(dir, project, "m1", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := ReadMain(dir, project, "m1"); got != "" {
+		t.Errorf("empty pane must remove the record, got %q", got)
+	}
+	if err := WriteMain(dir, project, "m1", ""); err != nil {
+		t.Errorf("removing a missing record: %v", err)
+	}
+	if got := ReadMain("", project, "m1"); got != "" {
+		t.Errorf(`ReadMain(""): got %q`, got)
+	}
+	if err := WriteMain("", project, "m1", "w1:p1"); err == nil {
+		t.Error(`WriteMain(""): want error`)
+	}
+}
+
+func TestMainPaneUnreadable(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "mains", hash(project), "m1"), 0o755); err != nil { // a directory cannot be read as a file
+		t.Fatal(err)
+	}
+	if got := ReadMain(dir, project, "m1"); got != "" {
+		t.Errorf("unreadable: got %q", got)
+	}
+}
+
+func TestEscalation(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "state")
+	if Escalated(dir, project, "m1") {
+		t.Error("missing: want false")
+	}
+	if err := WriteEscalation(dir, project, "m1"); err != nil {
+		t.Fatal(err)
+	}
+	if !Escalated(dir, project, "m1") || Escalated(dir, "/other", "m1") || Escalated(dir, project, "m2") {
+		t.Error("escalation must be kept per Project and Change")
+	}
+	ClearEscalation(dir, project, "m1")
+	if Escalated(dir, project, "m1") {
+		t.Error("cleared: want false")
+	}
+	ClearEscalation(dir, project, "m1") // clearing twice does no harm
+	if Escalated("", project, "m1") || WriteEscalation("", project, "m1") == nil {
+		t.Error(`empty dir: want false and an error`)
+	}
+}

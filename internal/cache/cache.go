@@ -129,3 +129,63 @@ func WriteSession(dir, project, change string, s herdr.Session) error {
 	}
 	return writeAtomic(sessions(dir, project), change, data)
 }
+
+// mains is where the Main pane of each of project's Changes is recorded, one file per Change.
+func mains(dir, project string) string { return filepath.Join(dir, "mains", hash(project)) }
+
+// ReadMain returns the Main pane recorded for change of project in dir, "" when there is none or it
+// is unreadable.
+func ReadMain(dir, project, change string) string {
+	if dir == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(mains(dir, project), change))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// WriteMain records pane as the Main pane of change of project in dir, replacing the previous
+// record; an empty pane removes it.
+func WriteMain(dir, project, change, pane string) error {
+	if dir == "" {
+		return errors.New("cache: no directory")
+	}
+	if pane == "" {
+		if err := os.Remove(filepath.Join(mains(dir, project), change)); !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return nil
+	}
+	return writeAtomic(mains(dir, project), change, []byte(pane))
+}
+
+// escalation is the file whose presence says that change of project escalated since its agent last worked.
+func escalation(dir, project, change string) string {
+	return filepath.Join(dir, "escalations", hash(project), change)
+}
+
+// WriteEscalation records that change of project escalated.
+func WriteEscalation(dir, project, change string) error {
+	if dir == "" {
+		return errors.New("cache: no directory")
+	}
+	return writeAtomic(filepath.Dir(escalation(dir, project, change)), change, nil)
+}
+
+// Escalated tells whether change of project escalated and the record was not cleared since.
+func Escalated(dir, project, change string) bool {
+	if dir == "" {
+		return false
+	}
+	_, err := os.Stat(escalation(dir, project, change))
+	return err == nil
+}
+
+// ClearEscalation removes the escalation record of change of project, if any.
+func ClearEscalation(dir, project, change string) {
+	if dir != "" {
+		_ = os.Remove(escalation(dir, project, change))
+	}
+}

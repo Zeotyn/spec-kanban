@@ -1,8 +1,8 @@
 ## 1. Records in `internal/cache`
 
-- [ ] 1.1 Tests first: `WriteMain`/`ReadMain` round trip, an empty pane removes the record, a missing or unreadable record reads as "", equally named Changes in two Projects stay apart ("Main pane recorded per Change")
-- [ ] 1.2 Implement `WriteMain`/`ReadMain` under `mains/<project hash>/<change>` with `writeAtomic`
-- [ ] 1.3 Tests first, then implement `WriteEscalation`, `Escalated` and `ClearEscalation` under `escalations/<project hash>/<change>`
+- [x] 1.1 Tests first: `WriteMain`/`ReadMain` round trip, an empty pane removes the record, a missing or unreadable record reads as "", equally named Changes in two Projects stay apart ("Main pane recorded per Change")
+- [x] 1.2 Implement `WriteMain`/`ReadMain` under `mains/<project hash>/<change>` with `writeAtomic`
+- [x] 1.3 Tests first, then implement `WriteEscalation`, `Escalated` and `ClearEscalation` under `escalations/<project hash>/<change>`
 
 ## 2. Delivery and sentence in `internal/start`
 
