@@ -33,7 +33,7 @@ Before `agent start`, `Launch` and `Resume` type ` echo kanban-rea""dy-<nonce>` 
 
 ### 2. Repeat every 2 s, give up after 60 s, stop at once when herdr refuses
 
-`ready(pane, run)` loops: `pane run`, `pane wait-output --timeout 2000`; on a wait timeout a new probe with a new nonce, up to 30 probes (60 s, the same budget `agent start` gets). A failed `pane run` returns its error at once, since the pane is gone or herdr is. 2 s is long enough for the shell to execute a queued line once it is at the prompt, and short enough that a dialog which swallows a whole line costs one retry. The cap is a probe count, not a clock, so tests need no time.
+`ready(change, pane, run)` loops: `pane run`, `pane wait-output --timeout 2000`; on a wait timeout a new probe with a new nonce, up to 30 probes (60 s, the same budget `agent start` gets). A failed `pane run` returns its error at once, since the pane is gone or herdr is. 2 s is long enough for the shell to execute a queued line once it is at the prompt, and short enough that a dialog which swallows a whole line costs one retry. The cap is a probe count, not a clock, so tests need no time.
 
 What the user sees in the tab: one `kanban-ready-<nonce>` line per answered probe, and, per dialog that ate the first character, one `command not found: cho` line. An agent tab starts with output anyway; the lines are cheap and say what they are.
 
@@ -43,7 +43,7 @@ What the user sees in the tab: one `kanban-ready-<nonce>` line per answered prob
 
 ### 4. The failure carries the pane's last lines
 
-`tail(pane, run)` runs `pane read --source recent-unwrapped --lines 20`, drops empty lines and keeps the last 8; the error from a probe timeout (`shell did not reach its prompt in tab "<change>"`) and from `agent start` (`<kind> did not become ready in tab "<change>", the prompt was not sent`) gets `; pane shows: <lines joined by " | ">` appended, or `; pane could not be read: <err>` when `pane read` fails. The joined form keeps a herdr notification body on a few lines. `cmd/kanban` needs no change: it already puts `err.Error()` into the notification.
+`tail(pane, run)` runs `pane read --source recent-unwrapped --lines 20`, drops empty lines and keeps the last 8; the error from a probe timeout (`shell did not reach its prompt in tab "<change>": <last wait error>`) and from `agent start` (`<kind> did not become ready in tab "<change>", the prompt was not sent`) gets `; pane shows: <lines joined by " | ">` appended, or `; pane could not be read: <err>` when `pane read` fails. The joined form keeps a herdr notification body on a few lines. `cmd/kanban` needs no change: it already puts `err.Error()` into the notification.
 
 ## Risks / Trade-offs
 

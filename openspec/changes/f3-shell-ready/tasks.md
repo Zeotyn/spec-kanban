@@ -1,7 +1,7 @@
 ## 1. Readiness probe in `internal/start`
 
 - [x] 1.1 Tests first with the fake herdr runner of `start_test.go` and a counting `nonce`: the first probe answered → calls are `pane run <pane>  echo kanban-rea""dy-1`, `pane wait-output <pane> --match kanban-ready-1 --timeout 2000`, then `agent start` ("Shell already at its prompt"); a first wait that fails → a second probe with nonce 2 and no `agent start` before it is answered ("Shell rc reads a whole line", "Earlier marker in the same tab"); 30 failed waits → error containing `shell did not reach its prompt in tab "<change>"`, no `agent start` ("Shell never reaches its prompt"); a failed `pane run` → that error at once, one probe only ("Pane gone during the wait")
-- [x] 1.2 Implement `ready(pane string, run herdr.Runner) error` and the `nonce` package variable (design.md decisions 1 and 2); `crypto/rand`, no new dependency
+- [x] 1.2 Implement `ready(change, pane string, run herdr.Runner) error` and the `nonce` package variable (design.md decisions 1 and 2); `crypto/rand`, no new dependency
 - [x] 1.3 Tests first for `tail`: 20 lines read, empty lines dropped, the last 8 joined by ` | `; a failed `pane read` yields `pane could not be read: <err>` ("Pane cannot be read for the report")
 - [x] 1.4 Implement `tail` (design.md decision 4)
 

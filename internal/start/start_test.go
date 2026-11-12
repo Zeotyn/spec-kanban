@@ -790,7 +790,7 @@ func TestLaunchWaitsForPrompt(t *testing.T) {
 		counted(t)
 		h := &fakeHerdr{t: t, out: map[string]string{"pane read": "pane-read.txt"}, fail: map[string]error{"pane wait-output": boom}}
 		err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run)
-		if want := `shell did not reach its prompt in tab "m1-board-view"; pane shows: ` + shown; err == nil || err.Error() != want {
+		if want := `shell did not reach its prompt in tab "m1-board-view": boom; pane shows: ` + shown; err == nil || err.Error() != want {
 			t.Errorf("error\n got %v\nwant %s", err, want)
 		}
 		// tab focus, 30 probes of two calls, pane read

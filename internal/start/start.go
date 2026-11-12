@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -236,7 +235,7 @@ func Launch(change, kind, prompt, pane, tab string, run herdr.Runner) error {
 	if _, err := run("tab", "focus", tab); err != nil {
 		return fmt.Errorf("tab focus: %w", err)
 	}
-	if err := prompted(change, pane, run); err != nil {
+	if err := ready(change, pane, run); err != nil {
 		return err
 	}
 	if _, err := run("agent", "start", herdr.AgentName(change), "--kind", kind, "--pane", pane, "--timeout", "60000"); err != nil {
@@ -353,33 +352,23 @@ var nonce = func() string {
 	return hex.EncodeToString(b)
 }
 
-// errNoPrompt is ready's error for a shell that answered no probe.
-var errNoPrompt = errors.New("shell did not reach its prompt")
-
 // ready waits until the shell of pane is at its prompt, which herdr does not report: it types an
 // echo whose output, unlike the typed line, holds the marker, and waits for the marker; after 2 s
 // without it, it types the next one, up to 30 times. The leading space answers an rc's question
-// with "no" and keeps the line out of the shell's history. A refused pane run ends the wait at once.
-func ready(pane string, run herdr.Runner) error {
+// with "no" and keeps the line out of the shell's history. A refused pane run ends the wait at once;
+// a shell that answers no probe is reported with the last wait's error and the lines of change's tab.
+func ready(change, pane string, run herdr.Runner) error {
+	var err error
 	for range 30 {
 		n := nonce()
 		if _, err := run("pane", "run", pane, ` echo kanban-rea""dy-`+n); err != nil {
 			return fmt.Errorf("pane run: %w", err)
 		}
-		if _, err := run("pane", "wait-output", pane, "--match", "kanban-ready-"+n, "--timeout", "2000"); err == nil {
+		if _, err = run("pane", "wait-output", pane, "--match", "kanban-ready-"+n, "--timeout", "2000"); err == nil {
 			return nil
 		}
 	}
-	return errNoPrompt
-}
-
-// prompted is ready with the error Launch and Resume report for a shell that answered no probe.
-func prompted(change, pane string, run herdr.Runner) error {
-	err := ready(pane, run)
-	if errors.Is(err, errNoPrompt) {
-		return fmt.Errorf("%w in tab %q%s", err, change, tail(pane, run))
-	}
-	return err
+	return fmt.Errorf("shell did not reach its prompt in tab %q: %w%s", change, err, tail(pane, run))
 }
 
 // tail returns the last 8 non-empty lines of pane as the end of an error, or why they are missing.

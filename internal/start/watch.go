@@ -235,7 +235,7 @@ func Resume(change string, s herdr.Session, pane, tab string, run herdr.Runner) 
 	if _, err := run("tab", "focus", tab); err != nil {
 		return fmt.Errorf("tab focus: %w", err)
 	}
-	if err := prompted(change, pane, run); err != nil {
+	if err := ready(change, pane, run); err != nil {
 		return err
 	}
 	if _, err := run(append([]string{"agent", "start", herdr.AgentName(change), "--kind", s.Agent, "--pane", pane, "--timeout", "60000", "--"}, args...)...); err != nil {

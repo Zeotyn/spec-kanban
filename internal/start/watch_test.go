@@ -341,7 +341,7 @@ func TestResumeFails(t *testing.T) {
 		t.Errorf("want agent start error with the pane's lines, got %v", err)
 	}
 	h = &fakeHerdr{t: t, out: map[string]string{"pane read": "pane-read.txt"}, fail: map[string]error{"pane wait-output": errors.New("timeout")}}
-	if err := Resume(change, herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", h.run); err == nil || !strings.Contains(err.Error(), `shell did not reach its prompt in tab "m1-board-view"; pane shows: `) || slices.ContainsFunc(h.calls, func(c string) bool { return strings.HasPrefix(c, "agent start") }) {
+	if err := Resume(change, herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}, "w2:p1J", "w2:tG", h.run); err == nil || !strings.Contains(err.Error(), `shell did not reach its prompt in tab "m1-board-view": timeout; pane shows: `) || slices.ContainsFunc(h.calls, func(c string) bool { return strings.HasPrefix(c, "agent start") }) {
 		t.Errorf("want no agent start without a prompt, got %v, %q", err, h.calls)
 	}
 }
