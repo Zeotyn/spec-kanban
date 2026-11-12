@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
@@ -511,5 +512,113 @@ func TestBoardPrompt(t *testing.T) {
 				t.Errorf("prompt\n got %q\nwant %q", got, want)
 			}
 		})
+	}
+}
+
+func TestEscalate(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, wt := filepath.Join(root, "proj"), filepath.Join(root, "wt")
+	mkdirs(t, proj, "openspec/changes/m1-board-view")
+	mkdirs(t, wt, "openspec/changes/m1-board-view")
+	const change, pane = "m1-board-view", "w1:p9"
+	detect, _ := sources(config.Config{})
+	cli := func(string) herdr.Runner {
+		return func(args ...string) ([]byte, error) {
+			return []byte(`{"changes":[{"name":"m1-board-view","completedTasks":3,"totalTasks":7}]}`), nil
+		}
+	}
+	sourceFor := func(string) work.Source { return openspec.New(cli) }
+	git := func(string) herdr.Runner {
+		return func(args ...string) ([]byte, error) {
+			if args[0] == "rev-parse" {
+				return []byte("\n"), nil
+			}
+			return []byte("worktree " + proj + "\nbranch refs/heads/main\n\nworktree " + wt + "\nbranch refs/heads/" + change + "\n"), nil
+		}
+	}
+	reason := strings.Fields("needs npm publish and a git tag")
+	rest := func(tasks string) string {
+		return " 1. Read its open tasks in " + tasks + ". 2. If you may do the step yourself, do it and tick its task; otherwise tell the user exactly what to do and wait for them." +
+			` 3. Then tell its agent to continue: herdr agent prompt m1-board-view "<what changed>". Do not close its tab; when all tasks are done, the normal Handoff follows.`
+	}
+	head := "m1-board-view needs a human (3/7 tasks): needs npm publish and a git tag. Its agent m1-board-view waits in tab m1-board-view"
+	inWT := head + ", worktree " + wt + " on branch m1-board-view." + rest(wt+"/openspec/changes/m1-board-view/tasks.md")
+	inProj := head + "." + rest(proj+"/openspec/changes/m1-board-view/tasks.md")
+	tests := []struct {
+		name, cwd, main, change string
+		want                    []string
+		out                     string
+	}{
+		{"Worker cannot publish", filepath.Join(wt, "openspec"), pane, change,
+			[]string{"agent get " + pane, "agent prompt " + pane + " " + inWT}, "Sent to the Main agent. End your turn.\n"},
+		{"Without a worktree", proj, pane, change,
+			[]string{"agent get " + pane, "agent prompt " + pane + " " + inProj}, "Sent to the Main agent. End your turn.\n"},
+		{"No Main agent", proj, "", change,
+			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inProj}, "No Main agent took it; the user got a notification. End your turn.\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
+			t.Setenv("HERDR_PANE_ID", "w2:p1") // the worker's own pane
+			if tt.main != "" {
+				if err := cache.WriteMain(dir, proj, change, tt.main); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var calls []string
+			run := func(args ...string) ([]byte, error) {
+				calls = append(calls, strings.Join(args, " "))
+				if args[0] == "agent" && args[1] == "get" {
+					return []byte(`{"result":{"agent":{"agent":"claude","agent_status":"idle","pane_id":"` + pane + `"}}}`), nil
+				}
+				return nil, nil
+			}
+			var out strings.Builder
+			if err := escalate(tt.change, reason, tt.cwd, &out, run, detect, sourceFor, git); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(calls, tt.want) {
+				t.Errorf("herdr calls\n got %q\nwant %q", calls, tt.want)
+			}
+			if out.String() != tt.out {
+				t.Errorf("printed %q, want %q", out.String(), tt.out)
+			}
+			if !cache.Escalated(dir, proj, change) {
+				t.Error("want the escalation recorded for the Project")
+			}
+		})
+	}
+	t.Run("Unknown Change", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Setenv("HERDR_PLUGIN_STATE_DIR", dir)
+		var calls []string
+		run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
+		var out strings.Builder
+		err := escalate("m1-bord-view", reason, proj, &out, run, detect, sourceFor, git)
+		if err == nil || !strings.Contains(err.Error(), "m1-bord-view") || len(calls) != 0 || out.Len() != 0 || cache.Escalated(dir, proj, "m1-bord-view") {
+			t.Errorf("want an error naming m1-bord-view and nothing sent, got %v, %q, %q", err, calls, out.String())
+		}
+	})
+}
+
+// TestEscalateUsage runs main in a child process: a missing reason exits 2 with the usage.
+func TestEscalateUsage(t *testing.T) {
+	if args := os.Getenv("KANBAN_TEST_ARGS"); args != "" {
+		os.Args = append([]string{"kanban"}, strings.Split(args, "|")...)
+		main()
+		return
+	}
+	for _, args := range []string{"escalate|m1-board-view", "escalate|m1-board-view| "} {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestEscalateUsage$")
+		cmd.Env = append(os.Environ(), "KANBAN_TEST_ARGS="+args)
+		out, err := cmd.CombinedOutput()
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "kanban escalate <change> <reason>") {
+			t.Errorf("%q: want exit 2 with the usage, got %v: %s", args, err, out)
+		}
 	}
 }

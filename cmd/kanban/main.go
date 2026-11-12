@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -60,6 +61,8 @@ Usage:
   kanban resume <change> <pane> <tab>
                     Focus tab, reopen the session recorded for <change> in pane and watch it like launch
                     (internal, spawned by the Board)
+  kanban escalate <change> <reason>
+                    Ask the Main agent for a human's help with <change> (run by the Change's agent)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
   kanban --version  Print the version
 `
@@ -98,6 +101,17 @@ func main() {
 			os.Exit(2)
 		}
 		err = resumeChange(os.Args[2], os.Args[3], os.Args[4], herdr.Exec)
+	case "escalate":
+		if len(os.Args) < 4 || strings.TrimSpace(strings.Join(os.Args[3:], "")) == "" {
+			fmt.Fprintf(os.Stderr, "kanban: escalate needs a change name and a reason\n\n%s", usage)
+			os.Exit(2)
+		}
+		cfg, _ := config.Load(config.Dir(herdr.Exec)) // only the Source preference matters here
+		detect, sourceFor := sources(cfg)
+		var cwd string
+		if cwd, err = os.Getwd(); err == nil {
+			err = escalate(os.Args[2], os.Args[3:], cwd, os.Stdout, herdr.Exec, detect, sourceFor, gitCLI)
+		}
 	case "board":
 		err = showBoard(os.Getenv("KANBAN_PROJECT"))
 	case "sync":
@@ -318,6 +332,56 @@ func resumeChange(change, pane, tab string, run herdr.Runner) error {
 		return err
 	}
 	watch(change, true, run)
+	return nil
+}
+
+// escalate hands change to its Main agent because it cannot go on without a human, for reason (its
+// words joined by spaces), and tells stdout who received it. cwd is a checkout the Change's agent
+// works in; the Project is the first of it and its git repository's other checkouts that holds a
+// Main record for change, else cwd's checkout.
+func escalate(change string, reason []string, cwd string, stdout io.Writer, run herdr.Runner,
+	detect func(string) bool, sourceFor func(string) work.Source, git func(string) herdr.Runner) error {
+	checkout := project.Find(cwd, detect)
+	if checkout == "" {
+		return fmt.Errorf("no OpenSpec or Spec Kit project at or above %s", cwd)
+	}
+	dir, proj, mainPane := cache.Dir(), checkout, ""
+	for _, c := range append([]worktree.Checkout{{Path: checkout}}, worktree.List(git(checkout))...) {
+		if mainPane = cache.ReadMain(dir, c.Path, change); mainPane != "" {
+			proj = c.Path
+			break
+		}
+	}
+	src := sourceFor(proj)
+	open, err := src.Open(proj)
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(open, change) {
+		return fmt.Errorf("%q is not an open change of %s", change, filepath.Base(proj))
+	}
+	progress := ""
+	changes, _ := loader(dir, proj, src, git(proj))() // without Progress the prompt only leaves it out
+	for _, c := range changes {
+		if c.Name == change && c.Phase != work.Archived {
+			progress = fmt.Sprintf(" (%d/%d tasks)", c.Done, c.Total)
+		}
+	}
+	where := ""
+	if filepath.Clean(checkout) != filepath.Clean(proj) {
+		where = ", worktree " + checkout + " on branch " + change
+	}
+	agent := herdr.AgentName(change)
+	text := fmt.Sprintf("%s needs a human%s: %s. Its agent %s waits in tab %s%s."+
+		" 1. Read its open tasks in %s. 2. If you may do the step yourself, do it and tick its task; otherwise tell the user exactly what to do and wait for them."+
+		` 3. Then tell its agent to continue: herdr agent prompt %s "<what changed>". Do not close its tab; when all tasks are done, the normal Handoff follows.`,
+		change, progress, strings.Join(reason, " "), agent, change, where, filepath.Join(checkout, src.Rel(change), "tasks.md"), agent)
+	_ = cache.WriteEscalation(dir, proj, change) // a lost record only lets a Stall follow
+	if start.Tell(run, mainPane, os.Getenv("HERDR_PANE_ID"), "spec-kanban: "+change+" needs you", text) {
+		fmt.Fprintln(stdout, "Sent to the Main agent. End your turn.")
+	} else {
+		fmt.Fprintln(stdout, "No Main agent took it; the user got a notification. End your turn.")
+	}
 	return nil
 }
 
