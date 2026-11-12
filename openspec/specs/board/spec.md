@@ -136,7 +136,7 @@ When the Changes cannot be read, the Board SHALL show the error message in place
 
 #### Scenario: Start a Ready Card
 - **WHEN** Card `m1-board-view` is selected in Ready and the user presses `s`
-- **THEN** the footer says `m1-board-view` is starting, a worktree workspace labelled `m1-board-view` is opened and the Board closes before Claude is ready; its tab is then focused, Claude starts in it and receives `/opsx:apply m1-board-view`
+- **THEN** the footer says `m1-board-view` is starting, a worktree workspace labelled `m1-board-view` is opened and the Board closes before Claude is ready; its tab is then focused, Claude starts in it and receives `/opsx:apply m1-board-view` followed by the escalation sentence (see "Start opens an agent session for a Change")
 
 #### Scenario: Start a Change whose agent is running
 - **WHEN** Card `m1-board-view` in In Progress has a Running agent and the user presses `s`
@@ -461,4 +461,3 @@ While the key help is shown, a click anywhere SHALL close it and return to the v
 #### Scenario: Click on the help
 - **WHEN** the key help is shown over the Board and the user clicks where a Card is drawn underneath
 - **THEN** the help closes and the selection is unchanged
-
