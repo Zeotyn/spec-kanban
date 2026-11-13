@@ -6,8 +6,8 @@
 
 ## 2. Recording failures
 
-- [ ] 2.1 Add `fail(run, step, proj, change, err)` in `cmd/kanban`, which records the failure in `cache.UserDir()`, ignoring a write error, and shows `spec-kanban: <step> failed` with body `<error>\n\nDetails: kanban failures` (D3); tests with a fake runner, including an unwritable cache directory
-- [ ] 2.2 Use `fail` in `launch`, `runCommand`, `resumeChange`, `waveMember` (step `start`) and `waveLaunch` (step `wave`, Change = the wave's Changes joined by spaces); adjust the existing notification tests to the new body and check one record per failure
+- [x] 2.1 Add `fail(run, step, proj, change, err)` in `cmd/kanban`, which records the failure in `cache.UserDir()`, ignoring a write error, and shows `spec-kanban: <step> failed` with body `<error>\n\nDetails: kanban failures` (D3); tests with a fake runner, including an unwritable cache directory
+- [x] 2.2 Use `fail` in `launch`, `runCommand`, `resumeChange`, `waveMember` (step `start`) and `waveLaunch` (step `wave`, Change = the wave's Changes joined by spaces); adjust the existing notification tests to the new body and check one record per failure
 
 ## 3. `kanban failures`
 

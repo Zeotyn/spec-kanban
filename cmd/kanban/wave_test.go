@@ -294,9 +294,10 @@ func TestWaveMember(t *testing.T) {
 	}
 	calls = nil
 	if err := waveMember(w.Project, 2, "c4-foo", "w4:p1", "claude", "/opsx:apply c4-foo", noPane(run)); err == nil || err.Error() != "unknown wave 2" ||
-		calls[len(calls)-1] != "notification show spec-kanban: start failed --body unknown wave 2" {
+		calls[len(calls)-1] != "notification show spec-kanban: start failed --body unknown wave 2\n\nDetails: kanban failures" {
 		t.Errorf("got %v, calls %q", err, calls)
 	}
+	recorded(t, cache.UserDir(), w.Project, "c4-foo", "start", errors.New("unknown wave 2"))
 }
 
 func TestWaveFinishMissingMember(t *testing.T) { // never on the wave branch: not archived there
@@ -310,9 +311,9 @@ func TestWaveFinishMissingMember(t *testing.T) { // never on the wave branch: no
 }
 
 func TestWaveLaunchNotifiesOnFailure(t *testing.T) {
-	userDir(t)
+	user, proj := userDir(t), t.TempDir()
 	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
-	t.Setenv("KANBAN_PROJECT", t.TempDir())
+	t.Setenv("KANBAN_PROJECT", proj)
 	broken := func(string) work.Source {
 		return openspec.New(func(string) herdr.Runner {
 			return func(...string) ([]byte, error) { return nil, errors.New("openspec: not found") }
@@ -320,7 +321,8 @@ func TestWaveLaunchNotifiesOnFailure(t *testing.T) {
 	}
 	var calls []string
 	err := waveLaunch([]string{"f5-bar", "c4-foo"}, recorder(&calls, true), broken, noGitFor)
-	if err == nil || len(calls) != 1 || !strings.HasPrefix(calls[0], "notification show spec-kanban: wave failed --body ") {
+	if err == nil || len(calls) != 1 || calls[0] != "notification show spec-kanban: wave failed --body "+err.Error()+"\n\nDetails: kanban failures" {
 		t.Errorf("got %v, calls %q", err, calls)
 	}
+	recorded(t, user, proj, "f5-bar c4-foo", "wave", err)
 }

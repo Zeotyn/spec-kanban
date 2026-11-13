@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/zeotyn/spec-kanban/internal/cache"
 	"github.com/zeotyn/spec-kanban/internal/config"
@@ -172,6 +173,7 @@ func noPane(run herdr.Runner) herdr.Runner {
 }
 
 func TestLaunchNotifiesOnFailure(t *testing.T) {
+	user := userDir(t)
 	t.Setenv("KANBAN_PROJECT", "/x/proj") // a failed Launch is not watched
 	var calls [][]string
 	run := func(args ...string) ([]byte, error) {
@@ -185,10 +187,11 @@ func TestLaunchNotifiesOnFailure(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("want the Launch error, got %v", err)
 	}
-	want := []string{"notification", "show", "spec-kanban: start failed", "--body", err.Error()}
+	want := []string{"notification", "show", "spec-kanban: start failed", "--body", err.Error() + "\n\nDetails: kanban failures"}
 	if len(calls) != 3 || !reflect.DeepEqual(calls[2], want) {
 		t.Errorf("herdr calls %q, want tab focus, agent start then %q", calls, want)
 	}
+	recorded(t, user, "/x/proj", "m1-board-view", "start", err)
 }
 
 func TestLaunchSucceedsQuietly(t *testing.T) {
@@ -253,6 +256,8 @@ func TestRunCommand(t *testing.T) {
 }
 
 func TestRunCommandNotifiesOnFailure(t *testing.T) {
+	user := userDir(t)
+	t.Setenv("KANBAN_PROJECT", "/x/proj")
 	var calls [][]string
 	run := func(args ...string) ([]byte, error) {
 		calls = append(calls, args)
@@ -265,13 +270,15 @@ func TestRunCommandNotifiesOnFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("want the Launch error")
 	}
-	want := []string{"notification", "show", "spec-kanban: run failed", "--body", err.Error()}
+	want := []string{"notification", "show", "spec-kanban: run failed", "--body", err.Error() + "\n\nDetails: kanban failures"}
 	if len(calls) != 3 || !reflect.DeepEqual(calls[2], want) {
 		t.Errorf("herdr calls %q, want tab focus, agent start then %q", calls, want)
 	}
+	recorded(t, user, "/x/proj", "m1-board-view", "run", err)
 }
 
 func TestResumeNotifiesOnFailure(t *testing.T) {
+	user := userDir(t)
 	t.Setenv("KANBAN_PROJECT", "/x/proj")
 	t.Setenv("HERDR_PLUGIN_STATE_DIR", t.TempDir()) // no record
 	var calls [][]string
@@ -280,9 +287,44 @@ func TestResumeNotifiesOnFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("want an error without a record")
 	}
-	want := [][]string{{"notification", "show", "spec-kanban: resume failed", "--body", err.Error()}}
+	want := [][]string{{"notification", "show", "spec-kanban: resume failed", "--body", err.Error() + "\n\nDetails: kanban failures"}}
 	if !reflect.DeepEqual(calls, want) {
 		t.Errorf("herdr calls %q, want %q", calls, want)
+	}
+	recorded(t, user, "/x/proj", "m1-board-view", "resume", err)
+}
+
+// recorded checks that the failure log in user holds exactly one record: step of change of proj
+// failing with err.
+func recorded(t *testing.T, user, proj, change, step string, err error) {
+	t.Helper()
+	got := cache.ReadFailures(user)
+	if len(got) != 1 || got[0].Project != proj || got[0].Change != change || got[0].Step != step || got[0].Error != err.Error() ||
+		time.Since(got[0].Time) > time.Minute {
+		t.Errorf("failure log %+v, want one record of %s %s %s: %v", got, step, change, proj, err)
+	}
+}
+
+func TestFailUnwritableCache(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores permissions")
+	}
+	user := userDir(t)
+	if err := os.MkdirAll(filepath.Dir(user), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Dir(user), 0o500); err != nil { // spec-kanban cannot be created
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(filepath.Dir(user), 0o700) })
+	var calls []string
+	run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
+	fail(run, "start", "/x/proj", "m1-board-view", errors.New("timeout"))
+	if want := []string{"notification show spec-kanban: start failed --body timeout\n\nDetails: kanban failures"}; !reflect.DeepEqual(calls, want) {
+		t.Errorf("herdr calls %q, want %q", calls, want)
+	}
+	if got := cache.ReadFailures(user); got != nil {
+		t.Errorf("failure log %v, want none", got)
 	}
 }
 

@@ -305,11 +305,17 @@ func childEnv(env []string) []string {
 	})
 }
 
-// launch runs start.Launch and reports a failure as a herdr notification: nobody reads its stderr.
-// A Start from the Board is then watched.
+// fail reports that step of change of proj failed with err: it appends a record to the failure log,
+// ignoring a write error, and shows a herdr notification, since nobody reads a detached command's stderr.
+func fail(run herdr.Runner, step, proj, change string, err error) {
+	_ = cache.AppendFailure(cache.UserDir(), cache.Failure{Time: time.Now(), Project: proj, Change: change, Step: step, Error: err.Error()})
+	run("notification", "show", "spec-kanban: "+step+" failed", "--body", err.Error()+"\n\nDetails: kanban failures")
+}
+
+// launch runs start.Launch and reports a failure with fail. A Start from the Board is then watched.
 func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 	if err := start.Launch(change, kind, prompt, pane, tab, run); err != nil {
-		run("notification", "show", "spec-kanban: start failed", "--body", err.Error())
+		fail(run, "start", os.Getenv("KANBAN_PROJECT"), change, err)
 		return err
 	}
 	watch(os.Getenv("KANBAN_PROJECT"), change, os.Getenv("KANBAN_MAIN_PANE"), "", false, run)
@@ -343,22 +349,21 @@ func watch(proj, change, mainPane, base string, resumed bool, run herdr.Runner) 
 	}, run, git)
 }
 
-// runCommand runs start.Launch with command and reports a failure as a herdr notification; nothing
-// watches the agent.
+// runCommand runs start.Launch with command and reports a failure with fail; nothing watches the agent.
 func runCommand(change, pane, tab, kind, command string, run herdr.Runner) error {
 	err := start.Launch(change, kind, command, pane, tab, run)
 	if err != nil {
-		run("notification", "show", "spec-kanban: run failed", "--body", err.Error())
+		fail(run, "run", os.Getenv("KANBAN_PROJECT"), change, err)
 	}
 	return err
 }
 
-// resumeChange reopens the session recorded for change of $KANBAN_PROJECT, reports a failure as a
-// herdr notification, and watches a resume from the Board.
+// resumeChange reopens the session recorded for change of $KANBAN_PROJECT, reports a failure with
+// fail, and watches a resume from the Board.
 func resumeChange(change, pane, tab string, run herdr.Runner) error {
 	s := cache.ReadSession(cache.Dir(), os.Getenv("KANBAN_PROJECT"), change)
 	if err := start.Resume(change, s, pane, tab, run); err != nil {
-		run("notification", "show", "spec-kanban: resume failed", "--body", err.Error())
+		fail(run, "resume", os.Getenv("KANBAN_PROJECT"), change, err)
 		return err
 	}
 	watch(os.Getenv("KANBAN_PROJECT"), change, os.Getenv("KANBAN_MAIN_PANE"), "", true, run)

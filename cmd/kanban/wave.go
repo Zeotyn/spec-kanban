@@ -18,11 +18,11 @@ import (
 )
 
 // waveLaunch starts a wave of changes of $KANBAN_PROJECT for the Board, whose pane is
-// $KANBAN_MAIN_PANE, and reports a failure as a herdr notification: nobody reads its stderr.
+// $KANBAN_MAIN_PANE, and reports a failure with fail.
 func waveLaunch(changes []string, run herdr.Runner, sourceFor func(string) work.Source, git func(string) herdr.Runner) error {
 	err := launchWave(os.Getenv("KANBAN_PROJECT"), os.Getenv("KANBAN_MAIN_PANE"), changes, run, sourceFor, git)
 	if err != nil {
-		run("notification", "show", "spec-kanban: wave failed", "--body", err.Error())
+		fail(run, "wave", os.Getenv("KANBAN_PROJECT"), strings.Join(changes, " "), err)
 	}
 	return err
 }
@@ -185,7 +185,7 @@ func startMember(w cache.Wave, change string, stdout io.Writer, run herdr.Runner
 }
 
 // waveMember launches the agent of member change of wave n of proj in pane without focus, reports a
-// failure as a herdr notification, and watches it as the Board's watcher would, with the coordinator
+// failure with fail, and watches it as the Board's watcher would, with the coordinator
 // as its Main pane and the wave branch as its base.
 func waveMember(proj string, n int, change, pane, kind, prompt string, run herdr.Runner) error {
 	w, ok := cache.FindWave(cache.UserDir(), n, proj)
@@ -194,7 +194,7 @@ func waveMember(proj string, n int, change, pane, kind, prompt string, run herdr
 		err = start.LaunchUnfocused(change, kind, prompt, pane, run)
 	}
 	if err != nil {
-		run("notification", "show", "spec-kanban: start failed", "--body", err.Error())
+		fail(run, "start", proj, change, err)
 		return err
 	}
 	if w.State != "" { // the coordinator's pane has no $HERDR_PLUGIN_STATE_DIR; the Board reads sessions there
