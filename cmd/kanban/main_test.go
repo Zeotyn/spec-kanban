@@ -17,6 +17,7 @@ import (
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/source/openspec"
 	"github.com/zeotyn/spec-kanban/internal/source/speckit"
+	"github.com/zeotyn/spec-kanban/internal/start"
 	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
@@ -628,6 +629,23 @@ func TestLookup(t *testing.T) {
 	fail := func(...string) ([]byte, error) { return nil, errors.New("herdr not running") }
 	if _, waiting, err := lookup(proj, dir, user, fail, noGit)(); err == nil || !reflect.DeepEqual(waiting, map[string]bool{"m3-handed-off": true}) {
 		t.Errorf("herdr unavailable: want only the Handoff marker and the error, got %v, %v", waiting, err)
+	}
+}
+
+func TestSyncWaiting(t *testing.T) {
+	user := t.TempDir()
+	for change, why := range map[string]string{"m1-escalated": "escalation", "m3-handed-off": "handoff"} {
+		if err := cache.WriteMark(user, "/x/proj", change, why); err != nil {
+			t.Fatal(err)
+		}
+	}
+	items := []work.Item{{Name: "m1-escalated", Phase: work.InProgress}, {Name: "m3-handed-off", Phase: work.Review}}
+	waiting := syncWaiting(user, func(string) herdr.Runner { return noGit })
+	if got := waiting("/x/proj", []start.Agent{{Name: "m1-escalated", Cwd: "/x/proj", Status: "idle"}}, items); len(got) != 2 {
+		t.Errorf("want both waiting, got %v", got)
+	}
+	if got := waiting("/x/proj", nil, items); !reflect.DeepEqual(got, map[string]bool{"m3-handed-off": true}) {
+		t.Errorf("agent list failed: want only the Handoff marker, got %v", got)
 	}
 }
 

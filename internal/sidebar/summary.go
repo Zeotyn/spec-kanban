@@ -16,15 +16,19 @@ const width = 28
 var labels = [...]string{work.Draft: "draft", work.Ready: "ready", work.InProgress: "wip", work.Review: "review"}
 
 // Summary returns the Most recently modified Change with its Progress ("" when there is no open
-// Change) and the open Changes per Phase.
-func Summary(changes []work.Item) (change, phases string) {
+// Change) and the open Changes per Phase, led by ⚑<n> when n of them are in waiting.
+func Summary(changes []work.Item, waiting map[string]bool) (change, phases string) {
 	var latest *work.Item
 	var counts [len(labels)]int
+	n := 0 // waiting
 	for i, c := range changes {
 		if c.Phase == work.Archived {
 			continue
 		}
 		counts[c.Phase]++
+		if waiting[c.Name] {
+			n++
+		}
 		if latest == nil || cmp.Or(c.Modified.Compare(latest.Modified), cmp.Compare(latest.Name, c.Name)) > 0 {
 			latest = &changes[i]
 		}
@@ -46,8 +50,12 @@ func Summary(changes []work.Item) (change, phases string) {
 			parts = append(parts, fmt.Sprintf("%d %s", n, labels[p]))
 		}
 	}
-	for len(parts) > 1 && len([]rune(strings.Join(parts, " · "))) > width {
+	prefix := ""
+	if n > 0 {
+		prefix = fmt.Sprintf("⚑%d ", n)
+	}
+	for len(parts) > 1 && len([]rune(prefix+strings.Join(parts, " · "))) > width {
 		parts = parts[1:] // Draft is the least urgent, and the Board shows it anyway
 	}
-	return change, strings.Join(parts, " · ")
+	return change, prefix + strings.Join(parts, " · ")
 }

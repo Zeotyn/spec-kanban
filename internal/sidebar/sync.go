@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/project"
+	"github.com/zeotyn/spec-kanban/internal/start"
 	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
@@ -17,8 +18,11 @@ const maxLoads = 4
 // Sync runs one pass: it reports the summary of every herdr workspace's Project, clears it for
 // workspaces without one and leaves workspaces alone whose Project fails to load. It returns
 // herdr's error when it cannot list workspaces or panes, else the joined load and report errors.
-// detect accepts a Project directory (a Source's Detect).
-func Sync(run herdr.Runner, detect func(dir string) bool, load func(project string) ([]work.Item, error)) error {
+// detect accepts a Project directory (a Source's Detect). waiting returns the Changes of a loaded
+// Project that wait for the user, given herdr's agents from one agent list per pass (nil when that
+// failed).
+func Sync(run herdr.Runner, detect func(dir string) bool, load func(project string) ([]work.Item, error),
+	waiting func(project string, agents []start.Agent, changes []work.Item) map[string]bool) error {
 	var workspaces struct {
 		Result struct {
 			Workspaces []struct {
@@ -49,6 +53,8 @@ func Sync(run herdr.Runner, detect func(dir string) bool, load func(project stri
 		}
 	}
 
+	agents, _ := start.Agents(run) // without them only Handoff markers count
+
 	shown := map[string]string{} // workspace → Project
 	for _, p := range panes.Result.Panes {
 		dir := p.ForegroundCwd
@@ -62,6 +68,7 @@ func Sync(run herdr.Runner, detect func(dir string) bool, load func(project stri
 
 	type result struct {
 		changes []work.Item
+		waiting map[string]bool
 		err     error
 	}
 	results := map[string]*result{}
@@ -78,7 +85,9 @@ func Sync(run herdr.Runner, detect func(dir string) bool, load func(project stri
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			r.changes, r.err = load(proj)
+			if r.changes, r.err = load(proj); r.err == nil {
+				r.waiting = waiting(proj, agents, r.changes)
+			}
 		}()
 	}
 	wg.Wait()
@@ -95,7 +104,7 @@ func Sync(run herdr.Runner, detect func(dir string) bool, load func(project stri
 			args = append(args, "--clear-token", "kanban_change", "--clear-token", "kanban")
 		} else if r := results[proj]; r.err != nil {
 			continue // keep the last summary through a transient failure
-		} else if change, phases := Summary(r.changes); change == "" {
+		} else if change, phases := Summary(r.changes, r.waiting); change == "" {
 			args = append(args, "--clear-token", "kanban_change", "--token", "kanban="+phases)
 		} else {
 			args = append(args, "--token", "kanban_change="+change, "--token", "kanban="+phases)

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/zeotyn/spec-kanban/internal/source/openspec"
+	"github.com/zeotyn/spec-kanban/internal/start"
 	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
@@ -43,6 +44,8 @@ type fakeHerdr struct {
 	workspaces []string
 	panes      []pane
 	fail       map[string]error
+	agents     string // agent list output
+	agentLists int
 	reports    []string
 }
 
@@ -68,12 +71,18 @@ func (f *fakeHerdr) run(args ...string) ([]byte, error) {
 			ps = append(ps, fmt.Sprintf(`{"workspace_id":%q,"cwd":%q,%s"focused":%t}`, p.ws, p.cwd, fg, p.focused))
 		}
 		return []byte(`{"id":"cli:pane:list","result":{"type":"pane_list","panes":[` + strings.Join(ps, ",") + `]}}`), nil
+	case "agent list":
+		f.agentLists++
+		return []byte(f.agents), nil
 	}
 	f.reports = append(f.reports, call)
 	return []byte(`{}`), nil
 }
 
 const report = "workspace report-metadata "
+
+// none is a waiting func for which no Change waits.
+func none(string, []start.Agent, []work.Item) map[string]bool { return nil }
 
 func TestSync(t *testing.T) {
 	p := projects(t, "kanban", "magentic", "empty", "broken")
@@ -108,7 +117,7 @@ func TestSync(t *testing.T) {
 			{ws: "w6", cwd: p["kanban"]}, // shares w1's Project
 		},
 	}
-	err := Sync(h.run, openspec.New(nil).Detect, load)
+	err := Sync(h.run, openspec.New(nil).Detect, load, none)
 	if err == nil || !strings.Contains(err.Error(), "boom") || !strings.Contains(err.Error(), p["broken"]) {
 		t.Errorf("want the failed load's error naming its Project, got %v", err)
 	}
@@ -127,6 +136,50 @@ func TestSync(t *testing.T) {
 	}
 }
 
+func TestSyncWaiting(t *testing.T) {
+	p := projects(t, "a", "b")
+	open := []work.Item{{Name: "m1-board-view", Done: 3, Total: 6, Phase: work.InProgress}}
+	load := func(string) ([]work.Item, error) { return open, nil }
+	tests := []struct {
+		name, agents string
+		fail         error
+		want         []start.Agent
+	}{
+		{"one agent list for all Projects", `{"result":{"agents":[{"name":"m1-board-view","cwd":"` + p["a"] + `","agent_status":"idle"}]}}`, nil,
+			[]start.Agent{{Name: "m1-board-view", Cwd: p["a"], Status: "idle"}}},
+		{"agent list fails: tokens still reported", "", errors.New("herdr: agent list failed"), nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &fakeHerdr{workspaces: []string{"w1", "w2"}, panes: []pane{{ws: "w1", cwd: p["a"]}, {ws: "w2", cwd: p["b"]}}, agents: tt.agents}
+			if tt.fail != nil {
+				h.fail = map[string]error{"agent list": tt.fail}
+			}
+			var mu sync.Mutex
+			asked := map[string][]start.Agent{}
+			waiting := func(proj string, agents []start.Agent, changes []work.Item) map[string]bool {
+				mu.Lock()
+				defer mu.Unlock()
+				asked[proj] = agents
+				return map[string]bool{"m1-board-view": proj == p["a"]}
+			}
+			if err := Sync(h.run, openspec.New(nil).Detect, load, waiting); err != nil {
+				t.Fatal(err)
+			}
+			if tt.fail == nil && h.agentLists != 1 {
+				t.Errorf("agent list ran %d times, want once per pass", h.agentLists)
+			}
+			if want := map[string][]start.Agent{p["a"]: tt.want, p["b"]: tt.want}; !reflect.DeepEqual(asked, want) {
+				t.Errorf("waiting asked with %v, want %v", asked, want)
+			}
+			change := " --source spec-kanban --token kanban_change=▰▰▰▱▱▱ 3/6 m1-board-view --token kanban="
+			if want := []string{report + "w1" + change + "⚑1 1 wip", report + "w2" + change + "1 wip"}; !reflect.DeepEqual(h.reports, want) {
+				t.Errorf("reports\n got %q\nwant %q", h.reports, want)
+			}
+		})
+	}
+}
+
 func TestSyncHerdrError(t *testing.T) {
 	p := projects(t, "kanban")
 	for _, call := range []string{"workspace list", "pane list"} {
@@ -137,7 +190,7 @@ func TestSyncHerdrError(t *testing.T) {
 				fail:       map[string]error{call: errors.New("herdr: connection refused")},
 			}
 			load := func(string) ([]work.Item, error) { return nil, nil }
-			if err := Sync(h.run, openspec.New(nil).Detect, load); err == nil || !strings.Contains(err.Error(), "connection refused") {
+			if err := Sync(h.run, openspec.New(nil).Detect, load, none); err == nil || !strings.Contains(err.Error(), "connection refused") {
 				t.Errorf("want herdr's error, got %v", err)
 			}
 			if len(h.reports) > 0 {
@@ -167,7 +220,7 @@ func TestSyncLoadsAtMostFourAtOnce(t *testing.T) {
 		running.Add(-1)
 		return nil, nil
 	}
-	if err := Sync(h.run, openspec.New(nil).Detect, load); err != nil {
+	if err := Sync(h.run, openspec.New(nil).Detect, load, none); err != nil {
 		t.Fatal(err)
 	}
 	if got := peak.Load(); got != 4 {
@@ -191,7 +244,7 @@ func TestSyncFocusedPanePerWorkspace(t *testing.T) {
 	load := func(proj string) ([]work.Item, error) {
 		return []work.Item{{Name: filepath.Base(proj)}}, nil
 	}
-	if err := Sync(h.run, openspec.New(nil).Detect, load); err != nil {
+	if err := Sync(h.run, openspec.New(nil).Detect, load, none); err != nil {
 		t.Fatal(err)
 	}
 	tokens := func(name string) string {

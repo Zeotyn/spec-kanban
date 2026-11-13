@@ -26,10 +26,10 @@
 
 ## 5. Sidebar
 
-- [ ] 5.1 Tests first: "One Change waits" (`⚑1 1 ready · 1 review`), "Prefix keeps its place" (`⚑1 1 wip · 1 review`), no prefix without waiting Changes; the existing Phase overview tests stay green
-- [ ] 5.2 `Summary` takes the waiting count and prepends `⚑<n> ` (design.md decision 6)
-- [ ] 5.3 Tests first: `Sync` runs `agent list` once per pass for all Projects; a failing `agent list` still reports the tokens, counting only Handoff markers
-- [ ] 5.4 Implement it in `Sync` and `syncLoad`'s caller in `cmd/kanban`
+- [x] 5.1 Tests first: "One Change waits" (`⚑1 1 ready · 1 review`), "Prefix keeps its place" (`⚑1 1 wip · 1 review`), no prefix without waiting Changes; the existing Phase overview tests stay green
+- [x] 5.2 `Summary` takes the waiting count and prepends `⚑<n> ` (design.md decision 6)
+- [x] 5.3 Tests first: `Sync` runs `agent list` once per pass for all Projects; a failing `agent list` still reports the tokens, counting only Handoff markers
+- [x] 5.4 Implement it in `Sync` and `syncLoad`'s caller in `cmd/kanban`
 
 ## 6. Docs
 

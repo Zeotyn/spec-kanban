@@ -414,7 +414,21 @@ func marker(proj, change string, run herdr.Runner, detect func(string) bool, sou
 
 // refresh runs one sidebar pass, as kanban sync does, through sidebar.Coalesce under dir.
 func refresh(dir string, run herdr.Runner, detect func(string) bool, sourceFor func(string) work.Source, git func(string) herdr.Runner) error {
-	return sidebar.Coalesce(dir, func() error { return sidebar.Sync(run, detect, syncLoad(dir, sourceFor, git)) })
+	return sidebar.Coalesce(dir, func() error {
+		return sidebar.Sync(run, detect, syncLoad(dir, sourceFor, git), syncWaiting(cache.UserDir(), git))
+	})
+}
+
+// syncWaiting returns the Changes of proj whose attention marker in user still holds for herdr's
+// agents (nil when agent list failed) and proj's Items.
+func syncWaiting(user string, git func(proj string) herdr.Runner) func(string, []start.Agent, []work.Item) map[string]bool {
+	return func(proj string, agents []start.Agent, changes []work.Item) map[string]bool {
+		var in map[string]string // nil: only Handoff markers hold
+		if agents != nil {
+			in = start.InProject(agents, proj, git(proj))
+		}
+		return start.Waiting(cache.ReadMarks(user, proj), in, changes)
+	}
 }
 
 // loader reads the Project's Changes and those worked on in its other checkouts, reusing cached
