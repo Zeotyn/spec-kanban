@@ -26,8 +26,13 @@ var plain = regexp.MustCompile(`^[A-Za-z0-9/._-]+$`)
 // Sentence is what a Start from the Board appends to its prompt: how the agent of change escalates
 // with the plugin binary self, single-quoted for the shell unless it is plain.
 func Sentence(self, change string) string {
-	if !plain.MatchString(self) {
-		self = "'" + strings.ReplaceAll(self, "'", `'\''`) + "'"
+	return "If you cannot continue without a human, run " + quote(self) + " escalate " + change + ` "<what you need>" and end your turn.`
+}
+
+// quote single-quotes s for the shell unless it is plain.
+func quote(s string) string {
+	if plain.MatchString(s) {
+		return s
 	}
-	return "If you cannot continue without a human, run " + self + " escalate " + change + ` "<what you need>" and end your turn.`
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
