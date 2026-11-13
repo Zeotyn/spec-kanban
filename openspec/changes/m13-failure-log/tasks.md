@@ -26,8 +26,8 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
-- [ ] 6.2 `openspec validate m13-failure-log --strict` passes
+- [x] 6.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
+- [x] 6.2 `openspec validate m13-failure-log --strict` passes
 
 ## Smoke test (user, in herdr)
 

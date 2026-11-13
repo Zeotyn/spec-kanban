@@ -364,7 +364,8 @@ const (
 )
 
 // AppendFailure appends f to the failure log in dir with one write, so concurrent writers keep
-// their records, then rewrites the newest 100 valid records atomically when it holds more.
+// their records, then rewrites the newest 100 valid records atomically when it holds more; a record
+// appended during that rewrite can be lost.
 func AppendFailure(dir string, f Failure) error {
 	if dir == "" {
 		return errors.New("cache: no directory")
@@ -409,7 +410,7 @@ func ReadFailures(dir string) []Failure {
 	var got []Failure
 	for line := range strings.Lines(string(data)) {
 		var f Failure
-		if json.Unmarshal([]byte(line), &f) != nil || f.Time.IsZero() || f.Project == "" || f.Step == "" {
+		if json.Unmarshal([]byte(line), &f) != nil || f.Time.IsZero() {
 			continue
 		}
 		got = append(got, f)

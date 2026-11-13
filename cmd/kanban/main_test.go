@@ -759,10 +759,16 @@ func TestFailures(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if f, err := os.OpenFile(filepath.Join(user, "failures.log"), os.O_APPEND|os.O_WRONLY, 0); err == nil {
-		f.WriteString("{broken\n")
-		f.Close()
+	f, err := os.OpenFile(filepath.Join(user, "failures.log"), os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
 	}
+	f.WriteString("{broken\n")
+	f.Close()
+	if err := cache.AppendFailure(user, cache.Failure{Time: at.Add(3 * time.Minute), Step: "start", Change: "m2", Error: "no project\n"}); err != nil {
+		t.Fatal(err)
+	}
+	logged = append(logged, cache.Failure{Time: at.Add(3 * time.Minute), Step: "start", Change: "m2", Error: "no project"}) // printed without the trailing newline
 	printed := func(f cache.Failure) string {
 		return f.Time.Local().Format("2006-01-02 15:04:05") + "  " + f.Step + "  " + f.Change + "  " + f.Project + "\n  " + strings.ReplaceAll(f.Error, "\n", "\n  ") + "\n\n"
 	}
@@ -785,7 +791,7 @@ func TestFailures(t *testing.T) {
 	}{
 		{"current Project", filepath.Join(a, "internal"), false, printed(logged[0]) + printed(logged[2])},
 		{"worktree", filepath.Join(wt, "internal"), false, printed(logged[0]) + printed(logged[2])},
-		{"all", root, true, printed(logged[0]) + printed(logged[1]) + printed(logged[2])},
+		{"all", root, true, printed(logged[0]) + printed(logged[1]) + printed(logged[2]) + printed(logged[3])},
 		{"nothing recorded", c, false, "no failures\n"},
 	}
 	for _, tt := range tests {
@@ -882,6 +888,27 @@ func TestBoardNotice(t *testing.T) {
 		}
 		if got := boardNotice(nil, user, proj, now); got != "" {
 			t.Errorf("unreadable log: got %q, want none", got)
+		}
+		if got, err := cache.ReadOpened(user, proj); err != nil || !got.Equal(now) {
+			t.Errorf("unreadable log: opening %v, %v, want %v recorded", got, err, now)
+		}
+		user = t.TempDir()
+		failed(user, 4*time.Minute, proj)
+		if err := cache.WriteOpened(user, proj, now); err != nil {
+			t.Fatal(err)
+		}
+		records, _ := filepath.Glob(filepath.Join(user, "opened", "*"))
+		if len(records) != 1 || os.WriteFile(records[0], []byte("garbage"), 0o600) != nil {
+			t.Fatalf("opening records %v", records)
+		}
+		if got := boardNotice(nil, user, proj, now); got != "" {
+			t.Errorf("broken opening record: got %q, want none", got)
+		}
+		if got := boardNotice(nil, user, proj, now.Add(time.Second)); got != "" {
+			t.Errorf("after a broken opening record: got %q, want none, the record repaired at %v", got, now)
+		}
+		if got, err := cache.ReadOpened(user, proj); err != nil || !got.Equal(now.Add(time.Second)) {
+			t.Errorf("broken opening record not repaired: %v, %v", got, err)
 		}
 		user = t.TempDir()
 		failed(user, 4*time.Minute, proj)

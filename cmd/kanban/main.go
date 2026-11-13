@@ -262,7 +262,8 @@ func showBoard(proj string) error {
 
 // boardNotice is the notice the Board of proj opens with at now: the config warning when there is
 // one, else proj's newest failure in the failure log in user since the last opening (24 hours ago
-// when there was none), which it records as now. A record that cannot be read or written means no notice.
+// when there was none), which it records as now. A record that cannot be read or written means no
+// notice; a broken one is replaced.
 func boardNotice(warn error, user, proj string, now time.Time) string {
 	if warn != nil {
 		return warn.Error() // the opening is not recorded, so the failure shows next time
@@ -271,12 +272,12 @@ func boardNotice(warn error, user, proj string, now time.Time) string {
 	if errors.Is(err, fs.ErrNotExist) {
 		since, err = now.Add(-24*time.Hour), nil
 	}
-	if err != nil || cache.WriteOpened(user, proj, now) != nil {
+	if cache.WriteOpened(user, proj, now) != nil || err != nil {
 		return ""
 	}
 	var last *cache.Failure
-	for _, f := range cache.ReadFailures(user) {
-		if f.Project == proj && f.Time.After(since) && (last == nil || !f.Time.Before(last.Time)) {
+	for _, f := range cache.ReadFailures(user) { // oldest first
+		if f.Project == proj && f.Time.After(since) {
 			last = &f
 		}
 	}
@@ -511,7 +512,7 @@ func failures(all bool, cwd string, stdout io.Writer, detect func(string) bool, 
 	}
 	for _, f := range log {
 		fmt.Fprintf(stdout, "%s  %s  %s  %s\n  %s\n\n", f.Time.Local().Format("2006-01-02 15:04:05"), f.Step, f.Change, f.Project,
-			strings.ReplaceAll(f.Error, "\n", "\n  "))
+			strings.ReplaceAll(strings.TrimRight(f.Error, "\r\n"), "\n", "\n  "))
 	}
 	return nil
 }
