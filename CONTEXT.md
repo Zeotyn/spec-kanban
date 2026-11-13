@@ -71,6 +71,10 @@ _Avoid_: Done
 A herdr agent session currently working on a Change; shown on its Card without changing its Phase.
 _Avoid_: Live session, worker
 
+**Attention marker**:
+The red `⚑` on a Card and in the sidebar while a Change waits for the user after an Escalation, a Stall or a Handoff no Main agent took. It goes away when the Change's agent works again, its tab is closed, or the Change is archived, started or resumed.
+_Avoid_: Alert, badge, notification
+
 **Escalation**:
 A worker's request for a human, run as `kanban escalate` and delivered to the Main agent at once, not at the next settle.
 _Avoid_: Help request, alert

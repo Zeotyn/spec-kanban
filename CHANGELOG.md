@@ -2,8 +2,10 @@
 
 ## Unreleased
 
-- Escalation: a worker that cannot continue without a human runs `kanban escalate <change> <reason>` and the Main agent gets a prompt at once. A Start from the Board appends a sentence to its prompt that tells the agent how. Without a Main agent, herdr shows `spec-kanban: <change> needs you`.
-- Stall: a watched agent that stopped unfinished and does not work again within 10 minutes, without having escalated, gets one prompt to the Main agent, or the notification `spec-kanban: <change> stalled`.
+- Attention marker: a red `⚑` before a Card's name, in place of the green `●`, and a `⚑<n>` prefix on the sidebar's `kanban` line show the Changes that wait for you after an Escalation, a Stall or a Handoff no Main agent took. It goes away when the agent works again or its tab is closed, or, after a Handoff, when the Change is archived, started or resumed.
+- Removed: the `finished`, `needs you` and `stalled` notifications; the attention marker replaces them. herdr notifications now only report failures (start, run and resume).
+- Escalation: a worker that cannot continue without a human runs `kanban escalate <change> <reason>` and the Main agent gets a prompt at once. A Start from the Board appends a sentence to its prompt that tells the agent how.
+- Stall: a watched agent that stopped unfinished and does not work again within 10 minutes, without having escalated, gets one prompt to the Main agent.
 - Resume from the Board is watched like a Start: Handoff, Stall and Escalation apply. The plugin evaluates a resumed agent only after its first turn.
 - Removed: the "stopped at x/y tasks" and "waits for input" notifications. Stall replaces the first; herdr's sidebar shows a blocked agent.
 - Mouse: click a Card to select it and again to open its details, scroll a column or the details with the wheel, click `◀`/`▶` in a narrow popup, tabs in the details and the actions in both footers. A right click on a Card, or in its details, opens the Card menu, whose entry starts or resumes the Change like `s`. Hold `Shift` (or your terminal's modifier) while dragging to select text.

@@ -33,14 +33,14 @@
 
 ## 6. Docs
 
-- [ ] 6.1 CONTEXT.md: add **Attention marker** (`⚑` on a Card and in the sidebar while a Change waits for the user after an Escalation, a Stall or a Handoff no Main agent took) under Board, next to Running agent
-- [ ] 6.2 README: the `⚑` on Cards and in the `kanban` token, when it appears and goes away, and that notifications now only report failures
-- [ ] 6.3 CHANGELOG `## Unreleased`: the attention marker on Cards and in the sidebar; the `finished`, `needs you` and `stalled` notifications are replaced by it
+- [x] 6.1 CONTEXT.md: add **Attention marker** (`⚑` on a Card and in the sidebar while a Change waits for the user after an Escalation, a Stall or a Handoff no Main agent took) under Board, next to Running agent
+- [x] 6.2 README: the `⚑` on Cards and in the `kanban` token, when it appears and goes away, and that notifications now only report failures
+- [x] 6.3 CHANGELOG `## Unreleased`: the attention marker on Cards and in the sidebar; the `finished`, `needs you` and `stalled` notifications are replaced by it
 
 ## 7. Verification
 
-- [ ] 7.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
-- [ ] 7.2 `openspec validate m13-attention --strict` passes
+- [x] 7.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
+- [x] 7.2 `openspec validate m13-attention --strict` passes
 
 ## Smoke test (user, in herdr)
 
