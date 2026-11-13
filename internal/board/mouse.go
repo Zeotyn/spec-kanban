@@ -80,14 +80,21 @@ type hit struct {
 	key    string
 }
 
-// footer renders footerKeys in full, or short when the full form is wider than the Board, and where the actions are;
-// while Cards are marked it sums the marks up instead, without actions.
+// footer renders footerKeys in full, or short when the full form is wider than the Board, and where the actions are,
+// after the Draft reason of the selected Card; while Cards are marked it sums the marks up instead, without actions.
 func (m Model) footer() (string, []hit) {
 	if len(m.marks) > 0 {
 		return lipgloss.NewStyle().MaxWidth(m.width).Render(fmt.Sprintf("%d marked · s wave · esc clear", len(m.marks))), nil
 	}
+	prefix := ""
+	if col := m.cols[m.nav.col]; len(col) > 0 {
+		if r := draftReason(col[m.nav.sel[m.nav.col]]); r != "" {
+			prefix = r + " · "
+		}
+	}
 	build := func(short bool) (string, []hit) {
 		var b strings.Builder
+		b.WriteString(prefix)
 		var hits []hit
 		for i, s := range footerKeys {
 			switch {
@@ -112,7 +119,8 @@ func (m Model) footer() (string, []hit) {
 	if s, hits := build(false); lipgloss.Width(s) <= m.width {
 		return s, hits
 	}
-	return build(true)
+	s, hits := build(true)
+	return lipgloss.NewStyle().MaxWidth(m.width).Render(s), hits
 }
 
 // menu is the open Card menu: the Card it acts on, the cell it was opened at and the keys of its entries.

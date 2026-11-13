@@ -80,7 +80,7 @@ func TestFooterStyle(t *testing.T) {
 	v := board(t, 200, 30, fixture).View()
 	contains(t, v, "h/l "+faint.Render("column")+" · j/k "+faint.Render("card"), "q "+faint.Render("close"))
 	noHighColours(t, v)
-	contains(t, board(t, 120, 30, fixture).View(), "\nh/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q "+faint.Render("close"))
+	contains(t, keys(board(t, 120, 30, fixture), "2").View(), "\nh/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q "+faint.Render("close"))
 	m := keys(board(t, 120, 30, fixture), "2")
 	starter(&m, nil)
 	for name, m := range map[string]Model{"prompt": keys(m, "/", "x"), "notice": keys(m, "1", "s"), "starting": keys(m, "s")} {

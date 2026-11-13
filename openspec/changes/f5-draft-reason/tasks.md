@@ -4,8 +4,8 @@
 
 ## 2. Footer
 
-- [ ] 2.1 In `footer()`, without marks and with a reason for the selected Card, write `<reason> · ` first, choose full or short keys against the remaining width, and shift every hit by the prefix width (D2); tests for the spec scenarios (design missing, Ready Card, marks win, notice wins) and a golden view of a Board with a Draft Card selected
-- [ ] 2.2 Test that a click on `q close` after the reason closes the Board, and that a click on the reason does nothing
+- [x] 2.1 In `footer()`, without marks and with a reason for the selected Card, write `<reason> · ` first, choose full or short keys against the remaining width, and shift every hit by the prefix width (D2); tests for the spec scenarios (design missing, Ready Card, marks win, notice wins) and a golden view of a Board with a Draft Card selected
+- [x] 2.2 Test that a click on `q close` after the reason closes the Board, and that a click on the reason does nothing
 
 ## 3. Docs
 

@@ -205,7 +205,7 @@ func TestClickFooter(t *testing.T) {
 	for w, at := range map[int]map[string]spot{ // where the actions are in the full and the short footer
 		200: {"⏎": {"⏎ details", 2}, "e": {"e edit tasks", 7}, "s": {"s start", 0}, "/": {"/ filter", 3}, "r": {"r reload", 2},
 			"?": {"? help", 0}, "q": {"q close", 4}, "j": {"j/k card", 5}},
-		60: {"⏎": {"⏎ e s /", 0}, "e": {"⏎ e s /", 2}, "s": {"⏎ e s /", 4}, "/": {"⏎ e s /", 6}, "r": {"· r ·", 2},
+		90: {"⏎": {"⏎ e s /", 0}, "e": {"⏎ e s /", 2}, "s": {"⏎ e s /", 4}, "/": {"⏎ e s /", 6}, "r": {"· r ·", 2},
 			"?": {"· ? ·", 2}, "q": {"q close", 4}, "j": {"j/k", 0}},
 	} {
 		m := board(t, w, 30, fixture)
@@ -252,9 +252,57 @@ func TestClickFooterWithNotice(t *testing.T) {
 }
 
 func TestFooterTextUnchanged(t *testing.T) {
-	short := ansi.Strip(board(t, 60, 30, fixture).View())
+	short := ansi.Strip(keys(board(t, 60, 30, fixture), "2").View()) // a Ready Card: no Draft reason
 	if !strings.HasSuffix(short, "\nh/l j/k ⏎ e s / gg/G ^d/^u 1-5 · r · ? · q close") {
 		t.Errorf("short footer changed:\n%s", short)
+	}
+}
+
+// lastLine returns the footer, the view's last line, without styles.
+func lastLine(m Model) string {
+	v := ansi.Strip(m.View())
+	return v[strings.LastIndex(v, "\n")+1:]
+}
+
+// spike is in Draft for its design alone, like m14-spike-agent-messaging was.
+var spike = work.Item{Name: "m14-spike-agent-messaging", Modified: ago(time.Hour), Phase: work.Draft,
+	Artifacts: map[string]string{"proposal": "done", "specs": "skipped", "design": "ready", "tasks": "done"}}
+
+func TestFooterDraftReason(t *testing.T) {
+	ready := []work.Item{fixture[2], fixture[3]}
+	changes := append([]work.Item{spike}, ready...)
+	keyFooter := lastLine(board(t, 200, 30, nil))
+	m := board(t, 200, 30, changes)
+	if got, want := lastLine(m), "draft: design missing · "+keyFooter; got != want {
+		t.Errorf("design missing:\ngot  %q\nwant %q", got, want)
+	}
+	if got := lastLine(keys(m, "l")); got != keyFooter {
+		t.Errorf("a Ready Card has no reason: %q", got)
+	}
+	if got := lastLine(keys(m, "l", " ", "j", " ", "h")); got != "2 marked · s wave · esc clear" {
+		t.Errorf("marks win: %q", got)
+	}
+	if got := keys(m, "s"); got.notice == "" || lastLine(got) != got.notice {
+		t.Errorf("a notice wins: %q", lastLine(got))
+	}
+	if got := lastLine(board(t, 200, 30, []work.Item{fixture[0]})); !strings.HasPrefix(got, "draft: specs, design, tasks missing · h/l") {
+		t.Errorf("several missing: %q", got)
+	}
+	narrow := lastLine(board(t, 60, 30, changes))
+	if !strings.HasPrefix(narrow, "draft: design missing · h/l j/k ⏎") || ansi.StringWidth(narrow) > 60 {
+		t.Errorf("a narrow Board shows the short keys after the reason, cut to its width: %q", narrow)
+	}
+}
+
+func TestClickFooterAfterReason(t *testing.T) {
+	m := board(t, 120, 30, []work.Item{spike})
+	if _, cmd := clickFooter(t, m, "q close", 4); cmd == nil || cmd() != tea.Quit() {
+		t.Error("q close after the reason must close the Board")
+	}
+	for dx := range ansi.StringWidth("draft: design missing · ") {
+		if got, cmd := clickFooter(t, m, "draft:", dx); cmd != nil || got.nav != m.nav || got.notice != m.notice || got.detail != nil {
+			t.Errorf("a click on the reason at %d must do nothing", dx)
+		}
 	}
 }
 
