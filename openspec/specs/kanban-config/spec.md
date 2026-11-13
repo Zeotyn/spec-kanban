@@ -27,6 +27,7 @@ The config file SHALL be a JSON object with these optional keys:
 - `worktree`: a boolean, whether Start runs the agent in the Change's git checkout rather than in the Project. Default: `true`.
 - `base`: a non-empty string, the git ref a new worktree's branch starts from, overriding the detected base. Default: unset.
 - `source`: `openspec` or `speckit`, the Source that reads a Project recognised by both. Default: unset, meaning OpenSpec.
+- `wave`: an object with the optional key `size`, the maximum number of Changes in a wave (see the waves spec), an integer of at least 2. Default: `{"size": 5}`; a `wave` without `size` has size 5.
 
 A key that is left out SHALL have its default.
 
@@ -76,8 +77,16 @@ When both `prompt` and `instructions` are set, the settings SHALL be kept, `prom
 - **WHEN** `config.json` is `{"prompt": "/opsx:apply {change} quickly", "instructions": "with ponytail"}` and the Board opens
 - **THEN** the footer warns that `instructions` is ignored because `prompt` is set, and starting `m1-board-view` sends `/opsx:apply m1-board-view quickly`
 
+#### Scenario: Wave size
+- **WHEN** `config.json` is `{"wave": {"size": 3}}` and the user marks a fourth Card on the Board
+- **THEN** the fourth Card is not marked and the footer says `a wave holds at most 3 changes`
+
+#### Scenario: Default wave size
+- **WHEN** `config.json` has no `wave` key
+- **THEN** a wave holds at most 5 Changes
+
 ### Requirement: Invalid config falls back to defaults with a warning
-When `config.json` cannot be read, is not valid JSON, contains an unknown key, or a setting breaks its rule (an `agent` herdr does not know, a `prompt` without `{change}`, an unknown Phase in `hide`, all Phases hidden, an empty `base`, a `source` other than `openspec` or `speckit`, an `instructions` that is not a string, a value of the wrong type), all settings SHALL have their defaults. The Board SHALL show a warning naming the file and the problem in place of its footer when it opens, until the next key; `kanban start` SHALL print the warning to stderr and continue.
+When `config.json` cannot be read, is not valid JSON, contains an unknown key, or a setting breaks its rule (an `agent` herdr does not know, a `prompt` without `{change}`, an unknown Phase in `hide`, all Phases hidden, an empty `base`, a `source` other than `openspec` or `speckit`, an `instructions` that is not a string, a `wave` with an unknown key or a `size` below 2 or not an integer, a value of the wrong type), all settings SHALL have their defaults. The Board SHALL show a warning naming the file and the problem in place of its footer when it opens, until the next key; `kanban start` SHALL print the warning to stderr and continue.
 
 #### Scenario: Typo in a key
 - **WHEN** `config.json` is `{"promt": "/opsx:apply {change} with TDD"}` and the Board opens
@@ -106,4 +115,8 @@ When `config.json` cannot be read, is not valid JSON, contains an unknown key, o
 #### Scenario: Instructions not a string
 - **WHEN** `config.json` is `{"instructions": ["with ponytail"]}` and the Board opens
 - **THEN** the footer warns about the wrong type of `instructions` and defaults are used, so Start sends `/opsx:apply <change>`
+
+#### Scenario: Wave size too small
+- **WHEN** `config.json` is `{"wave": {"size": 1}}` and the Board opens
+- **THEN** the footer warns that `wave.size` must be at least 2 and defaults are used, so a wave holds at most 5 Changes
 
