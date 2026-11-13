@@ -15,8 +15,8 @@
 
 ## 3. Reader rule
 
-- [ ] 3.1 Tests first for `start.Waiting`, one per scenario of "Attention marker": escalated and idle agent waits; working agent does not ("Watcher gone"); no agent does not ("Agent tab closed"); `handoff` waits while the Change is open and not after it is archived or gone ("Handoff without a Main agent"); nil agents hide `escalation` and `stall` but keep `handoff`
-- [ ] 3.2 Implement `Waiting`; split `Running` into fetching `agent list` (with each agent's status) and filtering it for a Project (design.md decisions 3, 4 and 6)
+- [x] 3.1 Tests first for `start.Waiting`, one per scenario of "Attention marker": escalated and idle agent waits; working agent does not ("Watcher gone"); no agent does not ("Agent tab closed"); `handoff` waits while the Change is open and not after it is archived or gone ("Handoff without a Main agent"); nil agents hide `escalation` and `stall` but keep `handoff`
+- [x] 3.2 Implement `Waiting`; split `Running` into fetching `agent list` (with each agent's status) and filtering it for a Project (design.md decisions 3, 4 and 6)
 
 ## 4. Board
 

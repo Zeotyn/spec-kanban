@@ -375,15 +375,15 @@ func TestRunning(t *testing.T) {
 		project string
 		out     string
 		err     error
-		want    map[string]bool
+		want    map[string]string
 		wantErr bool
 	}{
-		{"named agents in the project and below it, any status", "/work/proj", string(list), nil,
-			map[string]bool{"m1-board-view": true, "m2-card-detail": true, "m3-sidebar-summary": true}, false},
-		{"other projects and unnamed agents ignored", "/work/other", string(list), nil, map[string]bool{"c1-rename": true}, false},
-		{"name prefix is not a subdirectory", "/work/pro", string(list), nil, map[string]bool{}, false},
-		{"trailing slash", "/work/project2/", string(list), nil, map[string]bool{"f1-cache": true}, false},
-		{"empty list", "/work/proj", `{"id":"cli:agent:list","result":{"agents":[]}}`, nil, map[string]bool{}, false},
+		{"named agents in the project and below it, with their status", "/work/proj", string(list), nil,
+			map[string]string{"m1-board-view": "working", "m2-card-detail": "blocked", "m3-sidebar-summary": "done"}, false},
+		{"other projects and unnamed agents ignored", "/work/other", string(list), nil, map[string]string{"c1-rename": "idle"}, false},
+		{"name prefix is not a subdirectory", "/work/pro", string(list), nil, map[string]string{}, false},
+		{"trailing slash", "/work/project2/", string(list), nil, map[string]string{"f1-cache": "idle"}, false},
+		{"empty list", "/work/proj", `{"id":"cli:agent:list","result":{"agents":[]}}`, nil, map[string]string{}, false},
 		{"herdr error", "/work/proj", "", errors.New("herdr: not found"), nil, true},
 		{"unparsable output", "/work/proj", "not json", nil, nil, true},
 	}
@@ -554,8 +554,42 @@ func TestRunningInCheckouts(t *testing.T) {
 	}
 	run := func(...string) ([]byte, error) { return list, nil }
 	got, err := Running("/work/pro", run, gitWith(nil, "/work/pro", "main", "/work/proj", "m1-board-view").run) // /work/proj stands in for a linked checkout
-	if want := map[string]bool{"m1-board-view": true, "m2-card-detail": true, "m3-sidebar-summary": true}; err != nil || !reflect.DeepEqual(got, want) {
+	if want := map[string]string{"m1-board-view": "working", "m2-card-detail": "blocked", "m3-sidebar-summary": "done"}; err != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, %v, want %v", got, err, want)
+	}
+}
+
+func TestWaiting(t *testing.T) {
+	open := []work.Item{{Name: change, Phase: work.Review}}
+	tests := []struct {
+		name   string
+		why    string
+		agents map[string]string
+		items  []work.Item
+		want   bool
+	}{
+		{"Worker escalates", "escalation", map[string]string{change: "idle"}, open, true},
+		{"stalled and done", "stall", map[string]string{change: "done"}, open, true},
+		{"escalated and blocked", "escalation", map[string]string{change: "blocked"}, open, true},
+		{"Watcher gone", "escalation", map[string]string{change: "working"}, open, false},
+		{"Agent tab closed", "stall", map[string]string{"other": "idle"}, open, false},
+		{"herdr unavailable hides an Escalation", "escalation", nil, open, false},
+		{"herdr unavailable hides a Stall", "stall", nil, open, false},
+		{"Handoff without a Main agent", "handoff", map[string]string{}, open, true},
+		{"Handoff while herdr is unavailable", "handoff", nil, open, true},
+		{"Handoff of an archived Change", "handoff", nil, []work.Item{{Name: change, Phase: work.Archived}}, false},
+		{"Handoff of a Change that is gone", "handoff", nil, []work.Item{{Name: "other"}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Waiting(map[string]string{change: tt.why}, tt.agents, tt.items)
+			if got[change] != tt.want || len(got) > 1 {
+				t.Errorf("Waiting = %v, want %s: %v", got, change, tt.want)
+			}
+		})
+	}
+	if got := Waiting(nil, nil, open); len(got) != 0 {
+		t.Errorf("no markers: got %v", got)
 	}
 }
 
@@ -701,10 +735,10 @@ func TestRunLongName(t *testing.T) {
 
 func TestRunningFeatureName(t *testing.T) {
 	run := func(...string) ([]byte, error) {
-		return []byte(`{"result":{"agents":[{"name":"f-001-a","cwd":"` + proj + `"},{"name":"f-x","cwd":"` + proj + `"}]}}`), nil
+		return []byte(`{"result":{"agents":[{"name":"f-001-a","cwd":"` + proj + `","agent_status":"idle"},{"name":"f-x","cwd":"` + proj + `","agent_status":"working"}]}}`), nil
 	}
 	got, err := Running(proj, run, noGit)
-	if want := map[string]bool{"f-001-a": true, "f-x": true}; err != nil || !reflect.DeepEqual(got, want) {
+	if want := map[string]string{"f-001-a": "idle", "f-x": "working"}; err != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, %v, want %v", got, err, want)
 	}
 }

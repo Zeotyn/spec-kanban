@@ -247,32 +247,71 @@ func Launch(change, kind, prompt, pane, tab string, run herdr.Runner) error {
 	return nil
 }
 
-// Running returns the names of the herdr agents that work in project, one of its checkouts (read by
-// git inside project) or below them. Only agents started with a name count, and Start names them
-// herdr.AgentName of their Change; every agent_status counts.
-func Running(project string, run, git herdr.Runner) (map[string]bool, error) {
+// Agent is a named herdr agent as agent list reports it.
+type Agent struct {
+	Name   string `json:"name"`
+	Cwd    string `json:"cwd"`
+	Status string `json:"agent_status"`
+}
+
+// Agents returns herdr's agents in one agent list call.
+func Agents(run herdr.Runner) ([]Agent, error) {
 	out, err := run("agent", "list")
 	if err != nil {
 		return nil, fmt.Errorf("agent list: %w", err)
 	}
 	var list struct {
 		Result struct {
-			Agents []struct {
-				Name string `json:"name"`
-				Cwd  string `json:"cwd"`
-			} `json:"agents"`
+			Agents []Agent `json:"agents"`
 		} `json:"result"`
 	}
 	if err := json.Unmarshal(out, &list); err != nil {
 		return nil, fmt.Errorf("agent list: %w", err)
 	}
-	names, d := map[string]bool{}, dirs(project, worktree.List(git))
-	for _, a := range list.Result.Agents {
+	return list.Result.Agents, nil
+}
+
+// InProject returns name → agent_status of the agents that work in project, one of its checkouts
+// (read by git inside project) or below them. Only agents started with a name count, and Start
+// names them herdr.AgentName of their Change.
+func InProject(agents []Agent, project string, git herdr.Runner) map[string]string {
+	got, d := map[string]string{}, dirs(project, worktree.List(git))
+	for _, a := range agents {
 		if a.Name != "" && insideAny(a.Cwd, d) {
-			names[a.Name] = true
+			got[a.Name] = a.Status
 		}
 	}
-	return names, nil
+	return got
+}
+
+// Running returns InProject of herdr's agents: the Running agents of project with their status.
+func Running(project string, run, git herdr.Runner) (map[string]string, error) {
+	agents, err := Agents(run)
+	if err != nil {
+		return nil, err
+	}
+	return InProject(agents, project, git), nil
+}
+
+// Waiting returns the Changes whose attention marker in marks (Change → reason) still holds, given
+// the Project's agents (InProject, nil when herdr could not be asked) and its Items: an Escalation
+// or Stall while the Change's agent exists and does not work, a Handoff while the Change is open.
+func Waiting(marks, agents map[string]string, items []work.Item) map[string]bool {
+	got := map[string]bool{}
+	for change, why := range marks {
+		shown := false
+		switch why {
+		case "escalation", "stall":
+			status, ok := agents[herdr.AgentName(change)]
+			shown = ok && status != "working"
+		case "handoff":
+			shown = slices.ContainsFunc(items, func(it work.Item) bool { return it.Name == change && it.Phase != work.Archived })
+		}
+		if shown {
+			got[change] = true
+		}
+	}
+	return got
 }
 
 // dirs returns project and the paths of checkouts, the directories its agents work in.

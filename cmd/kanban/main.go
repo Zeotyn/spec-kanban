@@ -191,7 +191,14 @@ func showBoard(proj string) error {
 	_, sourceFor := sources(cfg)
 	src := sourceFor(proj)
 	git := gitCLI(proj)
-	running := func() (map[string]bool, error) { return start.Running(proj, herdr.Exec, git) }
+	running := func() (map[string]bool, error) {
+		agents, err := start.Running(proj, herdr.Exec, git)
+		names := map[string]bool{}
+		for name := range agents {
+			names[name] = true
+		}
+		return names, err
+	}
 	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
 		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, src, git)
