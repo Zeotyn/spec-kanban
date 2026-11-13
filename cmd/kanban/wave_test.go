@@ -191,6 +191,12 @@ func TestWaveFinish(t *testing.T) {
 }
 
 func TestWaveStart(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(map[bool]string{false: "new worktree from the wave", true: "existing checkout kept"}[existing], func(t *testing.T) { waveStart(t, existing) })
+	}
+}
+
+func waveStart(t *testing.T, existing bool) {
 	w, sourceFor := waveFixture(t, "f5-bar", "c4-foo")
 	var spawned []string
 	old := spawn
@@ -205,7 +211,7 @@ func TestWaveStart(t *testing.T) {
 				return []byte(`{"result":{"agent":{"agent":"codex","agent_status":"working"}}}`), nil
 			}
 			return nil, errors.New("agent_not_found")
-		case "worktree create":
+		case "worktree create", "worktree open":
 			return []byte(`{"result":{"root_pane":{"pane_id":"w4:p1","tab_id":"w4:t1"},"tab":{"tab_id":"w4:t1"},"worktree":{"path":"/wt/c4-foo"}}}`), nil
 		}
 		return nil, nil
@@ -218,7 +224,11 @@ func TestWaveStart(t *testing.T) {
 			case "rev-parse --show-prefix":
 				return []byte("\n"), nil
 			case "worktree list --porcelain":
-				return []byte("worktree " + w.Project + "\nbranch refs/heads/main\n\nworktree " + w.Path + "\nbranch refs/heads/wave-1\n"), nil
+				list := "worktree " + w.Project + "\nbranch refs/heads/main\n\nworktree " + w.Path + "\nbranch refs/heads/wave-1\n"
+				if existing {
+					list += "\nworktree /wt/c4-foo\nbranch refs/heads/c4-foo\n"
+				}
+				return []byte(list), nil
 			}
 			return nil, errors.New("exit status 1")
 		}
@@ -227,8 +237,12 @@ func TestWaveStart(t *testing.T) {
 	if err := wave([]string{"start", "1", "c4-foo"}, w.Path, &out, run, sourceFor, git); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(calls, "worktree create --cwd "+w.Project+" --branch c4-foo --base wave-1 --label c4-foo --no-focus") {
-		t.Errorf("want a worktree from wave-1, herdr calls %q", calls)
+	want := "worktree create --cwd " + w.Project + " --branch c4-foo --base wave-1 --label c4-foo --no-focus"
+	if existing {
+		want = "worktree open --cwd " + w.Project + " --path /wt/c4-foo --label c4-foo --no-focus"
+	}
+	if !slices.Contains(calls, want) {
+		t.Errorf("want %q, herdr calls %q", want, calls)
 	}
 	for _, c := range calls {
 		if strings.Contains(c, "focus ") && !strings.Contains(c, "--no-focus") {
