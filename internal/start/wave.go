@@ -50,6 +50,11 @@ func Wave(project string, n int, changes []string, items []work.Item, base, kind
 		}
 	}
 	branch, ref := fmt.Sprintf("wave-%d", n), worktree.Base(base, git)
+	for _, c := range changes { // a member must be on the wave branch to start there
+		if _, err := git("cat-file", "-e", ref+":"+src.Rel(c)); err != nil {
+			return fmt.Errorf("%s is not on %s: commit it there or set base", c, ref)
+		}
+	}
 	pane, tab, path, err := createWorktree(project, branch, ref, run)
 	if err != nil {
 		return err

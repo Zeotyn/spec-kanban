@@ -315,8 +315,11 @@ func TestWaves(t *testing.T) {
 	if _, ok := FindWave(dir, 3, project); ok {
 		t.Error("FindWave of an unknown number: want none")
 	}
-	if _, ok := FindWave(dir, 2, "/elsewhere"); ok {
-		t.Error("FindWave outside every Project: want none")
+	if got, ok := FindWave(dir, 2, "/elsewhere"); !ok || got.Number != 2 {
+		t.Error("FindWave outside every Project: want the only wave 2")
+	}
+	if _, ok := FindWave(dir, 1, "/elsewhere"); ok {
+		t.Error("FindWave outside every Project with two waves 1: want none")
 	}
 	if got := Badges(ReadWaves(dir, project)); !reflect.DeepEqual(got, map[string]int{"f5-bar": 2}) {
 		t.Errorf("Badges skip dropped members and finished waves: got %v", got)

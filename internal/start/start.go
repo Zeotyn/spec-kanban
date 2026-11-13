@@ -70,6 +70,11 @@ func Prepare(project, change string, wt Worktree, run herdr.Runner, src work.Sou
 	return prepare(project, change, wt, run, src, git, func(string, string) error { return step(run, "agent", "focus", herdr.AgentName(change)) })
 }
 
+// PrepareUnfocused is Prepare refusing an agent of the Change that already runs instead of focusing it.
+func PrepareUnfocused(project, change string, wt Worktree, run herdr.Runner, src work.Source, git herdr.Runner) (pane, tab string, err error) {
+	return prepare(project, change, wt, run, src, git, func(string, string) error { return fmt.Errorf("%s already runs", change) })
+}
+
 // Run sends command to the Change's agent when it holds its pane's foreground: when idle or done, it prompts
 // it and focuses its tab; otherwise it sends nothing and returns an error carrying the status. With no
 // such agent it places a tab as Prepare does and returns it, for the caller to launch an agent with

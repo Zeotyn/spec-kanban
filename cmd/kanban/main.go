@@ -75,7 +75,7 @@ Usage:
                     Hand wave N to the Main agent once every member is archived on wave-<N> or dropped
   kanban wave-launch <change>...
                     Start a wave of the Changes with its coordinator (internal, spawned by the Board)
-  kanban wave-member <N> <change> <pane> <kind> <prompt>
+  kanban wave-member <project> <N> <change> <pane> <kind> <prompt>
                     Start the agent of a member in pane without focus and watch it (internal, spawned
                     by kanban wave start)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)

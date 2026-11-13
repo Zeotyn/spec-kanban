@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -152,6 +153,7 @@ func TestWaveEscalate(t *testing.T) {
 func TestWaveFinish(t *testing.T) {
 	t.Run("a member is still open", func(t *testing.T) {
 		w, sourceFor := waveFixture(t, "c4-foo", "f9-other")
+		mkdirs(t, w.Path, "openspec/changes/archive/2026-11-13-f5-bar")
 		var calls []string
 		var out strings.Builder
 		err := wave([]string{"finish", "1"}, w.Path, &out, recorder(&calls, true), sourceFor, noGitFor)
@@ -165,6 +167,7 @@ func TestWaveFinish(t *testing.T) {
 	for _, main := range []bool{true, false} {
 		t.Run("all through", func(t *testing.T) {
 			w, sourceFor := waveFixture(t, "c4-foo")
+			mkdirs(t, w.Path, "openspec/changes/archive/2026-11-13-f5-bar")
 			if err := wave([]string{"drop", "1", "c4-foo"}, w.Path, &strings.Builder{}, recorder(new([]string), true), sourceFor, noGitFor); err != nil {
 				t.Fatal(err)
 			}
@@ -249,10 +252,10 @@ func waveStart(t *testing.T, existing bool) {
 			t.Errorf("a member must not take focus: %q", c)
 		}
 	}
-	if len(spawned) != 6 || spawned[0] != "wave-member" || spawned[1] != "1" || spawned[2] != "c4-foo" || spawned[3] != "w4:p1" || spawned[4] != "codex" {
+	if len(spawned) != 7 || spawned[0] != "wave-member" || spawned[1] != w.Project || spawned[2] != "1" || spawned[3] != "c4-foo" || spawned[4] != "w4:p1" || spawned[5] != "codex" {
 		t.Fatalf("spawned %q", spawned)
 	}
-	if p := spawned[5]; !strings.HasPrefix(p, "/opsx:apply c4-foo If you cannot continue without a human, run ") ||
+	if p := spawned[6]; !strings.HasPrefix(p, "/opsx:apply c4-foo If you cannot continue without a human, run ") ||
 		!strings.HasSuffix(p, " escalate c4-foo \"<what you need>\" and end your turn. Do not archive c4-foo: the coordinator of wave 1 merges and archives it.") {
 		t.Errorf("member prompt %q", p)
 	}
@@ -272,7 +275,12 @@ func TestWaveMember(t *testing.T) {
 		}
 		return nil, nil
 	}
-	if err := waveMember(1, "c4-foo", "w4:p1", "claude", "/opsx:apply c4-foo", w.Path, noPane(run)); err != nil {
+	state := t.TempDir()
+	w.State = state
+	if err := cache.WriteWave(cache.UserDir(), w); err != nil {
+		t.Fatal(err)
+	}
+	if err := waveMember(w.Project, 1, "c4-foo", "w4:p1", "claude", "/opsx:apply c4-foo", noPane(run)); err != nil {
 		t.Fatal(err)
 	}
 	if want := []string{"agent start c4-foo --kind claude --pane w4:p1 --timeout 60000", "agent prompt c4-foo /opsx:apply c4-foo", "agent get c4-foo"}; !reflect.DeepEqual(calls, want) {
@@ -281,9 +289,22 @@ func TestWaveMember(t *testing.T) {
 	if got, _ := cache.ReadMain(cache.UserDir(), w.Project, "c4-foo"); got != w.Coordinator {
 		t.Errorf("Main pane record %q, want the coordinator %q", got, w.Coordinator)
 	}
+	if got := os.Getenv("HERDR_PLUGIN_STATE_DIR"); got != state {
+		t.Errorf("watched with state dir %q, want the Board's %q: sessions must be resumable from the Board", got, state)
+	}
 	calls = nil
-	if err := waveMember(2, "c4-foo", "w4:p1", "claude", "/opsx:apply c4-foo", w.Path, noPane(run)); err == nil || err.Error() != "unknown wave 2" ||
+	if err := waveMember(w.Project, 2, "c4-foo", "w4:p1", "claude", "/opsx:apply c4-foo", noPane(run)); err == nil || err.Error() != "unknown wave 2" ||
 		calls[len(calls)-1] != "notification show spec-kanban: start failed --body unknown wave 2" {
+		t.Errorf("got %v, calls %q", err, calls)
+	}
+}
+
+func TestWaveFinishMissingMember(t *testing.T) { // never on the wave branch: not archived there
+	w, sourceFor := waveFixture(t)
+	mkdirs(t, w.Path, "openspec/changes/archive/2026-11-13-f5-bar")
+	var calls []string
+	err := wave([]string{"finish", "1"}, w.Path, &strings.Builder{}, recorder(&calls, true), sourceFor, noGitFor)
+	if err == nil || !strings.Contains(err.Error(), "c4-foo is neither archived") || len(calls) != 0 {
 		t.Errorf("got %v, calls %q", err, calls)
 	}
 }

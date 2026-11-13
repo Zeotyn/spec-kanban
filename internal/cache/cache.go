@@ -230,6 +230,7 @@ type Wave struct {
 	Base        string   `json:"base"`
 	Coordinator string   `json:"coordinator"` // the coordinator's pane
 	Main        string   `json:"main"`        // the pane the Board was opened from, "" when unknown
+	State       string   `json:"state"`       // the plugin's state dir, where members' sessions are recorded
 	Members     []string `json:"members"`
 	Dropped     []string `json:"dropped,omitempty"`
 	Finished    bool     `json:"finished,omitempty"`
@@ -287,7 +288,8 @@ func readWaves(d, project string) []Wave {
 }
 
 // FindWave returns the wave numbered n whose worktree holds dir, else the one whose Project holds
-// dir: the kanban wave subcommands run in agent panes and know only their directory.
+// dir, else the only one numbered n: the kanban wave subcommands run in agent panes and know only
+// their directory, which may be a member's worktree.
 func FindWave(dir string, n int, cwd string) (Wave, bool) {
 	var all []Wave
 	if dir != "" {
@@ -306,6 +308,9 @@ func FindWave(dir string, n int, cwd string) (Wave, bool) {
 				return w, true
 			}
 		}
+	}
+	if len(all) == 1 {
+		return all[0], true
 	}
 	return Wave{}, false
 }

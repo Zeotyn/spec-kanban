@@ -38,9 +38,9 @@ func launchWave(proj, mainPane string, changes []string, run herdr.Runner, sourc
 	if err != nil {
 		return err
 	}
-	branches, _ := g("for-each-ref", "--format=%(refname:short)", "refs/heads/wave-*") // none read: the records still count
+	branches, _ := g("for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/wave-*") // none read: the records still count
 	n := cache.NextWave(cache.ReadWaves(user, proj), strings.Fields(string(branches)))
-	w := cache.Wave{Project: proj, Number: n, Branch: fmt.Sprintf("wave-%d", n), Main: mainPane, Members: changes}
+	w := cache.Wave{Project: proj, Number: n, Branch: fmt.Sprintf("wave-%d", n), Main: mainPane, State: cache.Dir(), Members: changes}
 	return start.Wave(proj, n, changes, items, cfg.Base, start.Kind(cfg.Agent, mainPane, run), self, run, src, g,
 		func(pane, path, base string) error {
 			w.Coordinator, w.Path, w.Base = pane, path, base
@@ -113,18 +113,15 @@ func wave(args []string, cwd string, stdout io.Writer, run herdr.Runner, sourceF
 		tell(run, w.Main, text, fmt.Sprintf("spec-kanban: wave %d needs you", n), " End your turn.", stdout)
 		return nil
 	}
-	open, err := sourceFor(w.Path).Open(w.Path) // finish: a member no longer open on the wave branch is archived there
-	if err != nil {
-		return err
-	}
+	src := sourceFor(w.Path) // finish
 	var pending, archived []string
 	for _, m := range w.Members {
 		switch {
 		case slices.Contains(w.Dropped, m):
-		case slices.Contains(open, m):
-			pending = append(pending, m)
-		default:
+		case src.ArchivedIn(w.Path, m):
 			archived = append(archived, m)
+		default:
+			pending = append(pending, m)
 		}
 	}
 	if len(pending) > 0 {
@@ -169,12 +166,9 @@ func startMember(w cache.Wave, change string, stdout io.Writer, run herdr.Runner
 	if warn != nil {
 		fmt.Fprintln(os.Stderr, "kanban:", warn)
 	}
-	pane, _, err := start.Prepare(w.Project, change, start.Worktree{On: true, Base: w.Branch}, run, src, git)
+	pane, _, err := start.PrepareUnfocused(w.Project, change, start.Worktree{On: true, Base: w.Branch}, run, src, git)
 	if err != nil {
 		return err
-	}
-	if pane == "" {
-		return fmt.Errorf("%s already runs", change)
 	}
 	self, err := os.Executable()
 	if err != nil {
@@ -183,18 +177,18 @@ func startMember(w cache.Wave, change string, stdout io.Writer, run herdr.Runner
 	kind := start.Kind(cfg.Agent, w.Coordinator, run)
 	prompt := boardPrompt(cfg, src, w.Project, change, kind, self) +
 		fmt.Sprintf(" Do not archive %s: the coordinator of wave %d merges and archives it.", change, w.Number)
-	if err := spawn("wave-member", strconv.Itoa(w.Number), change, pane, kind, prompt); err != nil {
+	if err := spawn("wave-member", w.Project, strconv.Itoa(w.Number), change, pane, kind, prompt); err != nil {
 		return err
 	}
 	fmt.Fprintln(stdout, "started", change)
 	return nil
 }
 
-// waveMember launches the agent of member change of wave n (found from cwd) in pane without focus,
-// reports a failure as a herdr notification, and watches it with the coordinator as its Main pane
-// and the wave branch as its base.
-func waveMember(n int, change, pane, kind, prompt, cwd string, run herdr.Runner) error {
-	w, ok := cache.FindWave(cache.UserDir(), n, cwd)
+// waveMember launches the agent of member change of wave n of proj in pane without focus, reports a
+// failure as a herdr notification, and watches it as the Board's watcher would, with the coordinator
+// as its Main pane and the wave branch as its base.
+func waveMember(proj string, n int, change, pane, kind, prompt string, run herdr.Runner) error {
+	w, ok := cache.FindWave(cache.UserDir(), n, proj)
 	err := fmt.Errorf("unknown wave %d", n)
 	if ok {
 		err = start.LaunchUnfocused(change, kind, prompt, pane, run)
@@ -202,6 +196,9 @@ func waveMember(n int, change, pane, kind, prompt, cwd string, run herdr.Runner)
 	if err != nil {
 		run("notification", "show", "spec-kanban: start failed", "--body", err.Error())
 		return err
+	}
+	if w.State != "" { // the coordinator's pane has no $HERDR_PLUGIN_STATE_DIR; the Board reads sessions there
+		os.Setenv("HERDR_PLUGIN_STATE_DIR", w.State)
 	}
 	watch(w.Project, change, w.Coordinator, w.Branch, false, run)
 	return nil
@@ -222,11 +219,14 @@ func waveMain(cmd string, args []string) error {
 		}
 		return waveLaunch(args, herdr.Exec, sourceFor, gitCLI)
 	case "wave-member":
-		n, err := strconv.Atoi(args[0])
-		if len(args) != 5 || err != nil {
-			return usageError("wave-member needs a wave number, a change name, a pane, an agent kind and a prompt")
+		if len(args) != 6 {
+			return usageError("wave-member needs a project, a wave number, a change name, a pane, an agent kind and a prompt")
 		}
-		return waveMember(n, args[1], args[2], args[3], args[4], cwd, herdr.Exec)
+		n, err := strconv.Atoi(args[1])
+		if err != nil {
+			return usageError("wave-member needs a wave number")
+		}
+		return waveMember(args[0], n, args[2], args[3], args[4], args[5], herdr.Exec)
 	}
 	if len(args) < 2 || args[0] == "escalate" && strings.TrimSpace(strings.Join(args[2:], "")) == "" {
 		return usageError("wave needs start|drop|escalate|finish, a wave number and a change name or reason")
