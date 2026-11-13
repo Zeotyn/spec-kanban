@@ -213,7 +213,7 @@ func TestLaunchWatches(t *testing.T) {
 	t.Setenv("KANBAN_PROJECT", proj)
 	t.Setenv("KANBAN_MAIN_PANE", "w1:p9")
 	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
-	if err := cache.WriteEscalation(dir, proj, "m1-board-view"); err != nil { // left over from an earlier run
+	if err := cache.WriteMark(dir, proj, "m1-board-view", "escalation"); err != nil { // left over from an earlier run
 		t.Fatal(err)
 	}
 	var calls []string
@@ -233,7 +233,7 @@ func TestLaunchWatches(t *testing.T) {
 	if got, _ := cache.ReadMain(dir, proj, "m1-board-view"); got != "w1:p9" {
 		t.Errorf("Main pane record %q, want w1:p9", got)
 	}
-	if cache.Escalated(dir, proj, "m1-board-view") {
+	if (cache.ReadMarks(dir, proj)["m1-board-view"] == "escalation") {
 		t.Error("a leftover escalation must be cleared before watching")
 	}
 }
@@ -303,7 +303,7 @@ func TestResumeRecordedSession(t *testing.T) {
 			if err := cache.WriteSession(state, tt.proj, "m1-board-view", herdr.Session{Agent: "claude", Kind: "id", Value: "abc"}); err != nil {
 				t.Fatal(err)
 			}
-			if err := cache.WriteEscalation(dir, tt.proj, "m1-board-view"); err != nil {
+			if err := cache.WriteMark(dir, tt.proj, "m1-board-view", "escalation"); err != nil {
 				t.Fatal(err)
 			}
 			var calls []string
@@ -328,7 +328,7 @@ func TestResumeRecordedSession(t *testing.T) {
 			if got, _ := cache.ReadMain(dir, tt.proj, "m1-board-view"); got != main {
 				t.Errorf("Main pane record %q, want %q", got, main)
 			}
-			if cache.Escalated(dir, tt.proj, "m1-board-view") == tt.watched {
+			if (cache.ReadMarks(dir, tt.proj)["m1-board-view"] == "escalation") == tt.watched {
 				t.Errorf("escalation kept: %v, want %v", !tt.watched, tt.watched)
 			}
 		})
@@ -594,7 +594,7 @@ func TestEscalate(t *testing.T) {
 			if out.String() != tt.out {
 				t.Errorf("printed %q, want %q", out.String(), tt.out)
 			}
-			if !cache.Escalated(dir, tt.project, change) {
+			if !(cache.ReadMarks(dir, tt.project)[change] == "escalation") {
 				t.Error("want the escalation recorded for the Project")
 			}
 		})
@@ -605,7 +605,7 @@ func TestEscalate(t *testing.T) {
 		run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
 		var out strings.Builder
 		err := escalate("m1-bord-view", reason, proj, &out, run, detect, sourceFor, git)
-		if err == nil || !strings.Contains(err.Error(), "m1-bord-view") || len(calls) != 0 || out.Len() != 0 || cache.Escalated(dir, proj, "m1-bord-view") {
+		if err == nil || !strings.Contains(err.Error(), "m1-bord-view") || len(calls) != 0 || out.Len() != 0 || (cache.ReadMarks(dir, proj)["m1-bord-view"] == "escalation") {
 			t.Errorf("want an error naming m1-bord-view and nothing sent, got %v, %q, %q", err, calls, out.String())
 		}
 	})

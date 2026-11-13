@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/work"
@@ -30,8 +32,8 @@ func Dir() string {
 	return UserDir()
 }
 
-// UserDir returns os.UserCacheDir()/spec-kanban, "" if it is not available. The Main and escalation
-// records live here: a worker's pane, where kanban escalate runs, has no $HERDR_PLUGIN_STATE_DIR.
+// UserDir returns os.UserCacheDir()/spec-kanban, "" if it is not available. The Main records and the
+// attention markers live here: a worker's pane, where kanban escalate runs, has no $HERDR_PLUGIN_STATE_DIR.
 func UserDir() string {
 	base, err := os.UserCacheDir()
 	if err != nil {
@@ -158,31 +160,63 @@ func WriteMain(dir, project, change, pane string) error {
 	return writeAtomic(mains(dir, project), change, []byte(pane))
 }
 
-// escalation is the file whose presence says that change of project escalated since its agent last worked.
-func escalation(dir, project, change string) string {
-	return filepath.Join(dir, "escalations", hash(project), change)
+// marks is where the attention markers of project's Changes live, one file per Change.
+func marks(dir, project string) string { return filepath.Join(dir, "attention", hash(project)) }
+
+// reasons are why a Change waits for the user.
+var reasons = map[string]bool{"escalation": true, "stall": true, "handoff": true}
+
+type mark struct {
+	Why string `json:"why"`
 }
 
-// WriteEscalation records that change of project escalated.
-func WriteEscalation(dir, project, change string) error {
+// WriteMark records that change of project waits for the user because of why: "escalation",
+// "stall" or "handoff". It replaces an earlier marker of change.
+func WriteMark(dir, project, change, why string) error {
 	if dir == "" {
 		return errors.New("cache: no directory")
 	}
-	return writeAtomic(filepath.Dir(escalation(dir, project, change)), change, nil)
-}
-
-// Escalated tells whether change of project escalated and the record was not cleared since.
-func Escalated(dir, project, change string) bool {
-	if dir == "" {
-		return false
+	if !reasons[why] {
+		return fmt.Errorf("cache: unknown attention reason %q", why)
 	}
-	_, err := os.Stat(escalation(dir, project, change))
-	return err == nil
+	data, err := json.Marshal(mark{why})
+	if err != nil {
+		return err
+	}
+	return writeAtomic(marks(dir, project), change, data)
 }
 
-// ClearEscalation removes the escalation record of change of project, if any.
-func ClearEscalation(dir, project, change string) {
+// ClearMark removes the attention marker of change of project, if any.
+func ClearMark(dir, project, change string) {
 	if dir != "" {
-		_ = os.Remove(escalation(dir, project, change))
+		_ = os.Remove(filepath.Join(marks(dir, project), change))
 	}
+}
+
+// ReadMarks returns the attention markers of project's Changes, Change → reason, skipping
+// unreadable files and unknown reasons; nil when there are none.
+func ReadMarks(dir, project string) map[string]string {
+	if dir == "" {
+		return nil
+	}
+	entries, err := os.ReadDir(marks(dir, project))
+	if err != nil {
+		return nil
+	}
+	var got map[string]string
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".tmp-") { // a write in progress
+			continue
+		}
+		var m mark
+		data, err := os.ReadFile(filepath.Join(marks(dir, project), e.Name()))
+		if err != nil || json.Unmarshal(data, &m) != nil || !reasons[m.Why] {
+			continue
+		}
+		if got == nil {
+			got = map[string]string{}
+		}
+		got[e.Name()] = m.Why
+	}
+	return got
 }

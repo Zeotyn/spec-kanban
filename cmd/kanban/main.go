@@ -303,13 +303,13 @@ func watch(change string, resumed bool, run herdr.Runner) {
 	}
 	mainPane, user := os.Getenv("KANBAN_MAIN_PANE"), cache.UserDir() // where kanban escalate finds them
 	_ = cache.WriteMain(user, proj, change, mainPane)                // a lost record only makes Escalation notify
-	cache.ClearEscalation(user, proj, change)
+	cache.ClearMark(user, proj, change)
 	start.Watch(start.Watched{Project: proj, Change: change, Main: mainPane, Base: cfg.Base, On: cfg.Worktree, Resumed: resumed,
 		Load:      loader(dir, proj, src, loadGit),
 		Source:    src,
 		Record:    func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
-		Escalated: func() bool { return cache.Escalated(user, proj, change) },
-		Clear:     func() { cache.ClearEscalation(user, proj, change) },
+		Escalated: func() bool { return cache.ReadMarks(user, proj)[change] == "escalation" },
+		Clear:     func() { cache.ClearMark(user, proj, change) },
 	}, run, git)
 }
 
@@ -380,7 +380,7 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 		" 1. Read its open tasks in %s. 2. If you may do the step yourself, do it and tick its task; otherwise tell the user exactly what to do and wait for them."+
 		` 3. Then tell its agent to continue: herdr agent prompt %s "<what changed>". Do not close its tab; when all tasks are done, the normal Handoff follows.`,
 		change, progress, strings.Join(reason, " "), agent, change, where, filepath.Join(checkout, src.Rel(change), "tasks.md"), agent)
-	_ = cache.WriteEscalation(user, proj, change) // a lost record only lets a Stall follow
+	_ = cache.WriteMark(user, proj, change, "escalation") // a lost marker only lets a Stall follow
 	if start.Tell(run, mainPane, os.Getenv("HERDR_PANE_ID"), "spec-kanban: "+change+" needs you", text) {
 		fmt.Fprintln(stdout, "Sent to the Main agent. End your turn.")
 	} else {

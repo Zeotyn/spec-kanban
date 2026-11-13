@@ -1,7 +1,7 @@
 ## 1. Marker in `internal/cache`
 
-- [ ] 1.1 Tests first: `WriteMark`/`ReadMarks` round trip for the three reasons, `ClearMark`, a broken file is skipped, an unknown reason is skipped, equally named Changes in two Projects stay apart
-- [ ] 1.2 Replace m12's escalation record with `WriteMark`, `ClearMark` and `ReadMarks` under `attention/<project hash>/<change>` (design.md decision 1); update its callers
+- [x] 1.1 Tests first: `WriteMark`/`ReadMarks` round trip for the three reasons, `ClearMark`, a broken file is skipped, an unknown reason is skipped, equally named Changes in two Projects stay apart
+- [x] 1.2 Replace m12's escalation record with `WriteMark`, `ClearMark` and `ReadMarks` under `attention/<project hash>/<change>` (design.md decision 1); update its callers
 
 ## 2. Setting and clearing in `internal/start` and `cmd/kanban`
 

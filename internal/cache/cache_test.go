@@ -226,24 +226,49 @@ func TestMainPaneUnreadable(t *testing.T) {
 	}
 }
 
-func TestEscalation(t *testing.T) {
+func TestMarks(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "state")
-	if Escalated(dir, project, "m1") {
-		t.Error("missing: want false")
+	if got := ReadMarks(dir, project); len(got) != 0 {
+		t.Errorf("missing: got %v", got)
 	}
-	if err := WriteEscalation(dir, project, "m1"); err != nil {
+	for change, why := range map[string]string{"m1": "escalation", "m2": "stall", "m3": "handoff"} {
+		if err := WriteMark(dir, project, change, why); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := WriteMark(dir, "/other", "m1", "stall"); err != nil {
 		t.Fatal(err)
 	}
-	if !Escalated(dir, project, "m1") || Escalated(dir, "/other", "m1") || Escalated(dir, project, "m2") {
-		t.Error("escalation must be kept per Project and Change")
+	want := map[string]string{"m1": "escalation", "m2": "stall", "m3": "handoff"}
+	if got := ReadMarks(dir, project); !reflect.DeepEqual(got, want) {
+		t.Errorf("ReadMarks = %v, want %v", got, want)
 	}
-	ClearEscalation(dir, project, "m1")
-	if Escalated(dir, project, "m1") {
-		t.Error("cleared: want false")
+	if got := ReadMarks(dir, "/other"); !reflect.DeepEqual(got, map[string]string{"m1": "stall"}) {
+		t.Errorf("equally named Changes in two Projects must stay apart, got %v", got)
 	}
-	ClearEscalation(dir, project, "m1") // clearing twice does no harm
-	if Escalated("", project, "m1") || WriteEscalation("", project, "m1") == nil {
-		t.Error(`empty dir: want false and an error`)
+	if err := WriteMark(dir, project, "m2", "escalation"); err != nil { // the newer reason wins
+		t.Fatal(err)
+	}
+	ClearMark(dir, project, "m1")
+	ClearMark(dir, project, "m1") // clearing twice does no harm
+	if got := ReadMarks(dir, project); !reflect.DeepEqual(got, map[string]string{"m2": "escalation", "m3": "handoff"}) {
+		t.Errorf("after clear and overwrite: %v", got)
+	}
+	marks := filepath.Join(dir, "attention", hash(project))
+	if err := os.WriteFile(filepath.Join(marks, "broken"), []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(marks, "unknown"), []byte(`{"why":"bored"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := ReadMarks(dir, project); len(got) != 2 {
+		t.Errorf("a broken file and an unknown reason must be skipped, got %v", got)
+	}
+	if WriteMark(dir, project, "m4", "bored") == nil {
+		t.Error("unknown reason: want an error")
+	}
+	if ReadMarks("", project) != nil || WriteMark("", project, "m1", "stall") == nil {
+		t.Error(`empty dir: want nil and an error`)
 	}
 }
 
