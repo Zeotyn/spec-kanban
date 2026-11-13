@@ -64,6 +64,9 @@ Usage:
                     (internal, spawned by the Board)
   kanban escalate <change> <reason>
                     Ask the Main agent for a human's help with <change> (run by the Change's agent)
+  kanban failures [--all]
+                    Print the recorded failures of the current directory's project, or of every
+                    project with --all, oldest first
   kanban wave start <N> <change>
                     Start <change> as a member of wave N, branched off wave-<N> and handing off to the
                     coordinator (run by the wave's coordinator, like the other wave commands)
@@ -126,6 +129,16 @@ func main() {
 		var cwd string
 		if cwd, err = os.Getwd(); err == nil {
 			err = escalate(os.Args[2], os.Args[3:], cwd, os.Stdout, herdr.Exec, detect, sourceFor, gitCLI)
+		}
+	case "failures":
+		if len(os.Args) > 3 || len(os.Args) == 3 && os.Args[2] != "--all" {
+			fmt.Fprintf(os.Stderr, "kanban: failures takes no argument but --all\n\n%s", usage)
+			os.Exit(2)
+		}
+		detect, _ := sources(config.Default()) // detect does not depend on the config
+		var cwd string
+		if cwd, err = os.Getwd(); err == nil {
+			err = failures(len(os.Args) == 3, cwd, os.Stdout, detect, gitCLI)
 		}
 	case "wave", "wave-launch", "wave-member":
 		err = waveMain(cmd, os.Args[2:])
@@ -381,11 +394,7 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 		return fmt.Errorf("no OpenSpec or Spec Kit project at or above %s", cwd)
 	}
 	dir, user, proj, mainPane := cache.Dir(), cache.UserDir(), checkout, ""
-	for _, c := range append([]worktree.Checkout{{Path: checkout}}, worktree.List(git(checkout))...) {
-		p, err := filepath.EvalSymlinks(c.Path) // the Board's Project has its symlinks resolved
-		if err != nil {
-			continue
-		}
+	for _, p := range checkouts(checkout, git(checkout)) {
 		if pane, ok := cache.ReadMain(user, p, change); ok {
 			proj, mainPane = p, pane
 			break
@@ -422,6 +431,50 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 		fmt.Fprintln(stdout, "No Main agent took it; the Board and the sidebar show ⚑. End your turn.")
 	}
 	_ = refresh(dir, run, detect, sourceFor, git) // the sidebar shows the marker without waiting for a herdr event
+	return nil
+}
+
+// checkouts returns checkout, then the other checkouts of its git repository, with their symlinks
+// resolved like the Board's Project; a checkout that cannot be resolved is left out.
+func checkouts(checkout string, git herdr.Runner) []string {
+	var got []string
+	for _, c := range append([]worktree.Checkout{{Path: checkout}}, worktree.List(git)...) {
+		if p, err := filepath.EvalSymlinks(c.Path); err == nil {
+			got = append(got, p)
+		}
+	}
+	return got
+}
+
+// failures prints the recorded failures to stdout, oldest first: all of them, else those of cwd's
+// Project, which is the first of cwd's checkout and its repository's other checkouts that has any.
+func failures(all bool, cwd string, stdout io.Writer, detect func(string) bool, git func(string) herdr.Runner) error {
+	log := cache.ReadFailures(cache.UserDir())
+	if !all {
+		checkout := project.Find(cwd, detect)
+		if checkout == "" {
+			return fmt.Errorf("no OpenSpec or Spec Kit project at or above %s", cwd)
+		}
+		var mine []cache.Failure
+		for _, p := range checkouts(checkout, git(checkout)) {
+			for _, f := range log {
+				if f.Project == p {
+					mine = append(mine, f)
+				}
+			}
+			if mine != nil {
+				break
+			}
+		}
+		log = mine
+	}
+	if len(log) == 0 {
+		fmt.Fprintln(stdout, "no failures")
+	}
+	for _, f := range log {
+		fmt.Fprintf(stdout, "%s  %s  %s  %s\n  %s\n\n", f.Time.Local().Format("2006-01-02 15:04:05"), f.Step, f.Change, f.Project,
+			strings.ReplaceAll(f.Error, "\n", "\n  "))
+	}
 	return nil
 }
 

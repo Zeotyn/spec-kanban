@@ -737,3 +737,84 @@ func userDir(t *testing.T) string {
 	t.Setenv("HERDR_PLUGIN_STATE_DIR", "")
 	return cache.UserDir()
 }
+
+func TestFailures(t *testing.T) {
+	user, raw := userDir(t), t.TempDir() // git names checkouts as created; on macOS /var is a symlink to /private/var
+	root, err := filepath.EvalSymlinks(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, wt, b, c := filepath.Join(root, "a"), filepath.Join(root, "wt"), filepath.Join(root, "b"), filepath.Join(root, "c")
+	for _, p := range []string{a, wt, b, c} {
+		mkdirs(t, p, "openspec/changes", "internal")
+	}
+	at := time.Date(2026, 11, 13, 10, 0, 0, 0, time.UTC)
+	logged := []cache.Failure{
+		{Time: at, Project: a, Change: "m1-board-view", Step: "start", Error: "timeout"},
+		{Time: at.Add(time.Minute), Project: b, Change: "f2-x", Step: "run", Error: "nope"},
+		{Time: at.Add(2 * time.Minute), Project: a, Change: "c1-greet c2-farewell", Step: "wave", Error: "shell did not reach its prompt\nlast line"},
+	}
+	for _, f := range logged {
+		if err := cache.AppendFailure(user, f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if f, err := os.OpenFile(filepath.Join(user, "failures.log"), os.O_APPEND|os.O_WRONLY, 0); err == nil {
+		f.WriteString("{broken\n")
+		f.Close()
+	}
+	printed := func(f cache.Failure) string {
+		return f.Time.Local().Format("2006-01-02 15:04:05") + "  " + f.Step + "  " + f.Change + "  " + f.Project + "\n  " + strings.ReplaceAll(f.Error, "\n", "\n  ") + "\n\n"
+	}
+	detect, _ := sources(config.Config{})
+	git := func(dir string) herdr.Runner {
+		return func(args ...string) ([]byte, error) {
+			if dir == filepath.Join(root, "c") {
+				return nil, errors.New("not a git repository")
+			}
+			if args[0] == "rev-parse" {
+				return []byte("\n"), nil
+			}
+			return []byte("worktree " + filepath.Join(raw, "a") + "\nbranch refs/heads/main\n\nworktree " + filepath.Join(raw, "wt") + "\nbranch refs/heads/m1-board-view\n"), nil
+		}
+	}
+	tests := []struct {
+		name, cwd string
+		all       bool
+		want      string
+	}{
+		{"current Project", filepath.Join(a, "internal"), false, printed(logged[0]) + printed(logged[2])},
+		{"worktree", filepath.Join(wt, "internal"), false, printed(logged[0]) + printed(logged[2])},
+		{"all", root, true, printed(logged[0]) + printed(logged[1]) + printed(logged[2])},
+		{"nothing recorded", c, false, "no failures\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out strings.Builder
+			if err := failures(tt.all, tt.cwd, &out, detect, git); err != nil || out.String() != tt.want {
+				t.Errorf("got %v\n%s\nwant\n%s", err, out.String(), tt.want)
+			}
+		})
+	}
+	if err := failures(false, root, &strings.Builder{}, detect, git); err == nil || !strings.Contains(err.Error(), "no OpenSpec or Spec Kit project") {
+		t.Errorf("outside any Project: got %v", err)
+	}
+}
+
+// TestFailuresUsage runs main in a child process: any argument but --all exits 2 with the usage.
+func TestFailuresUsage(t *testing.T) {
+	if args := os.Getenv("KANBAN_TEST_ARGS"); args != "" {
+		os.Args = append([]string{"kanban"}, strings.Split(args, "|")...)
+		main()
+		return
+	}
+	for _, args := range []string{"failures|-a", "failures|--all|x"} {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestFailuresUsage$")
+		cmd.Env = append(os.Environ(), "KANBAN_TEST_ARGS="+args)
+		out, err := cmd.CombinedOutput()
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "kanban failures [--all]") {
+			t.Errorf("%q: want exit 2 with the usage, got %v: %s", args, err, out)
+		}
+	}
+}

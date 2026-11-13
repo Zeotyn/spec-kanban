@@ -11,8 +11,8 @@
 
 ## 3. `kanban failures`
 
-- [ ] 3.1 Add the `failures [--all]` subcommand: find the Project as in D4, print the matching records oldest first as header line plus error indented by two spaces plus a blank line, `no failures` when none match, an error outside any Project without `--all`, and the usage with an error for any other argument; tests for the spec scenarios (current Project, worktree, `--all`, nothing recorded, broken line)
-- [ ] 3.2 Add `failures [--all]` to the usage text
+- [x] 3.1 Add the `failures [--all]` subcommand: find the Project as in D4, print the matching records oldest first as header line plus error indented by two spaces plus a blank line, `no failures` when none match, an error outside any Project without `--all`, and the usage with an error for any other argument; tests for the spec scenarios (current Project, worktree, `--all`, nothing recorded, broken line)
+- [x] 3.2 Add `failures [--all]` to the usage text
 
 ## 4. Board notice
 
