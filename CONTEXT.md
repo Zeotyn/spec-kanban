@@ -107,6 +107,10 @@ _Avoid_: Orchestrator, lead agent
 A Change of a wave, started by the coordinator in a worktree branched off `wave-<N>`; it does not archive itself. A dropped member is an ordinary Change again.
 _Avoid_: Child change, subtask
 
+**Failure log**:
+The record of the failures herdr showed as a `spec-kanban: <step> failed` notification after the Board closed, kept in the user cache directory and read with `kanban failures`; the Board shows its Project's newest unseen one once.
+_Avoid_: Error log, crash log
+
 **Change checkout**:
 The git checkout whose branch is named like a Change, where Start runs its agent; usually a linked worktree.
 _Avoid_: Sandbox, clone

@@ -20,9 +20,9 @@
 
 ## 5. Docs
 
-- [ ] 5.1 README: troubleshooting section on `kanban failures` and `--all`, the `Details: kanban failures` line and the Board notice
-- [ ] 5.2 CONTEXT.md: add **Failure log**
-- [ ] 5.3 CHANGELOG `## Unreleased`: failure log, `kanban failures`, the notification hint and the Board notice
+- [x] 5.1 README: troubleshooting section on `kanban failures` and `--all`, the `Details: kanban failures` line and the Board notice
+- [x] 5.2 CONTEXT.md: add **Failure log**
+- [x] 5.3 CHANGELOG `## Unreleased`: failure log, `kanban failures`, the notification hint and the Board notice
 
 ## 6. Verification
 

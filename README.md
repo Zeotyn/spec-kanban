@@ -165,6 +165,15 @@ The first line is the most recently modified change with its progress; it turns 
 
 herdr refreshes the lines on startup, when an agent's status changes and when a pane gets focus or a pane or workspace is created; the plugin also refreshes them when it sets an attention marker. To show them, edit `~/.config/herdr/config.toml` as in [`herdr-config.toml`](herdr-config.toml): add `sidebar_width = 34` and `sidebar_max_width = 36` to your existing `[ui]` table (a second `[ui]` header is a TOML error), copy the `[ui.sidebar.spaces]` table, and run `herdr server reload-config`. If you used herdr-openspec, replace its `$openspec` and `$openspec_change` rows; they stay empty once that plugin is disabled.
 
+## Troubleshooting
+
+A Start, Verify, Archive, resume or wave that fails after the Board closed shows a herdr notification `spec-kanban: <step> failed` (`start`, `run`, `resume` or `wave`) whose body ends with `Details: kanban failures`. The notification is gone after a few seconds, so each one is also recorded in `failures.log` in the user cache directory's `spec-kanban`, with the time, the Project, the Change, the step and the full error, including the pane's last lines. The log keeps the newest 100 failures of all Projects.
+
+- `kanban failures` in a Project, or in any checkout of its repository, prints that Project's failures, oldest first.
+- `kanban failures --all` prints the failures of every Project, also outside any Project.
+
+When the Board opens and its Project failed since the Board's last opening (or in the last 24 hours, the first time), the footer shows the newest failure once until the next key, for example `run failed s001-plugin-bundles-hooks 4m ago: shell did not reach its prompt…`. A config warning takes its place; the failure then shows at the next opening.
+
 ## Development
 
 `herdr plugin link` does not run the build step, so build the binary yourself after every change:
