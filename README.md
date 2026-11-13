@@ -52,6 +52,8 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 
 `?` shows all keys and the version; any key closes the help.
 
+While a Draft Card is selected, the footer starts with why it is in Draft: `draft: design missing` (or several, like `draft: specs, design missing`) for planning artifacts neither done nor skipped, `draft: no tasks` when they are all planned but `tasks.md` holds no task, and `draft: planning unknown` when the planning state could not be read. The keys follow, short when the full ones do not fit.
+
 <p>
   <img src="docs/assets/detail.png" alt="Details of a Change: its tasks with the next open one on top, and tabs for proposal, design and specs" width="62%">
   <img src="docs/assets/help.png" alt="The key help with the plugin version" width="30%">

@@ -9,8 +9,8 @@
 
 ## 3. Docs
 
-- [ ] 3.1 README: the Draft reason in the Board footer
-- [ ] 3.2 CHANGELOG `## Unreleased`: the Draft reason
+- [x] 3.1 README: the Draft reason in the Board footer
+- [x] 3.2 CHANGELOG `## Unreleased`: the Draft reason
 
 ## 4. Verification
 

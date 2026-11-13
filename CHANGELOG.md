@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Draft reason: while a Draft Card is selected, the Board footer starts with why the Change is in Draft, like `draft: design missing` or `draft: no tasks`, before the keys.
 - Failure log: every `spec-kanban: <step> failed` notification (start, run, resume, wave) is also recorded with its full error in `failures.log` in the user cache directory, which keeps the newest 100. `kanban failures` prints the current Project's failures, `kanban failures --all` those of every Project. The notification body now ends with `Details: kanban failures`, and the Board shows its Project's newest failure since its last opening once in the footer.
 - Waves: mark Ready Cards with `space` and press `s` to start them as a wave on branch `wave-<N>`. A coordinator agent starts the members with `kanban wave start`, merges and archives each on the wave branch, and hands the wave to the Main agent once with `kanban wave finish`; `kanban wave drop` and `kanban wave escalate` cover the rest. Members show `≋<N>` and do not archive themselves. New config key `wave` with `size` (default 5). `Esc` clears marks before it closes the Board.
 - Attention marker: a red `⚑` before a Card's name, in place of the green `●`, and a `⚑<n>` prefix on the sidebar's `kanban` line show the Changes that wait for you after an Escalation, a Stall or a Handoff no Main agent took. It goes away when the agent works again or its tab is closed, or, after a Handoff, when the Change is archived, started or resumed.
