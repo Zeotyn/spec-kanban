@@ -87,21 +87,6 @@ When the watched agent settles blocked, or with the Change not finished, the plu
 - **WHEN** the agent of `m1-board-view` settles blocked, even with all tasks completed
 - **THEN** the tab stays open, no notification is shown, no Main agent is prompted, and herdr's own sidebar shows the agent as blocked
 
-### Requirement: Main agent falls back to a notification
-For a Handoff and a Stall, the Main agent SHALL be the agent, of any kind herdr detects, in the pane the Board was opened from; for an Escalation, the agent in the Main pane recorded for the Change. When there is no such pane, it no longer exists, it is the Change's own agent pane, herdr detects no agent in it, or herdr rejects the prompt (for example because it is blocked), the plugin SHALL show the prompt text as a herdr notification instead: titled `spec-kanban: <change> finished` for a Handoff, `spec-kanban: <change> needs you` for an Escalation and `spec-kanban: <change> stalled` for a Stall. The Handoff itself (session recorded, pane closed) SHALL still happen.
-
-#### Scenario: Board opened from a shell pane
-- **WHEN** the Board was opened from a pane running only a shell (no agent) and a started Change finishes cleanly
-- **THEN** the agent's pane closes and herdr shows a notification `spec-kanban: m1-board-view finished` with the Handoff text
-
-#### Scenario: Main agent blocked
-- **WHEN** a Change finishes cleanly while the Main agent waits at an approval dialog
-- **THEN** no text is typed into the Main agent and herdr shows the Handoff text as a notification
-
-#### Scenario: Stall without a Main agent
-- **WHEN** the Board that started `m1-board-view` was opened from a shell pane and its agent stalls for 10 minutes
-- **THEN** herdr shows a notification `spec-kanban: m1-board-view stalled` with the Stall text
-
 ### Requirement: Session recorded per Change
 For every Change started from the Board, the plugin SHALL record the agent kind and the session herdr reports for its agent, once the agent is ready and again at every settle, so the newest session is kept. The record SHALL be kept per Project and Change in the plugin's state directory and survive closing the tab, removing the Change's worktree and restarting herdr. Losing the record SHALL only make the session not resumable from the Board.
 
@@ -148,11 +133,11 @@ A Start or a resume from the Board SHALL record the pane the Board was opened fr
 
 `<change> needs a human (<done>/<total> tasks): <reason>. Its agent <agent> waits in tab <change><where>. 1. Read its open tasks in <tasks file>. 2. If you may do the step yourself, do it and tick its task; otherwise tell the user exactly what to do and wait for them. 3. Then tell its agent to continue: herdr agent prompt <agent> "<what changed>". Do not close its tab; when all tasks are done, the normal Handoff follows.`
 
-`<agent>` SHALL be herdr's agent name of the Change. `<where>` SHALL be `, worktree <path> on branch <change>` when the Change's checkout is a linked worktree, and empty otherwise. `<tasks file>` SHALL be the absolute path of the Change's tasks file in the checkout the agent works in. When the Main agent cannot take the prompt, it SHALL fall back as described in "Main agent falls back to a notification". Escalation SHALL record that the Change escalated, so that the next settle of a watched agent leads to no Stall, and SHALL print whether the Main agent or a notification received it. It SHALL never close, focus or prompt the Change's own agent.
+`<agent>` SHALL be herdr's agent name of the Change. `<where>` SHALL be `, worktree <path> on branch <change>` when the Change's checkout is a linked worktree, and empty otherwise. `<tasks file>` SHALL be the absolute path of the Change's tasks file in the checkout the agent works in. Whether or not the Main agent takes the prompt (see "Main agent falls back to the attention marker"), Escalation SHALL set the Change's attention marker for an Escalation, so that the next settle of a watched agent leads to no Stall, and SHALL print whether the Main agent received it or only the marker shows it. It SHALL never close, focus or prompt the Change's own agent.
 
 #### Scenario: Worker cannot publish
 - **WHEN** the agent of `m1-board-view` works in worktree `~/.herdr/worktrees/spec-kanban/m1-board-view`, has completed 3 of 7 tasks, and runs `kanban escalate m1-board-view needs npm publish and a git tag` while the recorded Main agent is idle
-- **THEN** the Main agent receives a prompt starting with `m1-board-view needs a human (3/7 tasks): needs npm publish and a git tag. Its agent m1-board-view waits in tab m1-board-view, worktree ~/.herdr/worktrees/spec-kanban/m1-board-view on branch m1-board-view.`, the worker's tab stays open, and the command prints that the Main agent received it
+- **THEN** the Main agent receives a prompt starting with `m1-board-view needs a human (3/7 tasks): needs npm publish and a git tag. Its agent m1-board-view waits in tab m1-board-view, worktree ~/.herdr/worktrees/spec-kanban/m1-board-view on branch m1-board-view.`, the worker's tab stays open, the attention marker of `m1-board-view` is set, and the command prints that the Main agent received it
 
 #### Scenario: Without a worktree
 - **WHEN** `worktree` is off and the agent of `m1-board-view` escalates with 3 of 7 tasks completed
@@ -160,7 +145,7 @@ A Start or a resume from the Board SHALL record the pane the Board was opened fr
 
 #### Scenario: No Main agent
 - **WHEN** the Board that started `m1-board-view` was opened from a shell pane and its agent escalates
-- **THEN** nothing is typed into any pane, herdr shows a notification `spec-kanban: m1-board-view needs you` with the prompt text, and the command prints that a notification received it
+- **THEN** nothing is typed into any pane, no notification is shown, the attention marker of `m1-board-view` is set, and the command prints that only the marker shows it
 
 #### Scenario: Unknown Change
 - **WHEN** `kanban escalate m1-bord-view needs a tag` runs and no such open Change exists
@@ -179,11 +164,11 @@ When the watched agent settles idle or done, the Change is not finished, the age
 
 `<change> stopped at <done>/<total> tasks 10 minutes ago without asking for help. Read its output with: herdr agent read <agent> --lines 40. If it waits for something that finishes by itself, do nothing. If it needs a human, tell the user what it needs. To let it continue, run: herdr agent prompt <agent> "<what to do>". Do not close its tab.`
 
-`<agent>` SHALL be herdr's agent name of the Change. When the Progress cannot be read, `at <done>/<total> tasks` SHALL be left out. The 10 minutes SHALL be fixed. When the agent works again within them, nothing SHALL be sent. When the Main agent cannot take the prompt, the plugin SHALL fall back as described in "Main agent falls back to a notification". A blocked settle SHALL lead to no Stall.
+`<agent>` SHALL be herdr's agent name of the Change. When the Progress cannot be read, `at <done>/<total> tasks` SHALL be left out. The 10 minutes SHALL be fixed. When the agent works again within them, nothing SHALL be sent. With the prompt, whether or not the Main agent takes it (see "Main agent falls back to the attention marker"), the plugin SHALL set the Change's attention marker for a Stall. A blocked settle SHALL lead to no Stall.
 
 #### Scenario: Worker stops silently
 - **WHEN** the watched agent of `m1-board-view` settles idle at 3 of 7 tasks without escalating and stays idle for 10 minutes
-- **THEN** the Main agent receives `m1-board-view stopped at 3/7 tasks 10 minutes ago without asking for help.` followed by the rest of the Stall prompt, once
+- **THEN** the Main agent receives `m1-board-view stopped at 3/7 tasks 10 minutes ago without asking for help.` followed by the rest of the Stall prompt, once, and the attention marker of `m1-board-view` is set
 
 #### Scenario: Worker goes on by itself
 - **WHEN** the watched agent of `m1-board-view` settles idle at 3 of 7 tasks and starts working again after 2 minutes
@@ -196,3 +181,54 @@ When the watched agent settles idle or done, the Change is not finished, the age
 #### Scenario: Second silent stop
 - **WHEN** after a Stall prompt the agent of `m1-board-view` is told to continue, works, and settles again unfinished for 10 minutes
 - **THEN** the Main agent receives a second Stall prompt
+
+### Requirement: Main agent falls back to the attention marker
+For a Handoff and a Stall, the Main agent SHALL be the agent, of any kind herdr detects, in the pane the Board was opened from; for an Escalation, the agent in the Main pane recorded for the Change. When there is no such pane, it no longer exists, it is the Change's own agent pane, herdr detects no agent in it, or herdr rejects the prompt (for example because it is blocked), the plugin SHALL type nothing and show no notification. Instead, a Handoff SHALL set the Change's attention marker for a Handoff; an Escalation and a Stall set their marker anyway. The Handoff itself (session recorded, pane closed) SHALL still happen. A Handoff the Main agent took SHALL clear the Change's attention marker.
+
+#### Scenario: Board opened from a shell pane
+- **WHEN** the Board was opened from a pane running only a shell (no agent) and a started Change finishes cleanly
+- **THEN** the agent's pane closes, no notification is shown, and the attention marker of `m1-board-view` is set
+
+#### Scenario: Main agent blocked
+- **WHEN** a Change finishes cleanly while the Main agent waits at an approval dialog
+- **THEN** no text is typed into the Main agent, no notification is shown, and the attention marker is set
+
+#### Scenario: Stall without a Main agent
+- **WHEN** the Board that started `m1-board-view` was opened from a shell pane and its agent stalls for 10 minutes
+- **THEN** no notification is shown and the attention marker of `m1-board-view` is set
+
+#### Scenario: Handoff clears an older marker
+- **WHEN** `m1-board-view` escalated earlier, its agent then finished all tasks, and the Main agent takes the Handoff prompt
+- **THEN** the attention marker of `m1-board-view` is cleared
+
+### Requirement: Attention marker
+The plugin SHALL keep an attention marker per Project and Change in its state directory while the Change waits for the user, with its reason: Escalation, Stall or Handoff. Escalation and Stall SHALL set it, and a Handoff that no Main agent took SHALL set it (see "Main agent falls back to the attention marker"). The watcher SHALL clear it when the Change's agent starts working again after a settle; a Handoff the Main agent took, a Start and a resume from the Board SHALL clear it too. Readers SHALL show a marker only while it still holds, so that a marker left by a watcher that went away does not stay:
+- an Escalation or Stall marker while herdr reports the Change's agent in the Project or one of its checkouts and its status is not `working`;
+- a Handoff marker while the Change is open in the Project.
+
+When herdr cannot be asked for its agents, Escalation and Stall markers SHALL not be shown. Losing the state directory SHALL only lose the markers.
+
+#### Scenario: Worker escalates
+- **WHEN** the agent of `m1-board-view` escalates and then ends its turn
+- **THEN** `m1-board-view` waits for the user
+
+#### Scenario: Worker continues
+- **WHEN** the Main agent tells the escalated agent of `m1-board-view` to continue and it starts working
+- **THEN** the marker of `m1-board-view` is cleared and it no longer waits
+
+#### Scenario: Watcher gone
+- **WHEN** `m1-board-view` has an Escalation marker, its watcher has ended, and the user then makes its agent work in its tab
+- **THEN** `m1-board-view` does not wait while its agent works, although the marker file is still there
+
+#### Scenario: Agent tab closed
+- **WHEN** `m1-board-view` has a Stall marker and the user closes its agent's tab
+- **THEN** `m1-board-view` no longer waits
+
+#### Scenario: Handoff without a Main agent
+- **WHEN** `m1-board-view` was handed off with no Main agent and is still open
+- **THEN** `m1-board-view` waits until it is archived in the Project, started or resumed again
+
+#### Scenario: New Start
+- **WHEN** a Change with a marker is started or resumed from the Board
+- **THEN** its marker is cleared
+
