@@ -32,6 +32,7 @@ type editedMsg struct{ err error }
 
 type loadedMsg struct {
 	changes []work.Item
+	waves   map[string]int // Change name → number of the active wave it is a member of
 	err     error
 }
 
@@ -43,6 +44,14 @@ type agentsMsg struct {
 
 // startedMsg reports that Start has returned.
 type startedMsg struct{ err error }
+
+// Wave is what the Board needs for waves.
+type Wave struct {
+	Size    int                          // the most Cards that may be marked; 0 is no limit
+	Blocked string                       // "" or the notice when no wave can start
+	Of      func() map[string]int        // Change name → number of the active wave it is a member of; read with each load; may be nil
+	Start   func(changes []string) error // starts a wave of the Changes, like start; may be nil
+}
 
 // key is a key and what it does, for the help.
 type key struct{ key, desc string }
@@ -65,8 +74,8 @@ var helpGroups = []struct {
 	keys  []key
 }{
 	{"Board", []key{{"h/l j/k", "column, card"}, {"gg/G", "first/last card"}, {"ctrl+d/u", "half page down/up"}, {"1-5", "column by number"},
-		{"enter", "details"}, {"e", "edit tasks"}, {"s/v/a", "start, verify, archive"}, {"/", "filter by name"}, {"n/N", "next/previous match"},
-		{"esc", "clear the filter, else close"}, {"r", "reload"}, {"?", "this help"}, {"q", "close"}}},
+		{"enter", "details"}, {"e", "edit tasks"}, {"s/v/a", "start, verify, archive"}, {"space", "mark for a wave"},
+		{"/ n/N", "filter by name, next/previous match"}, {"esc", "clear the filter, else marks, else close"}, {"r", "reload"}, {"?", "this help"}, {"q", "close"}}},
 	{"Filter prompt", []key{{"enter/esc", "keep/clear the filter"}, {"backspace", "delete, close when empty"}}},
 	{"Details", []key{{"1-4, tab", "switch document"}, {"shift+tab", "previous document"}, {"j/k gg/G", "scroll, top/end"},
 		{"ctrl+d/u", "half page down/up"}, {"e", "edit the document"}, {"q/esc", "back to the Board"}}},
@@ -111,6 +120,11 @@ type Model struct {
 	waiting       map[string]bool // Changes that wait for the user, kept across loads
 	starting      string          // the Change being started; keys other than ctrl+c are ignored meanwhile
 	verb          string          // what is done to starting, "" for a Start
+	wave          Wave
+	waves         map[string]int  // Change name → number of its active wave, from the last load
+	marks         map[string]bool // names of the Ready Changes marked for a wave
+	asking        bool            // the footer asks whether to start a wave of the marks
+	waving        bool            // starting is a wave of the marks
 	nav           nav
 	detail        *detail.Model // the open detail view, nil on the Board
 	detailOf      work.Item     // the Change the detail shows, matched by name and archive state
@@ -126,13 +140,14 @@ type Model struct {
 // New builds the Board; docs reads an Item's documents. A non-nil snapshot (the cached last load) is shown while Init loads afresh.
 // agents, start, resumable, resume, act and lacks may be nil (no badges, s does nothing, no record to
 // resume, v and a do nothing, the Source names every command).
-// hide marks Phases not shown as columns; notice replaces the footer until the first key; version is shown in the help.
+// hide marks Phases not shown as columns; notice replaces the footer until the first key; version is shown in the help;
+// wave marks Cards for a wave and starts it.
 func New(project string, docs func(work.Item) work.Docs, load func() ([]work.Item, error), now func() time.Time, snapshot []work.Item,
 	agents func() (running, waiting map[string]bool, err error), start func(change string) error,
 	resumable func(change string) (string, bool), resume func(change string) error, act func(change string, a work.Action) error,
-	lacks func(a work.Action) string, hide [columns]bool, notice, version string) Model {
+	lacks func(a work.Action) string, hide [columns]bool, notice, version string, wave Wave) Model {
 	m := Model{project: project, docs: docs, load: load, agents: agents, start: start, resumable: resumable, resume: resume, act: act, lacks: lacks,
-		now: now, hide: hide, notice: notice,
+		now: now, hide: hide, notice: notice, wave: wave,
 		version: version, loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
 		m.all, m.loaded = work.Group(snapshot), true
@@ -161,7 +176,11 @@ func (m Model) lookup() tea.Cmd {
 
 func (m Model) reload() tea.Msg {
 	changes, err := m.load()
-	return loadedMsg{changes, err}
+	var waves map[string]int
+	if m.wave.Of != nil {
+		waves = m.wave.Of()
+	}
+	return loadedMsg{changes, waves, err}
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -224,7 +243,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading, m.err = false, msg.err
 		first := !m.loaded
 		if msg.err == nil {
-			m.all, m.loaded = work.Group(msg.changes), true
+			m.all, m.loaded, m.waves = work.Group(msg.changes), true, msg.waves
+			for name := range m.marks { // a Card that left Ready loses its mark
+				if !slices.ContainsFunc(m.all[work.Ready], func(c work.Item) bool { return c.Name == name }) {
+					delete(m.marks, name)
+				}
+			}
 			m.refilter()
 			m.follow()
 		}
@@ -250,10 +274,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		m.notice = "start failed: " + msg.err.Error()
-		if m.verb != "" { // act's errors say what went wrong, like a busy agent
+		switch {
+		case m.waving:
+			m.notice = "wave failed: " + msg.err.Error()
+		case m.verb != "": // act's errors say what went wrong, like a busy agent
 			m.notice = msg.err.Error()
 		}
-		m.starting, m.verb = "", ""
+		m.starting, m.verb, m.waving = "", "", false
 		return m, m.lookup() // a half-done Start may have left an agent behind
 	case detail.EditedMsg: // the detail closed before the editor reported back
 		return m.refresh()
@@ -273,10 +300,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.prompting {
 			return m.prompt(msg)
 		}
+		if m.asking {
+			return m.ask(msg)
+		}
 		switch k := msg.String(); {
 		case k == "esc" && m.filter != "":
 			m.nav.pendingG, m.filter = false, ""
 			m.refilter()
+		case k == "esc" && len(m.marks) > 0:
+			m.nav.pendingG, m.marks = false, nil
+		case k == " ":
+			m.nav.pendingG = false
+			if col := m.cols[m.nav.col]; len(col) > 0 {
+				m.mark(col[m.nav.sel[m.nav.col]].Name)
+			}
 		case k == "q" || k == "esc" || k == "ctrl+c":
 			return m, tea.Quit
 		case k == "/":
@@ -297,6 +334,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if col := m.cols[m.nav.col]; len(col) > 0 {
 				return m.edit(col[m.nav.sel[m.nav.col]])
 			}
+		case k == "s" && len(m.marks) >= 2:
+			m.nav.pendingG = false
+			m.notice = m.wave.Blocked
+			m.asking = m.notice == ""
 		case k == "s":
 			m.nav.pendingG = false
 			if col := m.cols[m.nav.col]; len(col) > 0 {
@@ -314,6 +355,46 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			m.nav.key(k, m.counts(), m.visible())
 		}
+	}
+	return m, nil
+}
+
+// mark marks the selected Card's Change name for a wave, or unmarks it, or explains why not.
+func (m *Model) mark(name string) {
+	switch {
+	case m.marks[name]:
+		delete(m.marks, name)
+	case m.nav.col != int(work.Ready):
+		m.notice = "only Ready cards join a wave"
+	case m.wave.Size > 0 && len(m.marks) >= m.wave.Size:
+		m.notice = fmt.Sprintf("a wave holds at most %d changes", m.wave.Size)
+	default:
+		if m.marks == nil {
+			m.marks = map[string]bool{}
+		}
+		m.marks[name] = true
+	}
+}
+
+// ask answers the question whether to start a wave of the marks: y starts it in a command, any other key
+// keeps the marks; ctrl+c closes the Board.
+func (m Model) ask(msg tea.KeyMsg) (Model, tea.Cmd) {
+	m.asking = false
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "y":
+		if m.wave.Start == nil {
+			return m, nil
+		}
+		var changes []string // in Board order
+		for _, c := range m.all[work.Ready] {
+			if m.marks[c.Name] {
+				changes = append(changes, c.Name)
+			}
+		}
+		m.starting, m.waving = "wave", true
+		return m, func() tea.Msg { return startedMsg{m.wave.Start(changes)} }
 	}
 	return m, nil
 }
@@ -541,11 +622,14 @@ func (m Model) view() string {
 	if m.prompting {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("/" + m.filter + "█")
 	}
+	if m.asking {
+		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(fmt.Sprintf("start wave of %d? y/n", len(m.marks)))
+	}
 	if m.notice != "" {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(m.notice)
 	}
 	if m.starting != "" {
-		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(cmp.Or(m.verb, "starting") + " " + m.starting + "…")
+		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(cmp.Or(m.verb, "starting") + " " + m.starting + "…") // "starting wave…" too
 	}
 	return m.header() + "\n\n" + m.body() + "\n\n" + footer // no trailing newline: the view fills the height exactly
 }
@@ -642,9 +726,9 @@ func (m Model) column(i, w int, title string) string {
 }
 
 // card renders a box around three lines, the selected one thick in the accent colour; below
-// borderMinHeight three lines and a blank one, the selected Card marked with ▌. An open
-// Card whose Change waits for the user has a red ⚑ before its name, else one with a Running agent
-// a green ●.
+// borderMinHeight three lines and a blank one, the selected Card marked with ▌. A Card marked for a
+// wave has a ✓ before its name, else an open Card whose Change waits for the user a red ⚑, else one
+// with a Running agent a green ●. A member of an active wave has a dim ≋<N> before its milestone badge.
 func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	inner := w - 1
 	if m.bordered() {
@@ -653,6 +737,8 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	glyph := ""
 	switch {
 	case c.Phase == work.Archived:
+	case m.marks[c.Name]:
+		glyph = lipgloss.NewStyle().Foreground(theme.Accent).Render("✓")
 	case m.waiting[c.Name]:
 		glyph = lipgloss.NewStyle().Foreground(theme.Attention).Render("⚑")
 	case m.running[herdr.AgentName(c.Name)]:
@@ -662,16 +748,24 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	if glyph != "" {
 		firstW -= 2 // "● "
 	}
-	badge := milestone(c.Name)
+	var badges, styled []string // each segment is styled apart so one's reset does not end another's style
+	if n := m.waves[c.Name]; n > 0 && c.Phase != work.Archived {
+		badges = append(badges, fmt.Sprintf("≋%d", n))
+		styled = append(styled, lipgloss.NewStyle().Foreground(theme.Dim).Render(badges[0]))
+	}
+	if b := milestone(c.Name); b != "" {
+		badges = append(badges, b)
+		styled = append(styled, lipgloss.NewStyle().Foreground(theme.Milestone).Render(b))
+	}
+	badge := strings.Join(badges, " ")
 	nameW := firstW
 	if badge != "" {
-		nameW = firstW - len(badge) - 1
+		nameW = firstW - lipgloss.Width(badge) - 1
 	}
 	name := FitName(c.Name, nameW)
-	// each segment is styled apart so one's reset does not end another's style
 	first := lipgloss.NewStyle().Bold(true).Render(name)
 	if badge != "" {
-		first += strings.Repeat(" ", max(1, firstW-lipgloss.Width(name)-len(badge))) + lipgloss.NewStyle().Foreground(theme.Milestone).Render(badge)
+		first += strings.Repeat(" ", max(1, firstW-lipgloss.Width(name)-lipgloss.Width(badge))) + strings.Join(styled, " ")
 	}
 	if glyph != "" {
 		first = glyph + " " + first

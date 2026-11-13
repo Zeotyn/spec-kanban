@@ -572,7 +572,7 @@ func TestHelpAndTheWheel(t *testing.T) {
 	if got, _ := mouse(m, 40, 10, tea.MouseButtonWheelDown); !got.help || got.nav != m.nav {
 		t.Error("the wheel is no click: the help stays and nothing moves")
 	}
-	none := keys(New("", nil, nil, time.Now, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test"), "?")
+	none := keys(New("", nil, nil, time.Now, nil, nil, nil, nil, nil, nil, nil, [columns]bool{}, "", "test", Wave{}), "?")
 	if got, _ := mouse(none, 0, 0, tea.MouseButtonLeft); got.help {
 		t.Error("a click closes the help without a project too")
 	}

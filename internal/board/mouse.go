@@ -80,8 +80,12 @@ type hit struct {
 	key    string
 }
 
-// footer renders footerKeys in full, or short when the full form is wider than the Board, and where the actions are.
+// footer renders footerKeys in full, or short when the full form is wider than the Board, and where the actions are;
+// while Cards are marked it sums the marks up instead, without actions.
 func (m Model) footer() (string, []hit) {
+	if len(m.marks) > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(fmt.Sprintf("%d marked · s wave · esc clear", len(m.marks))), nil
+	}
 	build := func(short bool) (string, []hit) {
 		var b strings.Builder
 		var hits []hit
@@ -203,9 +207,9 @@ func (m Model) press(k string) (Model, tea.Cmd) {
 }
 
 // mouse handles a press of a mouse button; releases and motion are ignored, and so is everything while
-// the filter prompt is open or a Start runs.
+// the filter prompt is open, the wave question is asked or a Start runs.
 func (m Model) mouse(msg tea.MouseMsg) (Model, tea.Cmd) {
-	if msg.Action != tea.MouseActionPress || m.prompting || m.starting != "" {
+	if msg.Action != tea.MouseActionPress || m.prompting || m.asking || m.starting != "" {
 		return m, nil
 	}
 	if m.help { // a click closes it; a trackpad swipe of wheel events would close it and scroll on
