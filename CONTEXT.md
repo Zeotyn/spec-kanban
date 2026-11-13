@@ -95,6 +95,18 @@ _Avoid_: Check, close
 The menu a right click on a Card opens; its entries do what `s`, `v` and `a` do on that Card.
 _Avoid_: Context menu, popup menu
 
+**Wave**:
+A group of 2 to `wave.size` Ready Changes of one Project, started together from the Board and merged on branch `wave-<N>` before one Handoff to the Main agent. Plugin state, not a Change.
+_Avoid_: Batch, sprint, epic
+
+**Coordinator**:
+The agent named `wave-<N>` in a wave's worktree that starts the members, merges and archives them on the wave branch, and is their Main agent.
+_Avoid_: Orchestrator, lead agent
+
+**Member**:
+A Change of a wave, started by the coordinator in a worktree branched off `wave-<N>`; it does not archive itself. A dropped member is an ordinary Change again.
+_Avoid_: Child change, subtask
+
 **Change checkout**:
 The git checkout whose branch is named like a Change, where Start runs its agent; usually a linked worktree.
 _Avoid_: Sandbox, clone

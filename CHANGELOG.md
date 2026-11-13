@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Waves: mark Ready Cards with `space` and press `s` to start them as a wave on branch `wave-<N>`. A coordinator agent starts the members with `kanban wave start`, merges and archives each on the wave branch, and hands the wave to the Main agent once with `kanban wave finish`; `kanban wave drop` and `kanban wave escalate` cover the rest. Members show `≋<N>` and do not archive themselves. New config key `wave` with `size` (default 5). `Esc` clears marks before it closes the Board.
 - Attention marker: a red `⚑` before a Card's name, in place of the green `●`, and a `⚑<n>` prefix on the sidebar's `kanban` line show the Changes that wait for you after an Escalation, a Stall or a Handoff no Main agent took. It goes away when the agent works again or its tab is closed, or, after a Handoff, when the Change is archived, started or resumed.
 - Removed: the `finished`, `needs you` and `stalled` notifications; the attention marker replaces them. herdr notifications now only report failures (start, run and resume).
 - Escalation: a worker that cannot continue without a human runs `kanban escalate <change> <reason>` and the Main agent gets a prompt at once. A Start from the Board appends a sentence to its prompt that tells the agent how.

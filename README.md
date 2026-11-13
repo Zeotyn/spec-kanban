@@ -43,12 +43,12 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `Enter` | open details | – |
 | `e` | edit `tasks.md` | edit the shown document |
 | `r` | reload | – |
-| `s` | start the Change in a new agent tab in its worktree | – |
+| `s` | start the Change in a new agent tab in its worktree; with 2 or more marks, start a [wave](#waves) | – |
+| `space` | mark a Ready Card for a wave | – |
 | `v` `a` | verify / archive a Review Change through an agent | – |
-| `/` | filter Cards by name | – |
-| `n` `N` | next/previous match | – |
+| `/` `n` `N` | filter Cards by name, next/previous match | – |
 | `?` | key help | key help |
-| `q` `Esc` | close (`Esc` first clears a filter) | back to the Board |
+| `q` `Esc` | close (`Esc` first clears a filter, then the marks) | back to the Board |
 
 `?` shows all keys and the version; any key closes the help.
 
@@ -97,6 +97,21 @@ When the Main agent cannot take the prompt (the Board was opened from a shell pa
 
 The agent kind and session herdr reports are recorded per project and Change under `sessions/` in the plugin's state directory (`$HERDR_PLUGIN_STATE_DIR`, else the user cache directory's `spec-kanban`). Sessions of `claude`, `copilot`, `codex`, `opencode`, `cursor` and `gemini` can be reopened with `s` on the Review Card; the worktree is reopened, or recreated from its branch after it was removed. The Main pane of each started Change and its attention marker are kept under `mains/` and `attention/` in the user cache directory's `spec-kanban` instead, since the worker's pane, where `kanban escalate` runs, has no `$HERDR_PLUGIN_STATE_DIR`.
 
+### Waves
+
+A wave starts several Ready Changes at once and brings them back to you as one branch. Mark Ready Cards with `space` (a `✓` shows before the name, the footer counts the marks) and press `s`: with 2 or more marks the footer asks `start wave of <n>? y/n`, and `y` closes the Board. Marks survive the filter and reloads, a Card that leaves Ready loses its mark, `Esc` clears them, and a wave holds at most `wave.size` Changes (default 5). Waves need `worktree` on and an OpenSpec Project.
+
+The wave gets branch `wave-<N>` from the base in its own worktree and a **coordinator** agent named `wave-<N>`, with a prompt that names the members and their proposals. kanban starts no member itself: the coordinator reads the proposals, decides the order and starts each member with `kanban wave start <N> <change>` once the members it builds on are merged. A member branches off `wave-<N>`, starts without taking focus, and treats the coordinator as its Main agent: its Handoff, Stall and Escalation go to the coordinator. Members do not archive. The coordinator reviews each member, merges it into `wave-<N>`, resolves conflicts, runs the tests, archives the Change there with `/opsx:archive` and removes the member's worktree. Cards of an active wave's members show `≋<N>`.
+
+| Command (run by the coordinator) | Does |
+| --- | --- |
+| `kanban wave start <N> <change>` | starts a member, as above |
+| `kanban wave drop <N> <change>` | takes a member out of the wave; its agent, worktree and branch stay, and it is an ordinary Change again |
+| `kanban wave escalate <N> "<reason>"` | asks the Main agent for help, or shows the herdr notification `spec-kanban: wave <N> needs you` |
+| `kanban wave finish <N>` | refuses while a member is neither archived on `wave-<N>` nor dropped; otherwise asks the Main agent once to review `wave-<N>`, merge it into the base and remove the wave worktree (notification `spec-kanban: wave <N> finished` without one) |
+
+Wave records live under `waves/` in the user cache directory's `spec-kanban`. The plugin never merges, removes a worktree or deletes a branch itself.
+
 ## Spec Kit
 
 A directory with both `.specify` and `specs` is a Spec Kit Project; its Work items are the Features, the folders `specs/<name>/` that hold a `spec.md`. A Project is read by one Source only: OpenSpec when it has `openspec/changes`, Spec Kit otherwise, or Spec Kit when both are present and `source` is `speckit`. The no-Project notice and `kanban start` name both tools.
@@ -131,6 +146,7 @@ Settings live in `config.json` in the plugin's config directory, which `herdr pl
 | `worktree` | `true` | `false` opens the agent's tab in the project instead of a git worktree |
 | `base` | detected | Non-empty branch or ref new worktrees start from; overrides the detected default branch |
 | `hide` | `[]` | Phases whose columns the Board leaves out, ignoring case; at least one must stay |
+| `wave` | `{"size": 5}` | `size`: the most Changes a [wave](#waves) holds, an integer of at least 2 |
 
 The kind `s` starts is `agent` when set, else the agent running in the pane the Board was opened from (for `kanban start`, the pane it runs in), else `claude`. OpenSpec names its commands per tool, so with a kind other than `claude` set `prompt` to the command OpenSpec installed for that tool (`openspec init --tools <tool>`). Spec Kit's command follows the kind by itself (see [Spec Kit](#spec-kit)). A `prompt` such as `/opsx:apply {change}` also reaches Spec Kit Projects and breaks their Start; use `instructions` to add words to either tool's command.
 
