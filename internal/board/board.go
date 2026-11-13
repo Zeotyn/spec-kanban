@@ -222,6 +222,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case loadedMsg:
 		m.loading, m.err = false, msg.err
+		first := !m.loaded
 		if msg.err == nil {
 			m.all, m.loaded = work.Group(msg.changes), true
 			m.refilter()
@@ -230,6 +231,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.stale {
 			m.stale = false
 			return m.refresh()
+		}
+		if first && m.loaded { // without a snapshot the lookup had no Items for Handoff markers
+			return m, m.lookup()
 		}
 	case agentsMsg:
 		if msg.err == nil { // outside herdr there are simply no badges

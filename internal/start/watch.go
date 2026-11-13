@@ -95,7 +95,7 @@ func Watch(w Watched, run, git herdr.Runner) {
 		} else if b.Seq != a.Seq {
 			continue // it moved on while being checked, maybe through a whole turn
 		}
-		escalated := w.Escalated() // only this marker is cleared: one written later belongs to the next settle
+		escalated := w.Escalated() // one written after this read survives a blocked settle
 		stalled := false
 		if a.Status != "blocked" && !escalated {
 			if _, err := run("agent", "wait", name, "--until", "working", "--timeout", strconv.FormatInt(stallAfter.Milliseconds(), 10)); err == nil {

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/work"
@@ -205,9 +204,6 @@ func ReadMarks(dir, project string) map[string]string {
 	}
 	var got map[string]string
 	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".tmp-") { // a write in progress
-			continue
-		}
 		var m mark
 		data, err := os.ReadFile(filepath.Join(marks(dir, project), e.Name()))
 		if err != nil || json.Unmarshal(data, &m) != nil || !reasons[m.Why] {

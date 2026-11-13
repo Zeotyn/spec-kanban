@@ -330,7 +330,7 @@ func TestResumeRecordedSession(t *testing.T) {
 				t.Errorf("Main pane record %q, want %q", got, main)
 			}
 			if (cache.ReadMarks(dir, tt.proj) != nil) == tt.watched {
-				t.Errorf("marker kept: %v, want %v", !tt.watched, !tt.watched)
+				t.Errorf("marker kept: %v, want %v", tt.watched, !tt.watched)
 			}
 		})
 	}

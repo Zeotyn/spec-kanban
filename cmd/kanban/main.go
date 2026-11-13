@@ -399,9 +399,7 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 	} else {
 		fmt.Fprintln(stdout, "No Main agent took it; the Board and the sidebar show ⚑. End your turn.")
 	}
-	// The sidebar shows the marker without waiting for a herdr event. Without $HERDR_PLUGIN_STATE_DIR
-	// this pass locks apart from the hook's; if both overlap, the worker's next settle refreshes again.
-	_ = refresh(dir, run, detect, sourceFor, git)
+	_ = refresh(dir, run, detect, sourceFor, git) // the sidebar shows the marker without waiting for a herdr event
 	return nil
 }
 
@@ -414,9 +412,11 @@ func marker(proj, change string, run herdr.Runner, detect func(string) bool, sou
 	}
 }
 
-// refresh runs one sidebar pass, as kanban sync does, through sidebar.Coalesce under dir.
+// refresh runs one sidebar pass, as kanban sync does, caching loads in dir. Its lock lives in
+// cache.UserDir, which kanban sync, the watcher and kanban escalate share: a worker's pane has no
+// $HERDR_PLUGIN_STATE_DIR, and an older pass must not report after a newer one.
 func refresh(dir string, run herdr.Runner, detect func(string) bool, sourceFor func(string) work.Source, git func(string) herdr.Runner) error {
-	return sidebar.Coalesce(dir, func() error {
+	return sidebar.Coalesce(cache.UserDir(), func() error {
 		return sidebar.Sync(run, detect, syncLoad(dir, sourceFor, git), syncWaiting(cache.UserDir(), git))
 	})
 }
@@ -425,11 +425,15 @@ func refresh(dir string, run herdr.Runner, detect func(string) bool, sourceFor f
 // agents (nil when agent list failed) and proj's Items.
 func syncWaiting(user string, git func(proj string) herdr.Runner) func(string, []start.Agent, []work.Item) map[string]bool {
 	return func(proj string, agents []start.Agent, changes []work.Item) map[string]bool {
+		marks := cache.ReadMarks(user, proj)
 		var in map[string]string // nil: only Handoff markers hold
-		if agents != nil {
-			in = start.InProject(agents, proj, git(proj))
+		for _, why := range marks {
+			if why != "handoff" && agents != nil { // InProject runs git: only when a marker needs it
+				in = start.InProject(agents, proj, git(proj))
+				break
+			}
 		}
-		return start.Waiting(cache.ReadMarks(user, proj), in, changes)
+		return start.Waiting(marks, in, changes)
 	}
 }
 

@@ -580,6 +580,24 @@ func TestAttentionMarker(t *testing.T) {
 			t.Errorf("no ⚑ and no error:\n%s", got)
 		}
 	})
+	t.Run("Handoff without a cache", func(t *testing.T) {
+		calls := 0
+		m := New("/x/proj", docs("/x/proj"), func() ([]work.Item, error) { return fixture, nil }, func() time.Time { return now }, nil,
+			func() (map[string]bool, map[string]bool, error) {
+				calls++ // the first lookup ran before the load cached the Items
+				return nil, map[string]bool{"m0-spike-agent-start": calls > 1}, nil
+			}, nil, nil, nil, nil, nil, [columns]bool{}, "", "test")
+		m = send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
+		cmds := m.Init()().(tea.BatchMsg) // load, lookup
+		m = send(m, cmds[1]())
+		next, cmd := m.Update(cmds[0]())
+		if cmd == nil {
+			t.Fatal("the first load must look the agents up again")
+		}
+		if v := send(next.(Model), cmd()).View(); !strings.Contains(v, "⚑ m0-spike…t-start") {
+			t.Errorf("want ⚑ after the first load:\n%s", v)
+		}
+	})
 	t.Run("Archived Card", func(t *testing.T) {
 		v := keys(send(board(t, 120, 30, fixture), agentsMsg{waiting: map[string]bool{"m0-plugin-skeleton": true}}), "5").View()
 		if strings.Contains(v, "⚑") {
