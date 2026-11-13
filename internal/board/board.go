@@ -228,12 +228,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refilter()
 			m.follow()
 		}
+		var again tea.Cmd
+		if first && m.loaded { // without a snapshot the lookup had no Items for Handoff markers
+			again = m.lookup()
+		}
 		if m.stale {
 			m.stale = false
-			return m.refresh()
+			next, cmd := m.refresh()
+			return next, tea.Batch(cmd, again)
 		}
-		if first && m.loaded { // without a snapshot the lookup had no Items for Handoff markers
-			return m, m.lookup()
+		if again != nil {
+			return m, again
 		}
 	case agentsMsg:
 		if msg.err == nil { // outside herdr there are simply no badges

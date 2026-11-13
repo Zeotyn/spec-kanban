@@ -2,6 +2,7 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -414,9 +415,10 @@ func marker(proj, change string, run herdr.Runner, detect func(string) bool, sou
 
 // refresh runs one sidebar pass, as kanban sync does, caching loads in dir. Its lock lives in
 // cache.UserDir, which kanban sync, the watcher and kanban escalate share: a worker's pane has no
-// $HERDR_PLUGIN_STATE_DIR, and an older pass must not report after a newer one.
+// $HERDR_PLUGIN_STATE_DIR, and an older pass must not report after a newer one. Without a user
+// cache dir it locks in dir.
 func refresh(dir string, run herdr.Runner, detect func(string) bool, sourceFor func(string) work.Source, git func(string) herdr.Runner) error {
-	return sidebar.Coalesce(cache.UserDir(), func() error {
+	return sidebar.Coalesce(cmp.Or(cache.UserDir(), dir), func() error {
 		return sidebar.Sync(run, detect, syncLoad(dir, sourceFor, git), syncWaiting(cache.UserDir(), git))
 	})
 }
