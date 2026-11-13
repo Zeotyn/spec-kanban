@@ -16,7 +16,7 @@
 
 ## 4. Board notice
 
-- [ ] 4.1 In `showBoard`, without a config warning: read the Project's last opening (24 hours ago when missing), take the newest failure of the Project after it, set the notice `<step> failed <change> <age> ago: <first line>` with the age rounded down to `s`, `m`, `h` or `d`, then write the opening time; with a config warning, read and write neither (D5). Keep the formatting in a function with tests for the spec scenarios (shown once, config warning first, another Project's failure, first opening, unreadable log)
+- [x] 4.1 In `showBoard`, without a config warning: read the Project's last opening (24 hours ago when missing), take the newest failure of the Project after it, set the notice `<step> failed <change> <age> ago: <first line>` with the age rounded down to `s`, `m`, `h` or `d`, then write the opening time; with a config warning, read and write neither (D5). Keep the formatting in a function with tests for the spec scenarios (shown once, config warning first, another Project's failure, first opening, unreadable log)
 
 ## 5. Docs
 

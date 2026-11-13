@@ -818,3 +818,90 @@ func TestFailuresUsage(t *testing.T) {
 		}
 	}
 }
+
+func TestBoardNotice(t *testing.T) {
+	const proj = "/code/a"
+	now := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
+	failed := func(user string, ago time.Duration, proj string) {
+		t.Helper()
+		f := cache.Failure{Time: now.Add(-ago), Project: proj, Change: "s001-plugin-bundles-hooks", Step: "run",
+			Error: "shell did not reach its prompt in tab s001-plugin-bundles-hooks\nlast line of the pane"}
+		if err := cache.AppendFailure(user, f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const shown = "run failed s001-plugin-bundles-hooks 4m ago: shell did not reach its prompt in tab s001-plugin-bundles-hooks"
+
+	t.Run("shown once", func(t *testing.T) {
+		user := t.TempDir()
+		if err := cache.WriteOpened(user, proj, now.Add(-time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		failed(user, 2*time.Hour, proj) // before the last opening
+		failed(user, 4*time.Minute+59*time.Second, proj)
+		if got := boardNotice(nil, user, proj, now); got != shown {
+			t.Errorf("got %q, want %q", got, shown)
+		}
+		if got := boardNotice(nil, user, proj, now.Add(time.Second)); got != "" {
+			t.Errorf("second opening: got %q, want none", got)
+		}
+	})
+	t.Run("config warning first", func(t *testing.T) {
+		user := t.TempDir()
+		failed(user, 4*time.Minute, proj)
+		if got := boardNotice(errors.New("config.json: invalid"), user, proj, now); got != "config.json: invalid" {
+			t.Errorf("got %q, want the config warning", got)
+		}
+		if got := boardNotice(nil, user, proj, now); got != shown {
+			t.Errorf("next opening: got %q, want %q", got, shown)
+		}
+	})
+	t.Run("another Project's failure", func(t *testing.T) {
+		user := t.TempDir()
+		failed(user, 4*time.Minute, "/code/b")
+		if got := boardNotice(nil, user, proj, now); got != "" {
+			t.Errorf("got %q, want none", got)
+		}
+	})
+	t.Run("first opening", func(t *testing.T) {
+		user := t.TempDir()
+		failed(user, 25*time.Hour, proj)
+		if got := boardNotice(nil, user, proj, now); got != "" {
+			t.Errorf("older than 24 hours: got %q, want none", got)
+		}
+		user = t.TempDir()
+		failed(user, 3*time.Hour+59*time.Minute, proj)
+		if got, want := boardNotice(nil, user, proj, now), "run failed s001-plugin-bundles-hooks 3h ago: shell did not reach its prompt in tab s001-plugin-bundles-hooks"; got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+	t.Run("unreadable log or record", func(t *testing.T) {
+		user := t.TempDir()
+		if err := os.Mkdir(filepath.Join(user, "failures.log"), 0o755); err != nil { // a directory cannot be read as a file
+			t.Fatal(err)
+		}
+		if got := boardNotice(nil, user, proj, now); got != "" {
+			t.Errorf("unreadable log: got %q, want none", got)
+		}
+		user = t.TempDir()
+		failed(user, 4*time.Minute, proj)
+		if err := os.WriteFile(filepath.Join(user, "opened"), nil, 0o600); err != nil { // records cannot be read or written below a file
+			t.Fatal(err)
+		}
+		if got := boardNotice(nil, user, proj, now); got != "" {
+			t.Errorf("unreadable opening record: got %q, want none", got)
+		}
+		if got := boardNotice(nil, "", proj, now); got != "" {
+			t.Errorf("no user cache dir: got %q, want none", got)
+		}
+	})
+}
+
+func TestAge(t *testing.T) {
+	for d, want := range map[time.Duration]string{-time.Second: "0s", 40 * time.Second: "40s", 4*time.Minute + 59*time.Second: "4m",
+		2*time.Hour + 59*time.Minute: "2h", 3*24*time.Hour + 23*time.Hour: "3d"} {
+		if got := age(d); got != want {
+			t.Errorf("age(%v) = %q, want %q", d, got, want)
+		}
+	}
+}

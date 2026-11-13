@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -214,10 +215,7 @@ func startChange(change string, stderr io.Writer, run herdr.Runner) error {
 func showBoard(proj string) error {
 	dir := cache.Dir()
 	cfg, warn := config.Load(config.Dir(herdr.Exec))
-	notice := ""
-	if warn != nil {
-		notice = warn.Error()
-	}
+	notice := boardNotice(warn, cache.UserDir(), proj, time.Now())
 	_, sourceFor := sources(cfg)
 	src := sourceFor(proj)
 	git := gitCLI(proj)
@@ -260,6 +258,46 @@ func showBoard(proj string) error {
 	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), lookup(proj, dir, cache.UserDir(), herdr.Exec, git), startOne,
 		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString(), boardWave(cfg, src, proj)), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
+}
+
+// boardNotice is the notice the Board of proj opens with at now: the config warning when there is
+// one, else proj's newest failure in the failure log in user since the last opening (24 hours ago
+// when there was none), which it records as now. A record that cannot be read or written means no notice.
+func boardNotice(warn error, user, proj string, now time.Time) string {
+	if warn != nil {
+		return warn.Error() // the opening is not recorded, so the failure shows next time
+	}
+	since, err := cache.ReadOpened(user, proj)
+	if errors.Is(err, fs.ErrNotExist) {
+		since, err = now.Add(-24*time.Hour), nil
+	}
+	if err != nil || cache.WriteOpened(user, proj, now) != nil {
+		return ""
+	}
+	var last *cache.Failure
+	for _, f := range cache.ReadFailures(user) {
+		if f.Project == proj && f.Time.After(since) && (last == nil || !f.Time.Before(last.Time)) {
+			last = &f
+		}
+	}
+	if last == nil {
+		return ""
+	}
+	first, _, _ := strings.Cut(last.Error, "\n")
+	return fmt.Sprintf("%s failed %s %s ago: %s", last.Step, last.Change, age(now.Sub(last.Time)), first)
+}
+
+// age is d rounded down to seconds, minutes, hours or days: 40s, 4m, 2h, 3d.
+func age(d time.Duration) string {
+	switch d = max(d, 0); {
+	case d < time.Minute:
+		return fmt.Sprintf("%ds", int(d/time.Second))
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d/time.Minute))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d/time.Hour))
+	}
+	return fmt.Sprintf("%dd", int(d/(24*time.Hour)))
 }
 
 // lookup returns the Board's agent lookup: the names of proj's Running agents, and the Changes
