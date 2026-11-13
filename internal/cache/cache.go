@@ -251,6 +251,13 @@ func WriteWave(dir string, w Wave) error {
 	return writeAtomic(waves(dir, w.Project), strconv.Itoa(w.Number)+".json", data)
 }
 
+// RemoveWave removes the record of w from dir, if any.
+func RemoveWave(dir string, w Wave) {
+	if dir != "" {
+		_ = os.Remove(filepath.Join(waves(dir, w.Project), strconv.Itoa(w.Number)+".json"))
+	}
+}
+
 // ReadWaves returns the waves recorded for project in dir by number, skipping unreadable records;
 // nil when there are none.
 func ReadWaves(dir, project string) []Wave {

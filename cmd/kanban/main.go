@@ -64,6 +64,20 @@ Usage:
                     (internal, spawned by the Board)
   kanban escalate <change> <reason>
                     Ask the Main agent for a human's help with <change> (run by the Change's agent)
+  kanban wave start <N> <change>
+                    Start <change> as a member of wave N, branched off wave-<N> and handing off to the
+                    coordinator (run by the wave's coordinator, like the other wave commands)
+  kanban wave drop <N> <change>
+                    Take <change> out of wave N; its agent, worktree and branch stay
+  kanban wave escalate <N> <reason>
+                    Ask the Main agent for a human's help with wave N
+  kanban wave finish <N>
+                    Hand wave N to the Main agent once every member is archived on wave-<N> or dropped
+  kanban wave-launch <change>...
+                    Start a wave of the Changes with its coordinator (internal, spawned by the Board)
+  kanban wave-member <N> <change> <pane> <kind> <prompt>
+                    Start the agent of a member in pane without focus and watch it (internal, spawned
+                    by kanban wave start)
   kanban sync       Write every herdr workspace's project summary into its sidebar rows (plugin hook)
   kanban --version  Print the version
 `
@@ -113,6 +127,8 @@ func main() {
 		if cwd, err = os.Getwd(); err == nil {
 			err = escalate(os.Args[2], os.Args[3:], cwd, os.Stdout, herdr.Exec, detect, sourceFor, gitCLI)
 		}
+	case "wave", "wave-launch", "wave-member":
+		err = waveMain(cmd, os.Args[2:])
 	case "board":
 		err = showBoard(os.Getenv("KANBAN_PROJECT"))
 	case "sync":
@@ -229,7 +245,7 @@ func showBoard(proj string) error {
 		return spawn("resume", change, pane, tab)
 	}
 	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), lookup(proj, dir, cache.UserDir(), herdr.Exec, git), startOne,
-		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString()), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString(), boardWave(cfg, src, proj)), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
 }
 
@@ -268,7 +284,7 @@ func lacking(src work.Source) func(work.Action) string {
 
 // spawn runs kanban with args detached in its own session, so it outlives the Board's popup.
 // Only the child moves focus, so a popup that closes on focus loss cannot kill the Board before the spawn.
-func spawn(args ...string) error {
+var spawn = func(args ...string) error {
 	self, err := os.Executable()
 	if err != nil {
 		return err
@@ -296,14 +312,14 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 		run("notification", "show", "spec-kanban: start failed", "--body", err.Error())
 		return err
 	}
-	watch(change, false, run)
+	watch(os.Getenv("KANBAN_PROJECT"), change, os.Getenv("KANBAN_MAIN_PANE"), "", false, run)
 	return nil
 }
 
 // watch records the Main pane of change for Escalation, clears its attention marker, and watches
-// the agent of change until it hands off or goes away; only for the Board ($KANBAN_PROJECT set).
-func watch(change string, resumed bool, run herdr.Runner) {
-	proj := os.Getenv("KANBAN_PROJECT")
+// the agent of change until it hands off or goes away; only for the Board (proj set). base overrides
+// the configured base unless it is "".
+func watch(proj, change, mainPane, base string, resumed bool, run herdr.Runner) {
 	if proj == "" {
 		return
 	}
@@ -314,10 +330,10 @@ func watch(change string, resumed bool, run herdr.Runner) {
 	if !cfg.Worktree { // the agent works in the Project: a leftover checkout of the Change must not supply its Progress
 		loadGit = func(...string) ([]byte, error) { return nil, errors.New("worktree off") }
 	}
-	mainPane, user := os.Getenv("KANBAN_MAIN_PANE"), cache.UserDir() // where kanban escalate finds them
-	_ = cache.WriteMain(user, proj, change, mainPane)                // a lost record only leaves Escalation to the marker
+	user := cache.UserDir()                           // where kanban escalate finds them
+	_ = cache.WriteMain(user, proj, change, mainPane) // a lost record only leaves Escalation to the marker
 	cache.ClearMark(user, proj, change)
-	start.Watch(start.Watched{Project: proj, Change: change, Main: mainPane, Base: cfg.Base, On: cfg.Worktree, Resumed: resumed,
+	start.Watch(start.Watched{Project: proj, Change: change, Main: mainPane, Base: cmp.Or(base, cfg.Base), On: cfg.Worktree, Resumed: resumed,
 		Load:      loader(dir, proj, src, loadGit),
 		Source:    src,
 		Record:    func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
@@ -345,7 +361,7 @@ func resumeChange(change, pane, tab string, run herdr.Runner) error {
 		run("notification", "show", "spec-kanban: resume failed", "--body", err.Error())
 		return err
 	}
-	watch(change, true, run)
+	watch(os.Getenv("KANBAN_PROJECT"), change, os.Getenv("KANBAN_MAIN_PANE"), "", true, run)
 	return nil
 }
 

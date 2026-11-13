@@ -321,6 +321,10 @@ func TestWaves(t *testing.T) {
 	if got := Badges(ReadWaves(dir, project)); !reflect.DeepEqual(got, map[string]int{"f5-bar": 2}) {
 		t.Errorf("Badges skip dropped members and finished waves: got %v", got)
 	}
+	RemoveWave(dir, w1)
+	if got := ReadWaves(dir, project); !reflect.DeepEqual(got, []Wave{w2}) {
+		t.Errorf("after RemoveWave: got %+v", got)
+	}
 	if err := WriteWave("", w1); err == nil {
 		t.Error(`WriteWave(""): want error`)
 	}
