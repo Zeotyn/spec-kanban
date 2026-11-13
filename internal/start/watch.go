@@ -59,7 +59,9 @@ func getAgent(run herdr.Runner, target string) (agent, error) {
 // Watch follows the agent of w.Change until it goes away or hands off: at each settle it records
 // the agent's session, then either hands the finished Change off to the Main agent or waits for the
 // agent's next turn, telling the Main agent of a Stall when an unfinished agent that did not
-// escalate stays settled for stallAfter. git runs git inside w.Project.
+// escalate stays settled for stallAfter. A Stall and a Handoff the Main agent did not take set the
+// attention marker; working again after a marked settle and a taken Handoff clear it. git runs git
+// inside w.Project.
 func Watch(w Watched, run, git herdr.Runner) {
 	if _, err := w.get(run); err != nil {
 		return

@@ -399,7 +399,9 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 	} else {
 		fmt.Fprintln(stdout, "No Main agent took it; the Board and the sidebar show ⚑. End your turn.")
 	}
-	_ = refresh(dir, run, detect, sourceFor, git) // the sidebar shows the marker without waiting for a herdr event
+	// The sidebar shows the marker without waiting for a herdr event. Without $HERDR_PLUGIN_STATE_DIR
+	// this pass locks apart from the hook's; if both overlap, the worker's next settle refreshes again.
+	_ = refresh(dir, run, detect, sourceFor, git)
 	return nil
 }
 

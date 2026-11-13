@@ -578,6 +578,9 @@ func TestEscalate(t *testing.T) {
 			run := func(args ...string) ([]byte, error) {
 				calls = append(calls, strings.Join(args, " "))
 				if args[0] == "agent" && args[1] == "get" {
+					if cache.ReadMarks(dir, tt.project)[change] != "escalation" {
+						t.Error("the marker must be set before the Main agent is told: its next settle must lead to no Stall")
+					}
 					return []byte(`{"result":{"agent":{"agent":"claude","agent_status":"idle","pane_id":"` + pane + `"}}}`), nil
 				}
 				return nil, nil
