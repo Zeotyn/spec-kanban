@@ -1,6 +1,6 @@
 ## Why
 
-kanban reaches agents by typing a prompt into their terminal with `herdr agent prompt`. For the Main agent that is the terminal the user is writing in, so a Handoff or Escalation can land in the middle of the user's own input. Claude Code agents can also message each other directly with `SendMessage` and find each other with `ListAgents`. That is convenient and leaves the user's input line alone. Before m14-waves builds its Main → coordinator → implementer hierarchy on either channel, this spike finds out whether agent-to-agent messages are reliable enough to carry Handoff and Escalation.
+kanban reaches agents by typing a prompt into their terminal with `herdr agent prompt`. For the Main agent that is the terminal the user is writing in, so a Handoff or Escalation can land in the middle of the user's own input. Claude Code agents can also message each other directly with `SendMessage` and find each other with `ListAgents`. That is convenient and leaves the user's input line alone. m14-waves built its Main → coordinator → member hierarchy on `herdr agent prompt`: Handoff, Stall and Escalation of a member go to the coordinator, `kanban wave escalate` and `kanban wave finish` go to the Main agent. This spike finds out whether agent-to-agent messages are reliable enough to carry these messages instead, or next to the prompt.
 
 ## What Changes
 
@@ -22,7 +22,9 @@ Spike only: no production code and no spec deltas. Throwaway test code stays on 
   5. Can the Project boundary be enforced, or only stated in the prompt?
 - **Outcome:**
   - an ADR in `docs/adr/` with status `proposed`;
-  - a recommendation whether m14-waves should build on `SendMessage`, on `herdr agent prompt`, or on both with a fallback.
+  - a recommendation per message (Handoff, Stall, Escalation, wave escalate, wave finish) whether it stays on `herdr agent prompt`, moves to `SendMessage`, or uses both with a fallback;
+  - how this relates to f4-no-prompt-into-focus, which keeps `herdr agent prompt` but waits while the Main pane is focused;
+  - the follow-up Change that implements the recommendation, if any.
 
 ## Capabilities
 
@@ -38,4 +40,4 @@ None (spike, `skip_specs: true`).
 
 - **Docs:** one new ADR in `docs/adr/` (next number after 0009).
 - **Code:** none on `main`. Test sessions and scripts stay on the spike branch.
-- Informs m14-waves (the coordinator's channel) and possibly the m12 Handoff and Escalation paths.
+- Informs a follow-up to m12-escalation and m14-waves (the Handoff, Escalation and wave paths) and the scope of f4-no-prompt-into-focus.
