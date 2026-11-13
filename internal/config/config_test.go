@@ -51,6 +51,12 @@ func TestParse(t *testing.T) {
 		{"instructions empty", `{"instructions": ""}`, Config{Worktree: true}, ""},
 		{"instructions as a list", `{"instructions": ["with ponytail"]}`, def, "instructions"},
 		{"instructions as a number", `{"instructions": 1}`, def, "instructions"},
+		{"wave size kept", `{"wave": {"size": 3}}`, Config{Worktree: true, WaveSize: 3}, ""},
+		{"wave without size", `{"wave": {}}`, Config{Worktree: true}, ""},
+		{"wave size too small", `{"wave": {"size": 1}}`, def, "wave.size must be at least 2"},
+		{"wave size not an integer", `{"wave": {"size": 2.5}}`, def, "size"},
+		{"wave size as a string", `{"wave": {"size": "3"}}`, def, "size"},
+		{"wave unknown key", `{"wave": {"sise": 3}}`, def, `"sise"`},
 		{"prompt and instructions: prompt kept", `{"prompt": "/opsx:apply {change} quickly", "instructions": "with ponytail", "hide": ["Archived"]}`,
 			Config{Prompt: "/opsx:apply {change} quickly", Hide: [5]bool{work.Archived: true}, Worktree: true}, "instructions is ignored because prompt is set"},
 	}
@@ -67,6 +73,15 @@ func TestParse(t *testing.T) {
 				t.Errorf("an invalid file must send the Source's prompt, got %q", p)
 			}
 		})
+	}
+}
+
+func TestWave(t *testing.T) {
+	if got := Default().Wave(); got != 5 {
+		t.Errorf("default wave size %d, want 5", got)
+	}
+	if got := (Config{WaveSize: 3}).Wave(); got != 3 {
+		t.Errorf("wave size %d, want 3", got)
 	}
 }
 

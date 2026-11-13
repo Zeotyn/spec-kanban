@@ -3,6 +3,7 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,7 +32,11 @@ type Config struct {
 	Worktree     bool
 	Base         string
 	Source       string // "", "openspec" or "speckit"
+	WaveSize     int    // wave.size; 0 when unset, see Wave
 }
+
+// Wave is the most Changes a wave holds: wave.size, 5 when unset.
+func (c Config) Wave() int { return cmp.Or(c.WaveSize, 5) }
 
 // Default is the config without a file; an empty Prompt means the Source's.
 func Default() Config { return Config{Worktree: true} }
@@ -63,6 +68,9 @@ func Parse(b []byte) (Config, error) {
 		Worktree     *bool    `json:"worktree"`
 		Base         *string  `json:"base"`
 		Source       *string  `json:"source"`
+		Wave         *struct {
+			Size *int `json:"size"`
+		} `json:"wave"`
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
@@ -112,6 +120,12 @@ func Parse(b []byte) (Config, error) {
 			return Default(), fmt.Errorf("source %q is not openspec or speckit", *raw.Source)
 		}
 		cfg.Source = *raw.Source
+	}
+	if raw.Wave != nil && raw.Wave.Size != nil {
+		if *raw.Wave.Size < 2 {
+			return Default(), errors.New("wave.size must be at least 2")
+		}
+		cfg.WaveSize = *raw.Wave.Size
 	}
 	if raw.Instructions != nil && *raw.Instructions != "" {
 		if cfg.Prompt != "" {
