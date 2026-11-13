@@ -22,9 +22,10 @@ type Watched struct {
 	Load            func() ([]work.Item, error)
 	Source          work.Source // for ArchivedIn and Finish
 	Record          func(herdr.Session)
-	Escalated       func() bool // whether the Change escalated since its agent last worked
-	Clear           func()      // forgets that escalation
-	Resumed         bool        // a reopened session: evaluated only after it worked once
+	Escalated       func() bool      // whether the Change escalated since its agent last worked
+	Mark            func(why string) // sets the Change's attention marker: "stall" or "handoff"
+	Clear           func()           // clears the Change's attention marker
+	Resumed         bool             // a reopened session: evaluated only after it worked once
 }
 
 // stallAfter is how long an unfinished agent may stay settled before the Main agent hears of it.
@@ -92,7 +93,8 @@ func Watch(w Watched, run, git herdr.Runner) {
 		} else if b.Seq != a.Seq {
 			continue // it moved on while being checked, maybe through a whole turn
 		}
-		escalated := w.Escalated() // only this record is cleared: one written later belongs to the next settle
+		escalated := w.Escalated() // only this marker is cleared: one written later belongs to the next settle
+		stalled := false
 		if a.Status != "blocked" && !escalated {
 			if _, err := run("agent", "wait", name, "--until", "working", "--timeout", strconv.FormatInt(stallAfter.Milliseconds(), 10)); err == nil {
 				continue
@@ -102,12 +104,14 @@ func Watch(w Watched, run, git herdr.Runner) {
 			} else if b.Seq != a.Seq {
 				continue // the wait failed for another reason while it moved on
 			}
-			Tell(run, w.Main, a.Pane, "spec-kanban: "+w.Change+" stalled", w.stall(progress))
+			Tell(run, w.Main, a.Pane, w.stall(progress))
+			w.Mark("stall")
+			stalled = true
 		}
 		if _, err := run("agent", "wait", name, "--until", "working"); err != nil {
 			return
 		}
-		if escalated {
+		if escalated || stalled {
 			w.Clear()
 		}
 	}
@@ -209,10 +213,15 @@ func (w Watched) text(git herdr.Runner, checkout, progress string, archived bool
 }
 
 // handoff closes the agent's pane, which closes a tab or worktree workspace with nothing else open,
-// then hands text to the Main agent, or shows it as a notification when the Main agent cannot take it.
+// then hands text to the Main agent and clears the attention marker, or sets it for a Handoff when
+// the Main agent cannot take it.
 func (w Watched) handoff(run herdr.Runner, pane, text string) {
 	run("pane", "close", pane)
-	Tell(run, w.Main, pane, "spec-kanban: "+w.Change+" finished", text)
+	if Tell(run, w.Main, pane, text) {
+		w.Clear()
+	} else {
+		w.Mark("handoff")
+	}
 }
 
 // resumes holds per agent kind the command that reopens a session, %s standing for its id; only

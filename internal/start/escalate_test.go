@@ -7,8 +7,7 @@ import (
 )
 
 func TestTell(t *testing.T) {
-	const title, text = "spec-kanban: " + change + " needs you", "help"
-	shown := "notification show " + title + " --body " + text
+	const text = "help"
 	prompt := "agent prompt " + mainPane + " " + text
 	tests := []struct {
 		name, main string
@@ -17,16 +16,16 @@ func TestTell(t *testing.T) {
 		took       bool
 	}{
 		{"Main agent idle", mainPane, map[string][]any{mget: {"agent-get-main.json"}}, []string{mget, prompt}, true},
-		{"no Main pane", "", nil, []string{shown}, false},
-		{"Main pane is the Change's own pane", "w5:p1", nil, []string{shown}, false},
-		{"no agent in the Main pane", mainPane, map[string][]any{mget: {notFound}}, []string{mget, shown}, false},
-		{"Main agent blocked", mainPane, map[string][]any{mget: {"agent-get-main-blocked.json"}}, []string{mget, shown}, false},
-		{"prompt rejected", mainPane, map[string][]any{mget: {"agent-get-main.json"}, "agent prompt": {errors.New("agent_blocked")}}, []string{mget, prompt, shown}, false},
+		{"no Main pane", "", nil, nil, false},
+		{"Main pane is the Change's own pane", "w5:p1", nil, nil, false},
+		{"no agent in the Main pane", mainPane, map[string][]any{mget: {notFound}}, []string{mget}, false},
+		{"Main agent blocked", mainPane, map[string][]any{mget: {"agent-get-main-blocked.json"}}, []string{mget}, false},
+		{"prompt rejected", mainPane, map[string][]any{mget: {"agent-get-main.json"}, "agent prompt": {errors.New("agent_blocked")}}, []string{mget, prompt}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &script{t: t, answers: tt.answers}
-			if took := Tell(h.run, tt.main, "w5:p1", title, text); took != tt.took {
+			if took := Tell(h.run, tt.main, "w5:p1", text); took != tt.took {
 				t.Errorf("Tell = %v, want %v", took, tt.took)
 			}
 			if !reflect.DeepEqual(h.calls, tt.want) {

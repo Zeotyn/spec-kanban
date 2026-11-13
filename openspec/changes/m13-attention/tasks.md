@@ -5,13 +5,13 @@
 
 ## 2. Setting and clearing in `internal/start` and `cmd/kanban`
 
-- [ ] 2.1 Tests first for `Tell`: no notification in any fallback case; it returns false there and true when the Main agent took the prompt
-- [ ] 2.2 Remove the notification branch from `Tell`
-- [ ] 2.3 Tests first with the fake herdr runner: a Stall sets a `stall` marker with and without a Main agent ("Worker stops silently", "Stall without a Main agent"); working again clears it ("Worker continues"); a Handoff without a Main agent sets `handoff` ("Board opened from a shell pane", "Main agent blocked", "Handoff without a Main agent"); a Handoff the Main agent took clears an older marker ("Handoff clears an older marker")
-- [ ] 2.4 Implement them in `Watch` and `handoff`
-- [ ] 2.5 Tests first for `kanban escalate`: the `escalation` marker is set with and without a Main agent, no notification is shown, and the printed line says whether the Main agent received it or only the marker shows it ("Worker cannot publish", "No Main agent", "Worker escalates")
-- [ ] 2.6 Implement them in `escalate`; `launch` and `resumeChange` clear the marker before watching ("New Start")
-- [ ] 2.7 Tests first, then implement: after setting a marker, `escalate` and the watcher run one sidebar pass through `sidebar.Coalesce` ("Stall while nothing else happens")
+- [x] 2.1 Tests first for `Tell`: no notification in any fallback case; it returns false there and true when the Main agent took the prompt
+- [x] 2.2 Remove the notification branch from `Tell`
+- [x] 2.3 Tests first with the fake herdr runner: a Stall sets a `stall` marker with and without a Main agent ("Worker stops silently", "Stall without a Main agent"); working again clears it ("Worker continues"); a Handoff without a Main agent sets `handoff` ("Board opened from a shell pane", "Main agent blocked", "Handoff without a Main agent"); a Handoff the Main agent took clears an older marker ("Handoff clears an older marker")
+- [x] 2.4 Implement them in `Watch` and `handoff`
+- [x] 2.5 Tests first for `kanban escalate`: the `escalation` marker is set with and without a Main agent, no notification is shown, and the printed line says whether the Main agent received it or only the marker shows it ("Worker cannot publish", "No Main agent", "Worker escalates")
+- [x] 2.6 Implement them in `escalate`; `launch` and `resumeChange` clear the marker before watching ("New Start")
+- [x] 2.7 Tests first, then implement: after setting a marker, `escalate` and the watcher run one sidebar pass through `sidebar.Coalesce` ("Stall while nothing else happens")
 
 ## 3. Reader rule
 

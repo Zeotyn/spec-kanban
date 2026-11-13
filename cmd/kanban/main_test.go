@@ -213,7 +213,7 @@ func TestLaunchWatches(t *testing.T) {
 	t.Setenv("KANBAN_PROJECT", proj)
 	t.Setenv("KANBAN_MAIN_PANE", "w1:p9")
 	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
-	if err := cache.WriteMark(dir, proj, "m1-board-view", "escalation"); err != nil { // left over from an earlier run
+	if err := cache.WriteMark(dir, proj, "m1-board-view", "handoff"); err != nil { // left over from an earlier run
 		t.Fatal(err)
 	}
 	var calls []string
@@ -233,8 +233,8 @@ func TestLaunchWatches(t *testing.T) {
 	if got, _ := cache.ReadMain(dir, proj, "m1-board-view"); got != "w1:p9" {
 		t.Errorf("Main pane record %q, want w1:p9", got)
 	}
-	if (cache.ReadMarks(dir, proj)["m1-board-view"] == "escalation") {
-		t.Error("a leftover escalation must be cleared before watching")
+	if cache.ReadMarks(dir, proj) != nil {
+		t.Error("New Start: a leftover marker must be cleared before watching")
 	}
 }
 
@@ -328,8 +328,8 @@ func TestResumeRecordedSession(t *testing.T) {
 			if got, _ := cache.ReadMain(dir, tt.proj, "m1-board-view"); got != main {
 				t.Errorf("Main pane record %q, want %q", got, main)
 			}
-			if (cache.ReadMarks(dir, tt.proj)["m1-board-view"] == "escalation") == tt.watched {
-				t.Errorf("escalation kept: %v, want %v", !tt.watched, tt.watched)
+			if (cache.ReadMarks(dir, tt.proj) != nil) == tt.watched {
+				t.Errorf("marker kept: %v, want %v", !tt.watched, !tt.watched)
 			}
 		})
 	}
@@ -548,6 +548,7 @@ func TestEscalate(t *testing.T) {
 	head := "m1-board-view needs a human (3/7 tasks): needs npm publish and a git tag. Its agent m1-board-view waits in tab m1-board-view"
 	inWT := head + ", worktree " + wt + " on branch m1-board-view." + rest(wt+"/openspec/changes/m1-board-view/tasks.md")
 	inProj := head + "." + rest(proj+"/openspec/changes/m1-board-view/tasks.md")
+	const onlyMarker = "No Main agent took it; the Board and the sidebar show ⚑. End your turn.\n"
 	tests := []struct {
 		name, cwd, main, change string
 		want                    []string
@@ -558,13 +559,9 @@ func TestEscalate(t *testing.T) {
 			[]string{"agent get " + pane, "agent prompt " + pane + " " + inWT}, "Sent to the Main agent. End your turn.\n", ""},
 		{"Without a worktree", proj, pane, change,
 			[]string{"agent get " + pane, "agent prompt " + pane + " " + inProj}, "Sent to the Main agent. End your turn.\n", ""},
-		{"No Main agent", proj, "", change,
-			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inProj}, "No Main agent took it; the user got a notification. End your turn.\n", ""},
-		{"No Main agent in a worktree", wt, "", change,
-			[]string{"notification show spec-kanban: m1-board-view needs you --body " + inWT}, "No Main agent took it; the user got a notification. End your turn.\n", ""},
-		{"Board opened in the linked worktree", wt, "", change,
-			[]string{"notification show spec-kanban: m1-board-view needs you --body " + head + "." + rest(wt+"/openspec/changes/m1-board-view/tasks.md")},
-			"No Main agent took it; the user got a notification. End your turn.\n", wt},
+		{"No Main agent", proj, "", change, nil, onlyMarker, ""},
+		{"No Main agent in a worktree", wt, "", change, nil, onlyMarker, ""},
+		{"Board opened in the linked worktree", wt, "", change, nil, onlyMarker, wt},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -588,14 +585,14 @@ func TestEscalate(t *testing.T) {
 			if err := escalate(tt.change, reason, tt.cwd, &out, run, detect, sourceFor, git); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(calls, tt.want) {
-				t.Errorf("herdr calls\n got %q\nwant %q", calls, tt.want)
+			if want := append(tt.want, "workspace list"); !reflect.DeepEqual(calls, want) { // then one sidebar pass, no notification
+				t.Errorf("herdr calls\n got %q\nwant %q", calls, want)
 			}
 			if out.String() != tt.out {
 				t.Errorf("printed %q, want %q", out.String(), tt.out)
 			}
-			if !(cache.ReadMarks(dir, tt.project)[change] == "escalation") {
-				t.Error("want the escalation recorded for the Project")
+			if got := cache.ReadMarks(dir, tt.project)[change]; got != "escalation" {
+				t.Errorf("marker %q, want escalation for the Project", got)
 			}
 		})
 	}
@@ -605,10 +602,25 @@ func TestEscalate(t *testing.T) {
 		run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
 		var out strings.Builder
 		err := escalate("m1-bord-view", reason, proj, &out, run, detect, sourceFor, git)
-		if err == nil || !strings.Contains(err.Error(), "m1-bord-view") || len(calls) != 0 || out.Len() != 0 || (cache.ReadMarks(dir, proj)["m1-bord-view"] == "escalation") {
+		if err == nil || !strings.Contains(err.Error(), "m1-bord-view") || len(calls) != 0 || out.Len() != 0 || cache.ReadMarks(dir, proj) != nil {
 			t.Errorf("want an error naming m1-bord-view and nothing sent, got %v, %q, %q", err, calls, out.String())
 		}
 	})
+}
+
+// TestMarker: a marker the watcher sets is followed by one sidebar pass.
+func TestMarker(t *testing.T) {
+	dir := userDir(t)
+	var calls []string
+	run := func(args ...string) ([]byte, error) { calls = append(calls, strings.Join(args, " ")); return nil, nil }
+	detect, sourceFor := sources(config.Config{})
+	marker("/x/proj", "m1-board-view", run, detect, sourceFor, func(string) herdr.Runner { return noGit })("stall")
+	if got := cache.ReadMarks(dir, "/x/proj"); !reflect.DeepEqual(got, map[string]string{"m1-board-view": "stall"}) {
+		t.Errorf("markers %v, want m1-board-view: stall", got)
+	}
+	if want := []string{"workspace list"}; !reflect.DeepEqual(calls, want) {
+		t.Errorf("herdr calls %q, want one sidebar pass %q", calls, want)
+	}
 }
 
 // TestEscalateUsage runs main in a child process: a missing reason exits 2 with the usage.

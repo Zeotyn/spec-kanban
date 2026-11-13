@@ -118,7 +118,7 @@ func main() {
 		dir := cache.Dir()
 		cfg, _ := config.Load(config.Dir(herdr.Exec)) // the Board and kanban start show a broken config
 		detect, sourceFor := sources(cfg)
-		err = sidebar.Coalesce(dir, func() error { return sidebar.Sync(herdr.Exec, detect, syncLoad(dir, sourceFor, gitCLI)) })
+		err = refresh(dir, herdr.Exec, detect, sourceFor, gitCLI)
 	case "--version":
 		fmt.Println(versionString())
 	case "-h", "--help", "":
@@ -287,7 +287,7 @@ func launch(change, pane, tab, kind, prompt string, run herdr.Runner) error {
 	return nil
 }
 
-// watch records the Main pane of change for Escalation, forgets an earlier escalation, and watches
+// watch records the Main pane of change for Escalation, clears its attention marker, and watches
 // the agent of change until it hands off or goes away; only for the Board ($KANBAN_PROJECT set).
 func watch(change string, resumed bool, run herdr.Runner) {
 	proj := os.Getenv("KANBAN_PROJECT")
@@ -295,20 +295,21 @@ func watch(change string, resumed bool, run herdr.Runner) {
 		return
 	}
 	cfg, _ := config.Load(config.Dir(run)) // a broken config was already shown by the Board
-	_, sourceFor := sources(cfg)
+	detect, sourceFor := sources(cfg)
 	src := sourceFor(proj)
 	dir, git, loadGit := cache.Dir(), gitCLI(proj), gitCLI(proj)
 	if !cfg.Worktree { // the agent works in the Project: a leftover checkout of the Change must not supply its Progress
 		loadGit = func(...string) ([]byte, error) { return nil, errors.New("worktree off") }
 	}
 	mainPane, user := os.Getenv("KANBAN_MAIN_PANE"), cache.UserDir() // where kanban escalate finds them
-	_ = cache.WriteMain(user, proj, change, mainPane)                // a lost record only makes Escalation notify
+	_ = cache.WriteMain(user, proj, change, mainPane)                // a lost record only leaves Escalation to the marker
 	cache.ClearMark(user, proj, change)
 	start.Watch(start.Watched{Project: proj, Change: change, Main: mainPane, Base: cfg.Base, On: cfg.Worktree, Resumed: resumed,
 		Load:      loader(dir, proj, src, loadGit),
 		Source:    src,
 		Record:    func(s herdr.Session) { _ = cache.WriteSession(dir, proj, change, s) }, // a lost record only stops resume from the Board
 		Escalated: func() bool { return cache.ReadMarks(user, proj)[change] == "escalation" },
+		Mark:      marker(proj, change, run, detect, sourceFor, gitCLI),
 		Clear:     func() { cache.ClearMark(user, proj, change) },
 	}, run, git)
 }
@@ -381,12 +382,27 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 		` 3. Then tell its agent to continue: herdr agent prompt %s "<what changed>". Do not close its tab; when all tasks are done, the normal Handoff follows.`,
 		change, progress, strings.Join(reason, " "), agent, change, where, filepath.Join(checkout, src.Rel(change), "tasks.md"), agent)
 	_ = cache.WriteMark(user, proj, change, "escalation") // a lost marker only lets a Stall follow
-	if start.Tell(run, mainPane, os.Getenv("HERDR_PANE_ID"), "spec-kanban: "+change+" needs you", text) {
+	if start.Tell(run, mainPane, os.Getenv("HERDR_PANE_ID"), text) {
 		fmt.Fprintln(stdout, "Sent to the Main agent. End your turn.")
 	} else {
-		fmt.Fprintln(stdout, "No Main agent took it; the user got a notification. End your turn.")
+		fmt.Fprintln(stdout, "No Main agent took it; the Board and the sidebar show ⚑. End your turn.")
 	}
+	_ = refresh(dir, run, detect, sourceFor, git) // the sidebar shows the marker without waiting for a herdr event
 	return nil
+}
+
+// marker returns what sets the attention marker of change of proj for a reason and then runs one
+// sidebar pass: a Stall happens without a herdr event that would refresh the sidebar.
+func marker(proj, change string, run herdr.Runner, detect func(string) bool, sourceFor func(string) work.Source, git func(string) herdr.Runner) func(why string) {
+	return func(why string) {
+		_ = cache.WriteMark(cache.UserDir(), proj, change, why) // a lost marker only hides the ⚑
+		_ = refresh(cache.Dir(), run, detect, sourceFor, git)
+	}
+}
+
+// refresh runs one sidebar pass, as kanban sync does, through sidebar.Coalesce under dir.
+func refresh(dir string, run herdr.Runner, detect func(string) bool, sourceFor func(string) work.Source, git func(string) herdr.Runner) error {
+	return sidebar.Coalesce(dir, func() error { return sidebar.Sync(run, detect, syncLoad(dir, sourceFor, git)) })
 }
 
 // loader reads the Project's Changes and those worked on in its other checkouts, reusing cached

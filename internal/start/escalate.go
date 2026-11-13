@@ -7,10 +7,10 @@ import (
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 )
 
-// Tell submits text to the agent in pane main and reports whether it took it. It shows text as a
-// herdr notification titled title instead when main is empty or own (the Change's own pane), runs
-// no agent, the agent is blocked, or herdr rejects the prompt.
-func Tell(run herdr.Runner, main, own, title, text string) bool {
+// Tell submits text to the agent in pane main and reports whether it took it. It submits nothing
+// when main is empty or own (the Change's own pane), runs no agent, or the agent is blocked; it
+// reports false then and when herdr rejects the prompt.
+func Tell(run herdr.Runner, main, own, text string) bool {
 	if main != "" && main != own {
 		if m, err := getAgent(run, main); err == nil && m.Agent != "" && m.Status != "blocked" {
 			if _, err := run("agent", "prompt", main, text); err == nil {
@@ -18,7 +18,6 @@ func Tell(run herdr.Runner, main, own, title, text string) bool {
 			}
 		}
 	}
-	run("notification", "show", title, "--body", text)
 	return false
 }
 
