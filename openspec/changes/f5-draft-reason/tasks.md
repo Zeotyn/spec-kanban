@@ -1,6 +1,6 @@
 ## 1. Reason
 
-- [ ] 1.1 Add `draftReason(work.Item) string` in `internal/board` (design D1); table tests: not Draft, design missing, several missing in order, absent key counts as missing, all done without tasks, Artifacts nil, unknown ids ignored
+- [x] 1.1 Add `draftReason(work.Item) string` in `internal/board` (design D1); table tests: not Draft, design missing, several missing in order, absent key counts as missing, all done without tasks, Artifacts nil, unknown ids ignored
 
 ## 2. Footer
 

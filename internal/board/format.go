@@ -74,6 +74,27 @@ func planMarks(artifacts map[string]string) string {
 	return strings.Join(marks, " ")
 }
 
+// draftReason says why c is in Draft: the planning artifacts neither done nor skipped, in the order of
+// planMarks, else that it has no task; "" when c is not in Draft.
+func draftReason(c work.Item) string {
+	if c.Phase != work.Draft {
+		return ""
+	}
+	if c.Artifacts == nil {
+		return "draft: planning unknown"
+	}
+	var missing []string
+	for _, a := range []string{"proposal", "specs", "design", "tasks"} {
+		if s := c.Artifacts[a]; s != "done" && s != "skipped" {
+			missing = append(missing, a)
+		}
+	}
+	if len(missing) == 0 {
+		return "draft: no tasks"
+	}
+	return "draft: " + strings.Join(missing, ", ") + " missing"
+}
+
 // progressBar renders done/total as width cells, the filled ones in fill and the empty ones faint,
 // followed by " done/total".
 func progressBar(done, total, width int, fill lipgloss.Color) string {

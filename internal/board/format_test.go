@@ -3,6 +3,8 @@ package board
 import (
 	"testing"
 	"time"
+
+	"github.com/zeotyn/spec-kanban/internal/work"
 )
 
 func TestFitName(t *testing.T) {
@@ -77,6 +79,31 @@ func TestPlanMarks(t *testing.T) {
 	} {
 		if got := planMarks(c.artifacts); got != c.want {
 			t.Errorf("planMarks(%v) = %q, want %q", c.artifacts, got, c.want)
+		}
+	}
+}
+
+func TestDraftReason(t *testing.T) {
+	all := map[string]string{"proposal": "done", "specs": "skipped", "design": "done", "tasks": "done"}
+	for _, c := range []struct {
+		name string
+		item work.Item
+		want string
+	}{
+		{"not Draft", work.Item{Phase: work.Ready, Artifacts: map[string]string{"proposal": "done"}}, ""},
+		{"design missing", work.Item{Phase: work.Draft,
+			Artifacts: map[string]string{"proposal": "done", "specs": "skipped", "design": "ready", "tasks": "done"}}, "draft: design missing"},
+		{"several missing in order", work.Item{Phase: work.Draft,
+			Artifacts: map[string]string{"tasks": "blocked", "design": "ready", "specs": "ready", "proposal": "done"}}, "draft: specs, design, tasks missing"},
+		{"absent key counts as missing", work.Item{Phase: work.Draft,
+			Artifacts: map[string]string{"proposal": "done", "specs": "done", "tasks": "done"}}, "draft: design missing"},
+		{"all done without tasks", work.Item{Phase: work.Draft, Artifacts: all}, "draft: no tasks"},
+		{"Artifacts nil", work.Item{Phase: work.Draft}, "draft: planning unknown"},
+		{"unknown ids ignored", work.Item{Phase: work.Draft,
+			Artifacts: map[string]string{"proposal": "done", "specs": "done", "design": "done", "tasks": "done", "plan": "ready"}}, "draft: no tasks"},
+	} {
+		if got := draftReason(c.item); got != c.want {
+			t.Errorf("%s: draftReason = %q, want %q", c.name, got, c.want)
 		}
 	}
 }
