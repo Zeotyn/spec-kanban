@@ -1,9 +1,13 @@
 package cache
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -366,5 +370,116 @@ func TestNextWave(t *testing.T) {
 				t.Errorf("got %d, want %d", got, tt.want)
 			}
 		})
+	}
+}
+
+func failure(i int) Failure {
+	return Failure{Time: time.Date(2026, 11, 13, 10, 0, i, 0, time.UTC), Project: project, Change: "m1", Step: "run", Error: "boom\n" + strconv.Itoa(i)}
+}
+
+func TestAppendFailure(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "user")
+	for i := range 2 {
+		if err := AppendFailure(dir, failure(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, want := ReadFailures(dir), []Failure{failure(0), failure(1)}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	info, err := os.Stat(filepath.Join(dir, "failures.log"))
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("failures.log: %v, %v, want mode 0600", info, err)
+	}
+}
+
+func TestAppendFailureKeepsNewest100(t *testing.T) {
+	dir := t.TempDir()
+	for i := range 101 {
+		if err := AppendFailure(dir, failure(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := ReadFailures(dir)
+	if len(got) != 100 || !reflect.DeepEqual(got[0], failure(1)) || !reflect.DeepEqual(got[99], failure(100)) {
+		t.Errorf("got %d records from %v to %v, want 100 from 1 to 100", len(got), got[0].Time, got[len(got)-1].Time)
+	}
+	info, err := os.Stat(filepath.Join(dir, "failures.log"))
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("trimmed failures.log: %v, %v, want mode 0600", info, err)
+	}
+}
+
+func TestFailuresBrokenLine(t *testing.T) {
+	dir := t.TempDir()
+	if err := AppendFailure(dir, failure(0)); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(filepath.Join(dir, "failures.log"), os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString("{not json\n{}\n")
+	f.Close()
+	if err := AppendFailure(dir, failure(1)); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := ReadFailures(dir), []Failure{failure(0), failure(1)}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want the valid records %v", got, want)
+	}
+	for i := 2; i <= 100; i++ { // over the limit: the rewrite drops the broken lines
+		if err := AppendFailure(dir, failure(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "failures.log"))
+	if strings.Contains(string(data), "not json") || strings.Count(string(data), "\n") != 100 {
+		t.Errorf("after the rewrite: %d lines, broken line kept: %v", strings.Count(string(data), "\n"), strings.Contains(string(data), "not json"))
+	}
+}
+
+func TestFailuresUnwritableAndMissing(t *testing.T) {
+	if got := ReadFailures(t.TempDir()); got != nil {
+		t.Errorf("missing log: got %v", got)
+	}
+	if ReadFailures("") != nil || AppendFailure("", failure(0)) == nil {
+		t.Error(`dir "": want no records and a write error`)
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores permissions")
+	}
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0o700) })
+	if err := AppendFailure(dir, failure(0)); err == nil {
+		t.Error("AppendFailure into read-only dir: want error")
+	}
+}
+
+func TestOpened(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := ReadOpened(dir, project); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("missing record: got %v, want fs.ErrNotExist", err)
+	}
+	at := time.Date(2026, 11, 13, 10, 0, 0, 123, time.UTC)
+	if err := WriteOpened(dir, project, at); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := ReadOpened(dir, project); err != nil || !got.Equal(at) {
+		t.Errorf("got %v, %v, want %v", got, err, at)
+	}
+	if _, err := ReadOpened(dir, "/other"); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("other Project: got %v, want fs.ErrNotExist", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "opened", hash(project)), []byte("yesterday"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadOpened(dir, project); err == nil || errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("broken record: got %v, want a parse error", err)
+	}
+	if _, err := ReadOpened("", project); err == nil || WriteOpened("", project, at) == nil {
+		t.Error(`dir "": want errors`)
 	}
 }

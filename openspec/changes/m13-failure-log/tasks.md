@@ -1,8 +1,8 @@
 ## 1. Log in the cache
 
-- [ ] 1.1 Add the failure record (time, project, change, step, error) and `AppendFailure(dir, f)` to `internal/cache`: one `O_APPEND` line of JSON under `dir/failures.log` with mode `0600`, then a rewrite of the newest 100 valid lines through `writeAtomic` when the file holds more (design D1, D2); tests for append, the limit, a broken line and an unwritable directory
-- [ ] 1.2 Add `ReadFailures(dir)`, which returns the valid records oldest first and skips invalid lines; tests
-- [ ] 1.3 Add `ReadOpened(dir, project)` / `WriteOpened(dir, project, t)` under `dir/opened/<project hash>`, written atomically (D5); tests including a missing and an unreadable record
+- [x] 1.1 Add the failure record (time, project, change, step, error) and `AppendFailure(dir, f)` to `internal/cache`: one `O_APPEND` line of JSON under `dir/failures.log` with mode `0600`, then a rewrite of the newest 100 valid lines through `writeAtomic` when the file holds more (design D1, D2); tests for append, the limit, a broken line and an unwritable directory
+- [x] 1.2 Add `ReadFailures(dir)`, which returns the valid records oldest first and skips invalid lines; tests
+- [x] 1.3 Add `ReadOpened(dir, project)` / `WriteOpened(dir, project, t)` under `dir/opened/<project hash>`, written atomically (D5); tests including a missing and an unreadable record
 
 ## 2. Recording failures
 

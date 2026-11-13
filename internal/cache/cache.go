@@ -2,6 +2,7 @@
 package cache
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/work"
@@ -342,4 +344,99 @@ func NextWave(waves []Wave, branches []string) int {
 		}
 	}
 	return n + 1
+}
+
+// Failure is one record of the failure log: a detached step (start, run, resume or wave) of a
+// Project's Change that failed and showed a herdr notification. A wave's Change is its Changes,
+// separated by spaces.
+type Failure struct {
+	Time    time.Time `json:"time"`
+	Project string    `json:"project"`
+	Change  string    `json:"change"`
+	Step    string    `json:"step"`
+	Error   string    `json:"error"`
+}
+
+// failures is the failure log, one JSON record per line, and keep how many records it keeps.
+const (
+	failures = "failures.log"
+	keep     = 100
+)
+
+// AppendFailure appends f to the failure log in dir with one write, so concurrent writers keep
+// their records, then rewrites the newest 100 valid records atomically when it holds more.
+func AppendFailure(dir string, f Failure) error {
+	if dir == "" {
+		return errors.New("cache: no directory")
+	}
+	line, err := json.Marshal(f)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filepath.Join(dir, failures), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	if err != nil {
+		return err
+	}
+	_, err = file.Write(append(line, '\n'))
+	if err := cmp.Or(err, file.Close()); err != nil {
+		return err
+	}
+	all := ReadFailures(dir)
+	if len(all) <= keep {
+		return nil
+	}
+	var data []byte
+	for _, f := range all[len(all)-keep:] {
+		line, _ := json.Marshal(f) // it was unmarshalled from JSON
+		data = append(append(data, line...), '\n')
+	}
+	return writeAtomic(dir, failures, data)
+}
+
+// ReadFailures returns the valid records of the failure log in dir, oldest first, skipping lines
+// that are not one; nil when there are none or the log cannot be read.
+func ReadFailures(dir string) []Failure {
+	if dir == "" {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(dir, failures))
+	if err != nil {
+		return nil
+	}
+	var got []Failure
+	for line := range strings.Lines(string(data)) {
+		var f Failure
+		if json.Unmarshal([]byte(line), &f) != nil || f.Time.IsZero() || f.Project == "" || f.Step == "" {
+			continue
+		}
+		got = append(got, f)
+	}
+	return got
+}
+
+// opened is the record of the Board's last opening for project.
+func opened(dir, project string) string { return filepath.Join(dir, "opened", hash(project)) }
+
+// ReadOpened returns when the Board of project last opened, as recorded in dir; an error wrapping
+// fs.ErrNotExist when it never did.
+func ReadOpened(dir, project string) (time.Time, error) {
+	if dir == "" {
+		return time.Time{}, errors.New("cache: no directory")
+	}
+	data, err := os.ReadFile(opened(dir, project))
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Parse(time.RFC3339Nano, string(data))
+}
+
+// WriteOpened records t as the Board's last opening for project in dir atomically.
+func WriteOpened(dir, project string, t time.Time) error {
+	if dir == "" {
+		return errors.New("cache: no directory")
+	}
+	return writeAtomic(filepath.Dir(opened(dir, project)), hash(project), []byte(t.Format(time.RFC3339Nano)))
 }
