@@ -285,3 +285,79 @@ func TestUserDirIgnoresPluginStateDir(t *testing.T) {
 		t.Errorf("UserDir() = %q, want %q", got, want)
 	}
 }
+
+func TestWaves(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "state")
+	if got := ReadWaves(dir, project); got != nil {
+		t.Errorf("missing: got %v", got)
+	}
+	w2 := Wave{Project: project, Number: 2, Branch: "wave-2", Path: "/wt/wave-2", Base: "main", Coordinator: "w2:p1", Main: "w1:p1",
+		Members: []string{"f5-bar", "c4-foo"}, Dropped: []string{"c4-foo"}}
+	w1 := Wave{Project: project, Number: 1, Branch: "wave-1", Path: "/wt/wave-1", Members: []string{"m1"}, Finished: true}
+	other := Wave{Project: "/other", Number: 1, Branch: "wave-1", Path: "/wt2/wave-1", Members: []string{"x"}}
+	for _, w := range []Wave{w2, w1, other} {
+		if err := WriteWave(dir, w); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := ReadWaves(dir, project); !reflect.DeepEqual(got, []Wave{w1, w2}) {
+		t.Errorf("ReadWaves: got %+v", got)
+	}
+	if got, ok := FindWave(dir, 2, "/wt/wave-2/openspec"); !ok || !reflect.DeepEqual(got, w2) {
+		t.Errorf("FindWave in the wave worktree: got %+v, %v", got, ok)
+	}
+	if got, ok := FindWave(dir, 1, "/wt2/wave-1"); !ok || got.Project != "/other" {
+		t.Errorf("FindWave by worktree picks the other Project: got %+v, %v", got, ok)
+	}
+	if got, ok := FindWave(dir, 1, project+"/sub"); !ok || got.Project != project {
+		t.Errorf("FindWave by Project: got %+v, %v", got, ok)
+	}
+	if _, ok := FindWave(dir, 3, project); ok {
+		t.Error("FindWave of an unknown number: want none")
+	}
+	if _, ok := FindWave(dir, 2, "/elsewhere"); ok {
+		t.Error("FindWave outside every Project: want none")
+	}
+	if got := Badges(ReadWaves(dir, project)); !reflect.DeepEqual(got, map[string]int{"f5-bar": 2}) {
+		t.Errorf("Badges skip dropped members and finished waves: got %v", got)
+	}
+	if err := WriteWave("", w1); err == nil {
+		t.Error(`WriteWave(""): want error`)
+	}
+	if got := ReadWaves("", project); got != nil {
+		t.Errorf(`ReadWaves(""): got %v`, got)
+	}
+}
+
+func TestWavesBroken(t *testing.T) {
+	dir := t.TempDir()
+	d := filepath.Join(dir, "waves", hash(project))
+	if err := os.MkdirAll(d, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(d, "1.json"), []byte("{"), 0o644)
+	os.WriteFile(filepath.Join(d, "2.json"), []byte(`{"project":"/elsewhere","number":2}`), 0o644)
+	if got := ReadWaves(dir, project); got != nil {
+		t.Errorf("broken and foreign records are skipped: got %+v", got)
+	}
+}
+
+func TestNextWave(t *testing.T) {
+	tests := []struct {
+		name     string
+		waves    []Wave
+		branches []string
+		want     int
+	}{
+		{"first wave", nil, nil, 1},
+		{"after recorded waves", []Wave{{Number: 1}, {Number: 4}}, []string{"wave-2"}, 5},
+		{"lost record, branch left", nil, []string{"wave-3", "main", "wave-x", "wave-03b"}, 4},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NextWave(tt.waves, tt.branches); got != tt.want {
+				t.Errorf("got %d, want %d", got, tt.want)
+			}
+		})
+	}
+}

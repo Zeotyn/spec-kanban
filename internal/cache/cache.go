@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/zeotyn/spec-kanban/internal/herdr"
 	"github.com/zeotyn/spec-kanban/internal/work"
@@ -215,4 +218,116 @@ func ReadMarks(dir, project string) map[string]string {
 		got[e.Name()] = m.Why
 	}
 	return got
+}
+
+// Wave is the record of a wave: a group of a Project's Changes merged on branch wave-<Number> by a
+// coordinator agent, see the waves spec.
+type Wave struct {
+	Project     string   `json:"project"`
+	Number      int      `json:"number"`
+	Branch      string   `json:"branch"`
+	Path        string   `json:"path"` // the wave's worktree
+	Base        string   `json:"base"`
+	Coordinator string   `json:"coordinator"` // the coordinator's pane
+	Main        string   `json:"main"`        // the pane the Board was opened from, "" when unknown
+	Members     []string `json:"members"`
+	Dropped     []string `json:"dropped,omitempty"`
+	Finished    bool     `json:"finished,omitempty"`
+}
+
+// waves is where the wave records of project live, one file per wave, so concurrent subcommands
+// never write the same file.
+func waves(dir, project string) string { return filepath.Join(dir, "waves", hash(project)) }
+
+// WriteWave records w in dir atomically, replacing the earlier record of its number.
+func WriteWave(dir string, w Wave) error {
+	if dir == "" {
+		return errors.New("cache: no directory")
+	}
+	data, err := json.Marshal(w)
+	if err != nil {
+		return err
+	}
+	return writeAtomic(waves(dir, w.Project), strconv.Itoa(w.Number)+".json", data)
+}
+
+// ReadWaves returns the waves recorded for project in dir by number, skipping unreadable records;
+// nil when there are none.
+func ReadWaves(dir, project string) []Wave {
+	if dir == "" {
+		return nil
+	}
+	return readWaves(waves(dir, project), project)
+}
+
+// readWaves reads the records in d, those of project only unless it is "".
+func readWaves(d, project string) []Wave {
+	entries, err := os.ReadDir(d)
+	if err != nil {
+		return nil
+	}
+	var got []Wave
+	for _, e := range entries {
+		var w Wave
+		data, err := os.ReadFile(filepath.Join(d, e.Name()))
+		if err != nil || json.Unmarshal(data, &w) != nil || w.Number < 1 || project != "" && w.Project != project {
+			continue
+		}
+		got = append(got, w)
+	}
+	slices.SortFunc(got, func(a, b Wave) int { return a.Number - b.Number })
+	return got
+}
+
+// FindWave returns the wave numbered n whose worktree holds dir, else the one whose Project holds
+// dir: the kanban wave subcommands run in agent panes and know only their directory.
+func FindWave(dir string, n int, cwd string) (Wave, bool) {
+	var all []Wave
+	if dir != "" {
+		projects, _ := os.ReadDir(filepath.Join(dir, "waves"))
+		for _, p := range projects {
+			for _, w := range readWaves(filepath.Join(dir, "waves", p.Name()), "") {
+				if w.Number == n {
+					all = append(all, w)
+				}
+			}
+		}
+	}
+	for _, in := range []func(Wave) string{func(w Wave) string { return w.Path }, func(w Wave) string { return w.Project }} {
+		for _, w := range all {
+			if d := filepath.Clean(in(w)); in(w) != "" && (filepath.Clean(cwd) == d || strings.HasPrefix(filepath.Clean(cwd), d+string(filepath.Separator))) {
+				return w, true
+			}
+		}
+	}
+	return Wave{}, false
+}
+
+// Badges returns Change → wave number for the members of waves that are neither dropped nor in a
+// finished wave.
+func Badges(waves []Wave) map[string]int {
+	got := map[string]int{}
+	for _, w := range waves {
+		for _, m := range w.Members {
+			if !w.Finished && !slices.Contains(w.Dropped, m) {
+				got[m] = w.Number
+			}
+		}
+	}
+	return got
+}
+
+// NextWave is the number of a Project's next wave: one more than the highest among its recorded
+// waves and its branches named wave-<number>, 1 for the first.
+func NextWave(waves []Wave, branches []string) int {
+	n := 0
+	for _, w := range waves {
+		n = max(n, w.Number)
+	}
+	for _, b := range branches {
+		if v, err := strconv.Atoi(strings.TrimPrefix(b, "wave-")); strings.HasPrefix(b, "wave-") && err == nil && v > 0 {
+			n = max(n, v)
+		}
+	}
+	return n + 1
 }
