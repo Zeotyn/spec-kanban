@@ -51,4 +51,4 @@
 
 ## 9. Manual check
 
-- [ ] 9.1 Build `bin/kanban`, mark two independent Ready Changes in a test Project, start a wave, let the coordinator start both members, and check that both hand off to the coordinator, that it merges and archives them on `wave-1`, and that `kanban wave finish 1` reaches the Main agent once
+- [x] 9.1 Build `bin/kanban`, mark two independent Ready Changes in a test Project, start a wave, let the coordinator start both members, and check that both hand off to the coordinator, that it merges and archives them on `wave-1`, and that `kanban wave finish 1` reaches the Main agent once
