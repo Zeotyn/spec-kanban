@@ -165,16 +165,25 @@ func place(project, change string, wt Worktree, run herdr.Runner, src work.Sourc
 		pane, tab, err := created("worktree open", out)
 		return pane, tab, path, err
 	}
-	args := []string{"worktree", "create", "--cwd", project, "--branch", change}
-	ref := change
+	ref, base := change, ""
 	if _, err := git("rev-parse", "--verify", "--quiet", "refs/heads/"+change); err != nil {
 		ref = worktree.Base(wt.Base, git)
-		args = append(args, "--base", ref)
+		base = ref
 	}
 	if _, err := git("cat-file", "-e", ref+":"+src.Rel(change)); err != nil {
 		return "", "", "", fmt.Errorf("%s is not on %s: commit it there or set base", change, ref)
 	}
-	out, err = run(append(args, "--label", change, "--no-focus")...)
+	return createWorktree(project, change, base, run)
+}
+
+// createWorktree has herdr create a worktree of project on branch, new from base unless base is "",
+// in an unfocused workspace labelled branch, and returns its root pane, tab and path.
+func createWorktree(project, branch, base string, run herdr.Runner) (pane, tab, path string, err error) {
+	args := []string{"worktree", "create", "--cwd", project, "--branch", branch}
+	if base != "" {
+		args = append(args, "--base", base)
+	}
+	out, err := run(append(args, "--label", branch, "--no-focus")...)
 	if err != nil {
 		return "", "", "", fmt.Errorf("worktree create: %w", err)
 	}
@@ -189,7 +198,7 @@ func place(project, change string, wt Worktree, run herdr.Runner, src work.Sourc
 		} `json:"result"`
 	}
 	_ = json.Unmarshal(out, &made) // created reports broken output
-	path := cmp.Or(made.Result.Worktree.Path, made.Result.RootPane.Cwd)
+	path = cmp.Or(made.Result.Worktree.Path, made.Result.RootPane.Cwd)
 	if pane, tab, err = created("worktree create", out); err == nil && path == "" {
 		err = fmt.Errorf("worktree create: no worktree path in %s", out)
 	}
@@ -235,6 +244,11 @@ func Launch(change, kind, prompt, pane, tab string, run herdr.Runner) error {
 	if _, err := run("tab", "focus", tab); err != nil {
 		return fmt.Errorf("tab focus: %w", err)
 	}
+	return LaunchUnfocused(change, kind, prompt, pane, run)
+}
+
+// LaunchUnfocused is Launch without focusing the tab: the shell-ready probe needs no focus.
+func LaunchUnfocused(change, kind, prompt, pane string, run herdr.Runner) error {
 	if err := ready(change, pane, run); err != nil {
 		return err
 	}

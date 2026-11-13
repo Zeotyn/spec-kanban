@@ -796,6 +796,18 @@ func counted(t *testing.T) {
 	t.Cleanup(func() { nonce = old })
 }
 
+func TestLaunchUnfocused(t *testing.T) {
+	counted(t)
+	h := &fakeHerdr{t: t}
+	if err := LaunchUnfocused(change, "claude", "/opsx:apply "+change, "w2:p1J", h.run); err != nil {
+		t.Fatal(err)
+	}
+	run1, wait1 := `pane run w2:p1J  echo kanban-rea""dy-1`, "pane wait-output w2:p1J --match kanban-ready-1 --timeout 2000"
+	if want := []string{run1, wait1, launch, prompt}; !reflect.DeepEqual(h.calls, want) {
+		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
+	}
+}
+
 func TestLaunchWaitsForPrompt(t *testing.T) {
 	boom := errors.New("boom")
 	run1, wait1 := `pane run w2:p1J  echo kanban-rea""dy-1`, "pane wait-output w2:p1J --match kanban-ready-1 --timeout 2000"
