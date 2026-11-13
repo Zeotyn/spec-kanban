@@ -608,6 +608,29 @@ func TestEscalate(t *testing.T) {
 	})
 }
 
+func TestLookup(t *testing.T) {
+	proj, dir, user := "/x/proj", t.TempDir(), t.TempDir()
+	for change, why := range map[string]string{"m1-escalated": "escalation", "m2-stalled": "stall", "m3-handed-off": "handoff", "m4-archived": "handoff"} {
+		if err := cache.WriteMark(user, proj, change, why); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := cache.Write(dir, proj, []work.Item{{Name: "m3-handed-off", Phase: work.Review}, {Name: "m4-archived", Phase: work.Archived}}); err != nil {
+		t.Fatal(err)
+	}
+	list := `{"result":{"agents":[{"name":"m1-escalated","cwd":"/x/proj","agent_status":"idle"},{"name":"m2-stalled","cwd":"/x/proj","agent_status":"working"}]}}`
+	run := func(...string) ([]byte, error) { return []byte(list), nil }
+	running, waiting, err := lookup(proj, dir, user, run, noGit)()
+	if err != nil || !reflect.DeepEqual(running, map[string]bool{"m1-escalated": true, "m2-stalled": true}) ||
+		!reflect.DeepEqual(waiting, map[string]bool{"m1-escalated": true, "m3-handed-off": true}) {
+		t.Errorf("got %v, %v, %v", running, waiting, err)
+	}
+	fail := func(...string) ([]byte, error) { return nil, errors.New("herdr not running") }
+	if _, waiting, err := lookup(proj, dir, user, fail, noGit)(); err == nil || !reflect.DeepEqual(waiting, map[string]bool{"m3-handed-off": true}) {
+		t.Errorf("herdr unavailable: want only the Handoff marker and the error, got %v, %v", waiting, err)
+	}
+}
+
 // TestMarker: a marker the watcher sets is followed by one sidebar pass.
 func TestMarker(t *testing.T) {
 	dir := userDir(t)

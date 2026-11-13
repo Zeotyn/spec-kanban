@@ -35,10 +35,10 @@ type loadedMsg struct {
 	err     error
 }
 
-// agentsMsg carries the names of the running herdr agents.
+// agentsMsg carries the names of the running herdr agents and the Changes that wait for the user.
 type agentsMsg struct {
-	running map[string]bool
-	err     error
+	running, waiting map[string]bool
+	err              error
 }
 
 // startedMsg reports that Start has returned.
@@ -93,7 +93,7 @@ type Model struct {
 	project       string
 	docs          func(work.Item) work.Docs
 	load          func() ([]work.Item, error)
-	agents        func() (map[string]bool, error) // names of the running herdr agents
+	agents        func() (running, waiting map[string]bool, err error) // names of the running herdr agents, Changes that wait
 	start         func(change string) error
 	resumable     func(change string) (kind string, ok bool) // the recorded agent kind ("" if none) and whether it can be reopened
 	resume        func(change string) error
@@ -108,6 +108,7 @@ type Model struct {
 	filter        string
 	prompting     bool            // keys go to the filter prompt
 	running       map[string]bool // names of running herdr agents, kept across loads
+	waiting       map[string]bool // Changes that wait for the user, kept across loads
 	starting      string          // the Change being started; keys other than ctrl+c are ignored meanwhile
 	verb          string          // what is done to starting, "" for a Start
 	nav           nav
@@ -127,7 +128,7 @@ type Model struct {
 // resume, v and a do nothing, the Source names every command).
 // hide marks Phases not shown as columns; notice replaces the footer until the first key; version is shown in the help.
 func New(project string, docs func(work.Item) work.Docs, load func() ([]work.Item, error), now func() time.Time, snapshot []work.Item,
-	agents func() (map[string]bool, error), start func(change string) error,
+	agents func() (running, waiting map[string]bool, err error), start func(change string) error,
 	resumable func(change string) (string, bool), resume func(change string) error, act func(change string, a work.Action) error,
 	lacks func(a work.Action) string, hide [columns]bool, notice, version string) Model {
 	m := Model{project: project, docs: docs, load: load, agents: agents, start: start, resumable: resumable, resume: resume, act: act, lacks: lacks,
@@ -153,8 +154,8 @@ func (m Model) lookup() tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg {
-		running, err := m.agents()
-		return agentsMsg{running, err}
+		running, waiting, err := m.agents()
+		return agentsMsg{running, waiting, err}
 	}
 }
 
@@ -234,6 +235,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err == nil { // outside herdr there are simply no badges
 			m.running = msg.running
 		}
+		m.waiting = msg.waiting // without herdr only Handoff markers
 	case startedMsg:
 		if msg.err == nil {
 			return m, tea.Quit
@@ -632,15 +634,23 @@ func (m Model) column(i, w int, title string) string {
 
 // card renders a box around three lines, the selected one thick in the accent colour; below
 // borderMinHeight three lines and a blank one, the selected Card marked with ▌. An open
-// Card with a Running agent has a green ● before its name.
+// Card whose Change waits for the user has a red ⚑ before its name, else one with a Running agent
+// a green ●.
 func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	inner := w - 1
 	if m.bordered() {
 		inner = w - 2
 	}
-	running := c.Phase != work.Archived && m.running[herdr.AgentName(c.Name)]
+	glyph := ""
+	switch {
+	case c.Phase == work.Archived:
+	case m.waiting[c.Name]:
+		glyph = lipgloss.NewStyle().Foreground(theme.Attention).Render("⚑")
+	case m.running[herdr.AgentName(c.Name)]:
+		glyph = lipgloss.NewStyle().Foreground(theme.Running).Render("●")
+	}
 	firstW := inner
-	if running {
+	if glyph != "" {
 		firstW -= 2 // "● "
 	}
 	badge := milestone(c.Name)
@@ -654,8 +664,8 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 	if badge != "" {
 		first += strings.Repeat(" ", max(1, firstW-lipgloss.Width(name)-len(badge))) + lipgloss.NewStyle().Foreground(theme.Milestone).Render(badge)
 	}
-	if running {
-		first = lipgloss.NewStyle().Foreground(theme.Running).Render("●") + " " + first
+	if glyph != "" {
+		first = glyph + " " + first
 	}
 	var second, third string
 	switch {

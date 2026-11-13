@@ -7,7 +7,7 @@ import (
 )
 
 func TestPalette(t *testing.T) {
-	for got, want := range map[lipgloss.Color]lipgloss.Color{Accent: "4", Dim: "8", Milestone: "5", Running: "2"} {
+	for got, want := range map[lipgloss.Color]lipgloss.Color{Accent: "4", Dim: "8", Milestone: "5", Running: "2", Attention: "1"} {
 		if got != want {
 			t.Errorf("colour %q, want %q", got, want)
 		}

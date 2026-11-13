@@ -20,9 +20,9 @@
 
 ## 4. Board
 
-- [ ] 4.1 `internal/theme`: `Attention` = ANSI `1`; extend `TestPalette`
-- [ ] 4.2 Tests first, one per scenario of "Attention marker on the Card": "Escalated Change" (red `⚑`, no `●`, same column), "Agent works again" (`r` → `●`), "Handoff without a Main agent", "Long name" (name width as with `●`), "herdr unavailable" (no `⚑`, no error); plus no `⚑` on an Archived Card and a golden for a Card with `⚑`
-- [ ] 4.3 The agents callback returns running and waiting together; `card` draws `⚑ ` in the badge's place; `cmd/kanban` builds waiting from `Running`, `ReadMarks`, `Waiting` and the loaded Items
+- [x] 4.1 `internal/theme`: `Attention` = ANSI `1`; extend `TestPalette`
+- [x] 4.2 Tests first, one per scenario of "Attention marker on the Card": "Escalated Change" (red `⚑`, no `●`, same column), "Agent works again" (`r` → `●`), "Handoff without a Main agent", "Long name" (name width as with `●`), "herdr unavailable" (no `⚑`, no error); plus no `⚑` on an Archived Card and a golden for a Card with `⚑`
+- [x] 4.3 The agents callback returns running and waiting together; `card` draws `⚑ ` in the badge's place; `cmd/kanban` builds waiting from `Running`, `ReadMarks`, `Waiting` and the loaded Items
 
 ## 5. Sidebar
 

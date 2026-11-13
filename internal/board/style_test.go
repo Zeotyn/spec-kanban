@@ -63,11 +63,11 @@ func noHighColours(t *testing.T, v string) {
 
 func TestCardTypography(t *testing.T) {
 	coloured(t)
-	running := agentsMsg{running: map[string]bool{"m1-board-view": true}}
+	running := agentsMsg{running: map[string]bool{"m1-board-view": true, "m0-spike-agent-start": true}, waiting: map[string]bool{"m0-spike-agent-start": true}}
 	for _, h := range []int{30, 12} { // bordered and fallback Cards
 		v := keys(send(board(t, 120, h, fixture), running), "2").View()
 		contains(t, v, fg("2").Render("●")+" "+bold.Render("m1-board-view"), fg("5").Render("M1"),
-			faint.Render("P S D T  40m"), faint.Render("3h"))
+			fg("1").Render("⚑")+" ", faint.Render("P S D T  40m"), faint.Render("3h"))
 		noHighColours(t, v)
 	}
 	v := keys(board(t, 120, 30, fixture), "5").View()

@@ -188,6 +188,8 @@ func TestViews(t *testing.T) {
 	golden(t, "board-scrolled", keys(board(t, 120, 14, fixture), "j").View())                                      // room for one Card per column
 	running := agentsMsg{running: map[string]bool{"m1-board-view": true, "m5-release-pipeline-with-0ec011": true}} // its agent name
 	golden(t, "board-running", keys(send(board(t, 120, 30, fixture), running), "3").View())
+	waiting := agentsMsg{running: running.running, waiting: map[string]bool{"m1-board-view": true}}
+	golden(t, "board-waiting", keys(send(board(t, 120, 30, fixture), waiting), "3").View())
 }
 
 // tall is a Ready column of n Cards.
@@ -520,15 +522,70 @@ func run(m Model, cmd tea.Cmd) Model {
 }
 
 // agents is a lookup reporting the given Changes as running and counting its calls.
-func agents(calls *int, names ...string) func() (map[string]bool, error) {
-	return func() (map[string]bool, error) {
+func agents(calls *int, names ...string) func() (map[string]bool, map[string]bool, error) {
+	return func() (map[string]bool, map[string]bool, error) {
 		*calls++
 		running := map[string]bool{}
 		for _, n := range names {
 			running[n] = true
 		}
-		return running, nil
+		return running, nil, nil
 	}
+}
+
+func TestAttentionMarker(t *testing.T) {
+	inProgress := func(m Model) bool {
+		return slices.ContainsFunc(m.all[work.InProgress], func(it work.Item) bool { return it.Name == "m1-board-view" })
+	}
+	t.Run("Escalated Change", func(t *testing.T) {
+		m := send(board(t, 120, 30, fixture), agentsMsg{running: map[string]bool{"m1-board-view": true}, waiting: map[string]bool{"m1-board-view": true}})
+		if v := m.View(); !strings.Contains(v, "⚑ m1-board-view") || strings.Contains(v, "●") || !inProgress(m) {
+			t.Errorf("want ⚑ instead of ● on m1-board-view, still In Progress:\n%s", v)
+		}
+	})
+	t.Run("Agent works again", func(t *testing.T) {
+		waits := true
+		m := board(t, 120, 30, fixture)
+		m.agents = func() (map[string]bool, map[string]bool, error) {
+			return map[string]bool{"m1-board-view": true}, map[string]bool{"m1-board-view": waits}, nil
+		}
+		m = run(m, m.lookup())
+		if !strings.Contains(m.View(), "⚑ m1-board-view") {
+			t.Fatalf("want ⚑ first:\n%s", m.View())
+		}
+		waits = false
+		next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+		if v := run(next.(Model), cmd).View(); !strings.Contains(v, "● m1-board-view") || strings.Contains(v, "⚑") {
+			t.Errorf("r must swap ⚑ for ●:\n%s", v)
+		}
+	})
+	t.Run("Handoff without a Main agent", func(t *testing.T) {
+		v := send(board(t, 120, 30, fixture), agentsMsg{waiting: map[string]bool{"m0-spike-agent-start": true}}).View()
+		if !strings.Contains(v, "⚑ m0-spike…t-start") {
+			t.Errorf("want ⚑ on the Review Card:\n%s", v)
+		}
+	})
+	t.Run("Long name", func(t *testing.T) {
+		names := map[string]bool{"m5-release-pipeline-with-0ec011": true} // its agent name
+		running := send(board(t, 120, 30, fixture), agentsMsg{running: names}).View()
+		waiting := send(board(t, 120, 30, fixture), agentsMsg{waiting: map[string]bool{"m5-release-pipeline-with-a-very-long-name": true}}).View()
+		if !strings.Contains(waiting, "⚑") || strings.ReplaceAll(waiting, "⚑", "●") != running {
+			t.Errorf("the name must be shortened as next to ●:\n%s\n%s", waiting, running)
+		}
+	})
+	t.Run("herdr unavailable", func(t *testing.T) {
+		m := board(t, 120, 30, fixture)
+		want := m.View()
+		if got := send(m, agentsMsg{err: errors.New("herdr not running")}).View(); got != want {
+			t.Errorf("no ⚑ and no error:\n%s", got)
+		}
+	})
+	t.Run("Archived Card", func(t *testing.T) {
+		v := keys(send(board(t, 120, 30, fixture), agentsMsg{waiting: map[string]bool{"m0-plugin-skeleton": true}}), "5").View()
+		if strings.Contains(v, "⚑") {
+			t.Errorf("an Archived Card shows no ⚑:\n%s", v)
+		}
+	})
 }
 
 func TestRunningBadge(t *testing.T) {
@@ -622,7 +679,9 @@ func TestStartFails(t *testing.T) {
 func TestStartFailsLooksUpAgents(t *testing.T) {
 	m := keys(board(t, 120, 30, fixture), "2")
 	starter(&m, errors.New("prompt not sent"))
-	m.agents = func() (map[string]bool, error) { return map[string]bool{"m1-board-view": true}, nil }
+	m.agents = func() (map[string]bool, map[string]bool, error) {
+		return map[string]bool{"m1-board-view": true}, nil, nil
+	}
 	m, cmd := pressKey(m, "s")
 	_, cmd = m.Update(cmd())
 	if cmd == nil {
@@ -808,7 +867,7 @@ func TestVerifyArchive(t *testing.T) {
 func TestVerifyBusy(t *testing.T) {
 	m := keys(board(t, 120, 30, fixture), "4")
 	actor(&m, errors.New("m0-spike-agent-start is working: wait until it is idle"), "")
-	m.agents = func() (map[string]bool, error) { return nil, nil }
+	m.agents = func() (map[string]bool, map[string]bool, error) { return nil, nil, nil }
 	m, cmd := pressKey(m, "v")
 	next, cmd := m.Update(cmd())
 	if m = next.(Model); !strings.HasSuffix(m.View(), "\nm0-spike-agent-start is working: wait until it is idle") {

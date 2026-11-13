@@ -191,14 +191,6 @@ func showBoard(proj string) error {
 	_, sourceFor := sources(cfg)
 	src := sourceFor(proj)
 	git := gitCLI(proj)
-	running := func() (map[string]bool, error) {
-		agents, err := start.Running(proj, herdr.Exec, git)
-		names := map[string]bool{}
-		for name := range agents {
-			names[name] = true
-		}
-		return names, err
-	}
 	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
 		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, src, git)
@@ -235,9 +227,22 @@ func showBoard(proj string) error {
 		}
 		return spawn("resume", change, pane, tab)
 	}
-	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), running, startOne,
+	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), lookup(proj, dir, cache.UserDir(), herdr.Exec, git), startOne,
 		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString()), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
+}
+
+// lookup returns the Board's agent lookup: the names of proj's Running agents, and the Changes
+// whose attention marker in user still holds for those agents and the Items cached in dir.
+func lookup(proj, dir, user string, run, git herdr.Runner) func() (running, waiting map[string]bool, err error) {
+	return func() (map[string]bool, map[string]bool, error) {
+		agents, err := start.Running(proj, run, git) // nil on error: only Handoff markers hold
+		names := map[string]bool{}
+		for name := range agents {
+			names[name] = true
+		}
+		return names, start.Waiting(cache.ReadMarks(user, proj), agents, cache.Read(dir, proj)), err
+	}
 }
 
 // boardPrompt is the prompt of a Start from the Board: what kanban start sends, then the sentence

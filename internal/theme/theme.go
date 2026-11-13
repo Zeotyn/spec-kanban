@@ -9,6 +9,7 @@ var (
 	Dim       = lipgloss.Color("8") // Card and help borders, Draft and Archived
 	Milestone = lipgloss.Color("5") // M<N> badge
 	Running   = lipgloss.Color("2") // ● Running agent badge
+	Attention = lipgloss.Color("1") // ⚑ attention marker
 )
 
 var (
