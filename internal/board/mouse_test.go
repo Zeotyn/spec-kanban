@@ -279,6 +279,9 @@ func TestFooterDraftReason(t *testing.T) {
 	if got := lastLine(keys(m, "l")); got != keyFooter {
 		t.Errorf("a Ready Card has no reason: %q", got)
 	}
+	if got := lastLine(keys(m, "/", "z", "z", "enter")); got != keyFooter { // a filter empties the Draft column
+		t.Errorf("a column without Cards has no reason: %q", got)
+	}
 	if got := lastLine(keys(m, "l", " ", "j", " ", "h")); got != "2 marked · s wave · esc clear" {
 		t.Errorf("marks win: %q", got)
 	}
@@ -298,6 +301,9 @@ func TestClickFooterAfterReason(t *testing.T) {
 	m := board(t, 120, 30, []work.Item{spike})
 	if _, cmd := clickFooter(t, m, "q close", 4); cmd == nil || cmd() != tea.Quit() {
 		t.Error("q close after the reason must close the Board")
+	}
+	if _, cmd := clickFooter(t, keys(board(t, 120, 30, []work.Item{spike, fixture[2]}), "2"), "q close", 4); cmd == nil || cmd() != tea.Quit() {
+		t.Error("q close without a reason must close the Board")
 	}
 	for dx := range ansi.StringWidth("draft: design missing · ") {
 		if got, cmd := clickFooter(t, m, "draft:", dx); cmd != nil || got.nav != m.nav || got.notice != m.notice || got.detail != nil {

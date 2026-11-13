@@ -14,8 +14,8 @@
 
 ## 4. Verification
 
-- [ ] 4.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
-- [ ] 4.2 `openspec validate f5-draft-reason --strict` passes
+- [x] 4.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
+- [x] 4.2 `openspec validate f5-draft-reason --strict` passes
 
 ## Smoke test (user, in herdr)
 
