@@ -881,7 +881,7 @@ func TestSubmitted(t *testing.T) {
 	check := []string{get, screen}
 	polls := func(n int) []string { return slices.Repeat(check, n) }
 	then := func(n int, a, b any) []any { return append(slices.Repeat([]any{a}, n), b) } // a n times, then b
-	stuck := slices.Concat(polls(6), []string{enter}, polls(3), []string{enter}, polls(3), []string{enter}, polls(3))
+	stuck := slices.Concat(polls(5), []string{enter}, polls(2), []string{enter}, polls(2), []string{enter}, polls(2))
 	tests := []struct {
 		name    string
 		answers map[string][]any
@@ -890,10 +890,10 @@ func TestSubmitted(t *testing.T) {
 	}{
 		{"taken at once", map[string][]any{get: {"agent-get-working.json"}}, []string{get}, ""},
 		{"empty box", map[string][]any{screen: {"pane-read-claude-empty.txt"}}, check, ""},
-		{"Enter needed once", map[string][]any{screen: then(6, "pane-read-claude-lines.txt", "pane-read-claude-placeholder.txt")},
-			slices.Concat(polls(6), []string{enter}, check), ""},
-		{"working after Enter", map[string][]any{get: then(6, "agent-get-watched.json", "agent-get-working.json"), screen: {"pane-read-claude-lines.txt"}},
-			slices.Concat(polls(6), []string{enter, get}), ""},
+		{"Enter needed once", map[string][]any{screen: then(5, "pane-read-claude-lines.txt", "pane-read-claude-placeholder.txt")},
+			slices.Concat(polls(5), []string{enter}, check), ""},
+		{"working after Enter", map[string][]any{get: then(5, "agent-get-watched.json", "agent-get-working.json"), screen: {"pane-read-claude-lines.txt"}},
+			slices.Concat(polls(5), []string{enter, get}), ""},
 		{"still stuck", map[string][]any{screen: {"pane-read-claude-lines.txt"}, read: {"pane-read.txt"}},
 			append(stuck, read), "the prompt was typed but not submitted in tab " + change + "; pane shows: " + shown},
 		{"other text", map[string][]any{screen: {"pane-read-claude-one-line.txt"}}, check, ""},

@@ -10,8 +10,8 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
-- [ ] 3.2 `openspec validate f6-submit-start-prompt --strict` passes
+- [x] 3.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
+- [x] 3.2 `openspec validate f6-submit-start-prompt --strict` passes
 
 ## Smoke test (user, in herdr)
 

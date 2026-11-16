@@ -272,7 +272,7 @@ func LaunchUnfocused(change, kind, prompt, pane string, run herdr.Runner) error 
 
 // submitted makes sure the claude agent of change in pane took prompt, whose Enter Claude Code may
 // lose while it settles. It checks every second for 5 s, then up to 3 times sends Enter and checks
-// for 2 s more. The prompt is taken when the agent works or its input box is empty, holds other text
+// every second for 2 s more. The prompt is taken when the agent works or its input box is empty, holds other text
 // (typed by the user) or cannot be read; it still sits there while the box starts with its first 20
 // characters.
 func submitted(run herdr.Runner, change, pane, prompt string) error {
@@ -289,13 +289,13 @@ func submitted(run herdr.Runner, change, pane, prompt string) error {
 		text, found := inputBox(string(out))
 		return !found || text == "" || !strings.HasPrefix(text, string(head))
 	}
-	poll := func(d time.Duration) bool {
-		for end := now().Add(d); !taken(); sleep(time.Second) {
-			if !now().Before(end) {
-				return false
+	poll := func(d time.Duration) bool { // checks after each second: Claude may not show the text at once
+		for end := now().Add(d); now().Before(end); {
+			if sleep(time.Second); taken() {
+				return true
 			}
 		}
-		return true
+		return false
 	}
 	if poll(5 * time.Second) {
 		return nil
