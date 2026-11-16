@@ -5,8 +5,8 @@
 
 ## 2. Docs
 
-- [ ] 2.1 README troubleshooting: a stuck first prompt gets Enter, else `start failed` with `the prompt was typed but not submitted`
-- [ ] 2.2 CHANGELOG `## Unreleased`: Start submits a stuck first prompt
+- [x] 2.1 README troubleshooting: a stuck first prompt gets Enter, else `start failed` with `the prompt was typed but not submitted`
+- [x] 2.2 CHANGELOG `## Unreleased`: Start submits a stuck first prompt
 
 ## 3. Verification
 

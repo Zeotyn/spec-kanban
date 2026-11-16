@@ -176,6 +176,8 @@ A Start, Verify, Archive, resume or wave that fails after the Board closed shows
 - `kanban failures` in a Project, or in any checkout of its repository, prints that Project's failures, oldest first.
 - `kanban failures --all` prints the failures of every Project, also outside any Project.
 
+A new `claude` agent sometimes leaves its first prompt typed but not submitted in its input box. After every launch with a prompt (Start, Verify or Archive in a new tab, a wave's coordinator and members) kanban checks for 5 seconds that the prompt went in, and while the box still holds it, sends Enter, up to 3 times. When that does not help, the launch fails with `the prompt was typed but not submitted in tab <change>`, shown as `spec-kanban: start failed` (or `run` or `wave`) and recorded in the log. Press Enter in the agent's tab to send it. Text you typed into the new tab yourself is never submitted.
+
 When the Board opens and its Project failed since the Board's last opening (or in the last 24 hours, the first time), the footer shows the newest failure once until the next key, for example `run failed s001-plugin-bundles-hooks 4m ago: shell did not reach its prompt…`. A config warning takes its place; the failure then shows at the next opening.
 
 ## Development
