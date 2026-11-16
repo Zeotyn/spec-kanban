@@ -1,6 +1,6 @@
 ## 1. Input box
 
-- [ ] 1.1 Add `inputBox(screen) (text, found)` in `internal/start` (design D1); capture real Claude Code screens with `herdr pane read <pane> --source visible` into `testdata` (empty box, one line, several lines, no box) and table-test them, including non-breaking spaces after `❯`
+- [x] 1.1 Add `inputBox(screen) (text, found)` in `internal/start` (design D1); capture real Claude Code screens with `herdr pane read <pane> --source visible` into `testdata` (empty box, one line, several lines, no box) and table-test them, including non-breaking spaces after `❯`
 
 ## 2. Waiting
 

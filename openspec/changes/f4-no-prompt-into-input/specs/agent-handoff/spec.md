@@ -2,7 +2,7 @@
 
 ### Requirement: A prompt to the Main agent waits for an empty input line
 Before kanban submits a prompt to a Main agent (Handoff, Stall, Escalation, and the wave prompts of the waves spec), it SHALL check whether the user has typed into that agent's input line:
-- For a `claude` agent it SHALL read the pane's visible screen and find the input box: the lines between the last two lines made only of `─`, the first of them starting with `❯`. The box SHALL count as empty when, after `❯`, it holds only spaces.
+- For a `claude` agent it SHALL read the pane's visible screen and find the input box: the lines between the last two lines made only of `─`, the first of them starting with `❯`. The box SHALL count as empty when, after `❯`, it holds only spaces or the dimmed placeholder Claude Code shows in an empty box.
 - When the box is empty, kanban SHALL submit the prompt at once, whether the pane is focused or not.
 - When the box holds text, kanban SHALL check again every 2 seconds and submit the prompt once the box is empty.
 - When the box cannot be found, the screen cannot be read, or the agent is of another kind, kanban SHALL instead wait while herdr reports the pane as focused, with the same 2-second checks, and submit once it is not focused.

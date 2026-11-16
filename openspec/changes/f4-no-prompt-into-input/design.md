@@ -24,13 +24,15 @@ See proposal.md for why.
 ## Decisions
 
 ### D1: A pure parser finds Claude's input box
-`inputBox(screen string) (text string, found bool)` scans the lines from the bottom:
+`inputBox(screen string) (text string, found bool)` reads the screen from `herdr pane read <pane> --source visible --format ansi` and scans the lines from the bottom:
 - it finds the last two lines made only of `─` (after trimming spaces);
 - it takes the lines between them;
 - it requires the first one to start with `❯`;
-- it returns the text after `❯` joined with the following lines, trimmed of spaces and non-breaking spaces.
+- it returns the text after `❯` joined with the following lines, trimmed of spaces and non-breaking spaces, and without dim text.
 
-Without such a box it returns `found == false`. It is table-tested with screens captured from Claude Code: empty, one line, several lines, a box scrolled off, and no box.
+A fresh Claude Code session shows a dimmed placeholder such as `Try "edit <filepath> to..."` in its empty box. Plain text cannot tell it from typed input, so the parser reads the ANSI screen and drops text drawn dim (SGR 2).
+
+Without such a box it returns `found == false`. It is table-tested with screens captured from Claude Code 2.1.325: empty, the placeholder, one line, several lines, and no box.
 Alternative: ask herdr for the input line. That lost because herdr has no such query.
 
 ### D2: `Tell` waits through an injected clock
