@@ -147,11 +147,16 @@ func list(names []string) string {
 	return strings.Join(names, ", ")
 }
 
-// tell submits text to the Main agent in pane main, else shows it as a herdr notification titled
-// title, and tells stdout which, followed by after.
+// tell submits text to the Main agent in pane main, queues it while the agent's input line is in
+// use, else shows it as a herdr notification titled title, and tells stdout which, followed by after.
 func tell(run herdr.Runner, main, text, title, after string, stdout io.Writer) {
-	if start.Tell(run, main, os.Getenv("HERDR_PANE_ID"), text) {
+	taken, queued := tellOrQueue(run, main, title, text)
+	if taken {
 		fmt.Fprintln(stdout, "Sent to the Main agent."+after)
+		return
+	}
+	if queued {
+		fmt.Fprintln(stdout, queuedNote)
 		return
 	}
 	run("notification", "show", title, "--body", text)

@@ -35,6 +35,7 @@ const stallAfter = 10 * time.Minute
 type agent struct {
 	Agent   string         `json:"agent"`
 	Status  string         `json:"agent_status"`
+	Focused bool           `json:"focused"`
 	Pane    string         `json:"pane_id"`
 	Seq     int            `json:"state_change_seq"`
 	Session *herdr.Session `json:"agent_session"`

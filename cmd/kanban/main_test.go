@@ -558,6 +558,39 @@ func TestBoardPrompt(t *testing.T) {
 	}
 }
 
+const queued = "Queued for the Main agent. End your turn.\n"
+
+// stubSpawn replaces spawn for the test and returns where it records the args of the last call.
+func stubSpawn(t *testing.T) *[]string {
+	var spawned []string
+	old := spawn
+	spawn = func(args ...string) error { spawned = args; return nil }
+	t.Cleanup(func() { spawn = old })
+	return &spawned
+}
+
+func TestTellLater(t *testing.T) {
+	const text = "Wave 1 is finished."
+	tests := []struct {
+		name, title string
+		main        bool
+		want        []string
+	}{
+		{"Main agent takes it", "spec-kanban: wave 1 finished", true, []string{"agent get w1:p9", readScreen, "agent prompt w1:p9 " + text}},
+		{"not taken: notification", "spec-kanban: wave 1 finished", false, []string{"agent get w1:p9", "notification show spec-kanban: wave 1 finished --body " + text}},
+		{"not taken without a title: nothing", "", false, []string{"agent get w1:p9"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls []string
+			tellLater("w1:p9", tt.title, text, recorder(&calls, tt.main))
+			if !reflect.DeepEqual(calls, tt.want) {
+				t.Errorf("herdr calls\n got %q\nwant %q", calls, tt.want)
+			}
+		})
+	}
+}
+
 func TestEscalate(t *testing.T) {
 	raw := t.TempDir() // git names it as created; on macOS /var is a symlink to /private/var
 	root, err := filepath.EvalSymlinks(raw)
@@ -599,10 +632,11 @@ func TestEscalate(t *testing.T) {
 		project                 string // where Start recorded the Main pane; proj when ""
 	}{
 		{"Worker cannot publish", filepath.Join(wt, "openspec"), pane, change,
-			[]string{"agent get " + pane, "agent prompt " + pane + " " + inWT}, "Sent to the Main agent. End your turn.\n", ""},
+			[]string{"agent get " + pane, readScreen, "agent prompt " + pane + " " + inWT}, "Sent to the Main agent. End your turn.\n", ""},
 		{"Without a worktree", proj, pane, change,
-			[]string{"agent get " + pane, "agent prompt " + pane + " " + inProj}, "Sent to the Main agent. End your turn.\n", ""},
+			[]string{"agent get " + pane, readScreen, "agent prompt " + pane + " " + inProj}, "Sent to the Main agent. End your turn.\n", ""},
 		{"No Main agent", proj, "", change, nil, onlyMarker, ""},
+		{"User typing: queued", proj, pane, change, []string{"agent get " + pane, readScreen}, queued, ""},
 		{"No Main agent in a worktree", wt, "", change, nil, onlyMarker, ""},
 		{"Board opened in the linked worktree", wt, "", change, nil, onlyMarker, wt},
 	}
@@ -616,9 +650,17 @@ func TestEscalate(t *testing.T) {
 			if err := cache.WriteMain(dir, tt.project, change, tt.main); err != nil { // "" from a shell pane
 				t.Fatal(err)
 			}
+			spawned := stubSpawn(t)
+			screen := emptyBox
+			if tt.out == queued {
+				screen = typedBox
+			}
 			var calls []string
 			run := func(args ...string) ([]byte, error) {
 				calls = append(calls, strings.Join(args, " "))
+				if args[0] == "pane" && args[1] == "read" {
+					return []byte(screen), nil
+				}
 				if args[0] == "agent" && args[1] == "get" {
 					if cache.ReadMarks(dir, tt.project)[change] != "escalation" {
 						t.Error("the marker must be set before the Main agent is told: its next settle must lead to no Stall")
@@ -639,6 +681,13 @@ func TestEscalate(t *testing.T) {
 			}
 			if got := cache.ReadMarks(dir, tt.project)[change]; got != "escalation" {
 				t.Errorf("marker %q, want escalation for the Project", got)
+			}
+			var want []string // the marker already stands for a prompt never taken
+			if tt.out == queued {
+				want = []string{"tell", pane, "", inProj}
+			}
+			if !reflect.DeepEqual(*spawned, want) {
+				t.Errorf("spawned\n got %q\nwant %q", *spawned, want)
 			}
 		})
 	}

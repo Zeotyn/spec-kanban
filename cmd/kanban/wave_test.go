@@ -42,9 +42,27 @@ func waveFixture(t *testing.T, open ...string) (cache.Wave, func(string) work.So
 }
 
 // recorder returns a herdr runner that records its calls and an idle Main agent for agent get.
+// The Main agent's input box, as herdr pane read --format ansi shows it, empty and with typed text.
+const (
+	emptyBox = "────────\n❯\u00a0\n────────\n"
+	typedBox = "────────\n❯\u00a0/opsx:propose wenn\n────────\n"
+)
+
+// readScreen is the herdr call that reads the Main pane's screen.
+const readScreen = "pane read w1:p9 --source visible --format ansi"
+
+// recorder records herdr calls and answers them: a Main agent when main, its input box empty.
 func recorder(calls *[]string, main bool) herdr.Runner {
+	return typing(calls, main, emptyBox)
+}
+
+// typing is recorder with the Main agent's input box showing screen.
+func typing(calls *[]string, main bool, screen string) herdr.Runner {
 	return func(args ...string) ([]byte, error) {
 		*calls = append(*calls, strings.Join(args, " "))
+		if args[0] == "pane" && args[1] == "read" {
+			return []byte(screen), nil
+		}
 		if args[0] == "agent" && args[1] == "get" {
 			if !main {
 				return nil, errors.New("agent_not_found")
@@ -128,10 +146,27 @@ func TestWaveEscalate(t *testing.T) {
 		if err := wave(args, w.Path, &out, recorder(&calls, true), sourceFor, noGitFor); err != nil {
 			t.Fatal(err)
 		}
-		if want := []string{"agent get w1:p9", "agent prompt w1:p9 " + text}; !reflect.DeepEqual(calls, want) {
+		if want := []string{"agent get w1:p9", readScreen, "agent prompt w1:p9 " + text}; !reflect.DeepEqual(calls, want) {
 			t.Errorf("herdr calls\n got %q\nwant %q", calls, want)
 		}
 		if out.String() != "Sent to the Main agent. End your turn.\n" {
+			t.Errorf("printed %q", out.String())
+		}
+	})
+	t.Run("user typing: queued", func(t *testing.T) {
+		spawned := stubSpawn(t)
+		var calls []string
+		var out strings.Builder
+		if err := wave(args, w.Path, &out, typing(&calls, true, typedBox), sourceFor, noGitFor); err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{"agent get w1:p9", readScreen}; !reflect.DeepEqual(calls, want) {
+			t.Errorf("herdr calls\n got %q\nwant %q", calls, want)
+		}
+		if want := []string{"tell", "w1:p9", "spec-kanban: wave 1 needs you", text}; !reflect.DeepEqual(*spawned, want) {
+			t.Errorf("spawned\n got %q\nwant %q", *spawned, want)
+		}
+		if out.String() != queued {
 			t.Errorf("printed %q", out.String())
 		}
 	})
@@ -179,7 +214,7 @@ func TestWaveFinish(t *testing.T) {
 			text := "Wave 1 is finished: archived on wave-1: f5-bar; dropped: c4-foo. 1. Review branch wave-1 in its worktree " + w.Path +
 				". 2. Merge it into main. 3. Remove the worktree with git worktree remove " + w.Path + ", never with --force, and keep the branch." +
 				" 4. If the merge or the removal does not go through cleanly, stop and tell the user."
-			want, printed := []string{"agent get w1:p9", "agent prompt w1:p9 " + text}, "Sent to the Main agent.\n"
+			want, printed := []string{"agent get w1:p9", readScreen, "agent prompt w1:p9 " + text}, "Sent to the Main agent.\n"
 			if !main {
 				want, printed = []string{"agent get w1:p9", "notification show spec-kanban: wave 1 finished --body " + text}, "No Main agent took it; herdr shows a notification.\n"
 			}
@@ -190,6 +225,29 @@ func TestWaveFinish(t *testing.T) {
 				t.Error("the wave must be finished")
 			}
 		})
+	}
+}
+
+func TestWaveFinishQueued(t *testing.T) {
+	w, sourceFor := waveFixture(t, "c4-foo")
+	mkdirs(t, w.Path, "openspec/changes/archive/2026-11-13-f5-bar")
+	if err := wave([]string{"drop", "1", "c4-foo"}, w.Path, &strings.Builder{}, recorder(new([]string), true), sourceFor, noGitFor); err != nil {
+		t.Fatal(err)
+	}
+	spawned := stubSpawn(t)
+	var calls []string
+	var out strings.Builder
+	if err := wave([]string{"finish", "1"}, w.Path, &out, typing(&calls, true, typedBox), sourceFor, noGitFor); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"agent get w1:p9", readScreen}; !reflect.DeepEqual(calls, want) || out.String() != queued {
+		t.Errorf("herdr calls\n got %q\nwant %q\nprinted %q", calls, want, out.String())
+	}
+	if len(*spawned) != 4 || (*spawned)[0] != "tell" || (*spawned)[1] != "w1:p9" || (*spawned)[2] != "spec-kanban: wave 1 finished" || !strings.HasPrefix((*spawned)[3], "Wave 1 is finished:") {
+		t.Errorf("spawned %q", *spawned)
+	}
+	if got, _ := cache.FindWave(cache.UserDir(), 1, w.Path); !got.Finished {
+		t.Error("the wave must be finished")
 	}
 }
 

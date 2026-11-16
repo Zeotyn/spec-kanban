@@ -84,7 +84,7 @@ var (
 	all7      = []work.Item{{Name: "other"}, {Name: change, Done: 7, Total: 7}}
 	resumeTip = " To look into its session press s on its Card in the Board, or run in " + proj + ": claude --resume " + claudeID
 	plainText = change + " is finished (7/7 tasks). Please review it and archive it with /opsx:archive " + change + "." + resumeTip
-	cleanEnd  = []string{wclose, mget, "agent prompt " + mainPane + " " + plainText}
+	cleanEnd  = []string{wclose, mget, mread, "agent prompt " + mainPane + " " + plainText}
 )
 
 func watched(load func() ([]work.Item, error), rec *[]herdr.Session) Watched {
@@ -111,13 +111,13 @@ func TestWatch(t *testing.T) {
 		load    func() ([]work.Item, error)
 		want    []string
 	}{
-		{"clean idle settle: handoff", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
+		{"clean idle settle: handoff", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}},
 			loads(all7), append([]string{wget, wready, wsettle, wget}, cleanEnd...)},
-		{"done counts as clean", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-done.json"}, mget: {"agent-get-main.json"}},
+		{"done counts as clean", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-done.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}},
 			loads(all7), append([]string{wget, wready, wsettle, wget}, cleanEnd...)},
-		{"wait for working fails: still evaluated", map[string][]any{wget: {"agent-get-watched.json"}, wready: {notFound}, mget: {"agent-get-main.json"}},
+		{"wait for working fails: still evaluated", map[string][]any{wget: {"agent-get-watched.json"}, wready: {notFound}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}},
 			loads(all7), append([]string{wget, wready, wsettle, wget}, cleanEnd...)},
-		{"tasks left: no notification, handoff at the next settle", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
+		{"tasks left: no notification, handoff at the next settle", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}},
 			loads([]work.Item{{Name: change, Done: 3, Total: 7}}, all7),
 			append([]string{wget, wready, wsettle, wget, wget, wstall, wsettle, wget}, cleanEnd...)},
 		{"blocked with all tasks done: no notification, no Stall", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
@@ -130,18 +130,18 @@ func TestWatch(t *testing.T) {
 			loads([]work.Item{{Name: change}}), []string{wget, wready, wsettle, wget, wget, wstall, wget}},
 		{"blocked with a load error: no notification", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json"}, wready: {}, wworking: {notFound}},
 			loads(boom), []string{wget, wready, wsettle, wget, wget, wworking}},
-		{"turn ended while evaluating: evaluated again at once", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json", "agent-get-watched-later.json"}, mget: {"agent-get-main.json"}},
+		{"turn ended while evaluating: evaluated again at once", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-blocked.json", "agent-get-watched-later.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}},
 			loads(all7), append([]string{wget, wready, wsettle, wget, wget, wsettle, wget}, cleanEnd...)},
-		{"working again when read: no handoff, no notification", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-working.json", "agent-get-watched.json"}, mget: {"agent-get-main.json"}},
+		{"working again when read: no handoff, no notification", map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched-working.json", "agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}},
 			loads(all7), append([]string{wget, wready, wsettle, wget, wsettle, wget}, cleanEnd...)},
 		{"agent gone while settling", map[string][]any{wget: {"agent-get-watched.json"}, wsettle: {notFound}},
 			loads(all7), []string{wget, wready, wsettle}},
 		{"agent gone after settling", map[string][]any{wget: {"agent-get-watched.json", notFound}},
 			loads(all7), []string{wget, wready, wsettle, wget}},
 		{"agent gone at once", map[string][]any{wget: {notFound}}, loads(all7), []string{wget}},
-		{"archived in the Project", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}},
+		{"archived in the Project", map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}},
 			loads([]work.Item{{Name: change, Phase: work.Archived, ArchivedOn: "2026-10-30"}}),
-			[]string{wget, wready, wsettle, wget, wclose, mget, "agent prompt " + mainPane + " " + change + " is finished and archived. Please review it." + resumeTip}},
+			[]string{wget, wready, wsettle, wget, wclose, mget, mread, "agent prompt " + mainPane + " " + change + " is finished and archived. Please review it." + resumeTip}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -161,7 +161,7 @@ func TestWatch(t *testing.T) {
 }
 
 func TestWatchRecordsWhenReadyAndAtEverySettle(t *testing.T) {
-	h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
+	h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}}
 	var rec []herdr.Session
 	Watch(watched(loads([]work.Item{{Name: change, Done: 3, Total: 7}}, all7), &rec), h.run, noGit)
 	if len(rec) != 4 {
@@ -198,13 +198,13 @@ func TestWatchCheckout(t *testing.T) {
 				}
 				defer os.RemoveAll(filepath.Join(dir, "openspec"))
 			}
-			h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
+			h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}}
 			git := gitWith(nil, proj, "main", dir, change)
 			var rec []herdr.Session
 			w := watched(loads(tt.load), &rec)
 			w.Base = tt.base
 			Watch(w, h.run, git.run)
-			want := []string{wget, wready, wsettle, wget, wclose, mget, "agent prompt " + mainPane + " " + tt.want}
+			want := []string{wget, wready, wsettle, wget, wclose, mget, mread, "agent prompt " + mainPane + " " + tt.want}
 			if !reflect.DeepEqual(h.calls, want) {
 				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 			}
@@ -220,7 +220,7 @@ func TestWatchCheckout(t *testing.T) {
 }
 
 func TestWatchWorktreeOffIgnoresCheckout(t *testing.T) {
-	h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
+	h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}}
 	var rec []herdr.Session
 	w := watched(loads(all7), &rec)
 	w.On = false
@@ -241,18 +241,21 @@ func TestWatchMainAgent(t *testing.T) {
 		want    []string // calls after closing the pane
 		marks   []string // nil: the Main agent took it, which clears the marker
 	}{
-		{"Handoff clears an older marker", mainPane, map[string][]any{mget: {"agent-get-main.json"}}, []string{mget, "agent prompt " + mainPane + " " + text}, nil},
-		{"Main agent of another kind", mainPane, map[string][]any{mget: {"agent-get-main-codex.json"}}, []string{mget, "agent prompt " + mainPane + " " + text}, nil},
+		{"Handoff clears an older marker", mainPane, map[string][]any{mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}, []string{mget, mread, "agent prompt " + mainPane + " " + text}, nil},
+		{"user typing: Handoff once the box is empty", mainPane, map[string][]any{mget: {"agent-get-main-focused.json"}, mread: {"pane-read-claude-one-line.txt", "pane-read-claude-one-line.txt", "pane-read-claude-empty.txt"}},
+			[]string{mget, mread, mread, mread, "agent prompt " + mainPane + " " + text}, nil},
+		{"Main agent of another kind", mainPane, map[string][]any{mget: {"agent-get-main-codex.json"}}, []string{mget, mget, "agent prompt " + mainPane + " " + text}, nil},
 		{"Handoff without a Main agent", "", nil, nil, handoff},
 		{"Main pane is the agent's pane", "w5:p1", nil, nil, handoff},
 		{"agent get fails", mainPane, map[string][]any{mget: {boom}}, []string{mget}, handoff},
 		{"Board opened from a shell pane", mainPane, map[string][]any{mget: {notFound}}, []string{mget}, handoff},
 		{"Main agent blocked", mainPane, map[string][]any{mget: {"agent-get-main-blocked.json"}}, []string{mget}, handoff},
-		{"prompt rejected", mainPane, map[string][]any{mget: {"agent-get-main.json"}, "agent prompt": {errors.New("agent_blocked")}},
-			[]string{mget, "agent prompt " + mainPane + " " + text}, handoff},
+		{"prompt rejected", mainPane, map[string][]any{mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}, "agent prompt": {errors.New("agent_blocked")}},
+			[]string{mget, mread, "agent prompt " + mainPane + " " + text}, handoff},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fakeTime(t)
 			answers := map[string][]any{wget: {"agent-get-watched.json"}}
 			for k, v := range tt.answers {
 				answers[k] = v
@@ -289,7 +292,7 @@ func TestWatchKinds(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &script{t: t, answers: map[string][]any{wget: {tt.fixture}, mget: {"agent-get-main.json"}}}
+			h := &script{t: t, answers: map[string][]any{wget: {tt.fixture}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}}
 			var rec []herdr.Session
 			Watch(watched(loads([]work.Item{{Name: change, Done: 7, Total: 7, Dir: dir}}), &rec), h.run, gitWith(nil, proj, "main", dir, change).run)
 			last := h.calls[len(h.calls)-1]
@@ -388,7 +391,7 @@ func TestWatchWithoutFinishingStep(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
+			h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}}
 			var rec []herdr.Session
 			w := watched(loads(all9), &rec)
 			w.On, w.Source = tt.on, noStep{src}
@@ -418,7 +421,7 @@ func TestWatchSpecKit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}}
+			h := &script{t: t, answers: map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}}
 			var rec []herdr.Session
 			w := watched(loads(all9), &rec)
 			w.On, w.Source = tt.on, speckit.New(nil, "")
@@ -465,17 +468,17 @@ func TestWatchStall(t *testing.T) {
 		marks     []string
 	}{
 		{"Worker stops silently", mainPane, false, map[string][]any{wready: {}, wstall: {notFound}, wworking: {notFound}},
-			left, []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, stall, wworking}, 0, []string{"stall"}},
+			left, []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, mread, stall, wworking}, 0, []string{"stall"}},
 		{"Worker goes on by itself", mainPane, false, map[string][]any{wready: {}, wstall: {}, wsettle: again},
 			left, []string{wget, wready, wsettle, wget, wget, wstall, wsettle}, 0, nil},
 		{"User answers in time", mainPane, false, map[string][]any{wready: {}, wstall: {}, wsettle: again},
 			left, []string{wget, wready, wsettle, wget, wget, wstall, wsettle}, 0, nil},
 		{"Second silent stop", mainPane, false, map[string][]any{wready: {}, wstall: {notFound}, wworking: again},
-			left, []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, stall, wworking, wsettle, wget, wget, wstall, wget, mget, stall, wworking}, 1, []string{"stall", "stall"}},
+			left, []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, mread, stall, wworking, wsettle, wget, wget, wstall, wget, mget, mread, stall, wworking}, 1, []string{"stall", "stall"}},
 		{"agent gone after the timed wait", mainPane, false, map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched.json", "agent-get-watched.json", notFound}, wstall: {notFound}},
 			left, []string{wget, wready, wsettle, wget, wget, wstall, wget}, 0, nil},
 		{"Progress unknown", mainPane, false, map[string][]any{wready: {}, wstall: {notFound}, wworking: {notFound}},
-			loads(errors.New("boom")), []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, "agent prompt " + mainPane + " " + stallText(""), wworking}, 0, []string{"stall"}},
+			loads(errors.New("boom")), []string{wget, wready, wsettle, wget, wget, wstall, wget, mget, mread, "agent prompt " + mainPane + " " + stallText(""), wworking}, 0, []string{"stall"}},
 		{"Stall without a Main agent", "", false, map[string][]any{wready: {}, wstall: {notFound}, wworking: {notFound}},
 			left, []string{wget, wready, wsettle, wget, wget, wstall, wget, wworking}, 0, []string{"stall"}},
 		{"timed wait fails while it moved on: no Stall", mainPane, false, map[string][]any{wget: {"agent-get-watched.json", "agent-get-watched.json", "agent-get-watched.json", "agent-get-watched-later.json", notFound},
@@ -488,7 +491,7 @@ func TestWatchStall(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			answers := map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}
+			answers := map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}
 			for k, v := range tt.answers {
 				answers[k] = v
 			}
@@ -523,7 +526,7 @@ func TestWatchResumed(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			answers := map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}}
+			answers := map[string][]any{wget: {"agent-get-watched.json"}, mget: {"agent-get-main.json"}, mread: {"pane-read-claude-empty.txt"}}
 			for k, v := range tt.answers {
 				answers[k] = v
 			}

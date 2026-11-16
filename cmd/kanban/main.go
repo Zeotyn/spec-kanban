@@ -65,6 +65,9 @@ Usage:
                     (internal, spawned by the Board)
   kanban escalate <change> <reason>
                     Ask the Main agent for a human's help with <change> (run by the Change's agent)
+  kanban tell <pane> <title> <text>
+                    Submit text to the Main agent in pane once its input line is empty, else show title
+                    as a notification unless it is empty (internal, spawned by escalate and wave)
   kanban failures [--all]
                     Print the recorded failures of the current directory's project, or of every
                     project with --all, oldest first
@@ -131,6 +134,12 @@ func main() {
 		if cwd, err = os.Getwd(); err == nil {
 			err = escalate(os.Args[2], os.Args[3:], cwd, os.Stdout, herdr.Exec, detect, sourceFor, gitCLI)
 		}
+	case "tell":
+		if len(os.Args) != 5 {
+			fmt.Fprintf(os.Stderr, "kanban: tell needs a pane, a title and a text\n\n%s", usage)
+			os.Exit(2)
+		}
+		tellLater(os.Args[2], os.Args[3], os.Args[4], herdr.Exec)
 	case "failures":
 		if len(os.Args) > 3 || len(os.Args) == 3 && os.Args[2] != "--all" {
 			fmt.Fprintf(os.Stderr, "kanban: failures takes no argument but --all\n\n%s", usage)
@@ -464,13 +473,34 @@ func escalate(change string, reason []string, cwd string, stdout io.Writer, run 
 		` 3. Then tell its agent to continue: herdr agent prompt %s "<what changed>". Do not close its tab; when all tasks are done, the normal Handoff follows.`,
 		change, progress, strings.Join(reason, " "), agent, change, where, filepath.Join(checkout, src.Rel(change), "tasks.md"), agent)
 	_ = cache.WriteMark(user, proj, change, "escalation") // a lost marker only lets a Stall follow
-	if start.Tell(run, mainPane, os.Getenv("HERDR_PANE_ID"), text) {
+	switch taken, queued := tellOrQueue(run, mainPane, "", text); {
+	case taken:
 		fmt.Fprintln(stdout, "Sent to the Main agent. End your turn.")
-	} else {
+	case queued:
+		fmt.Fprintln(stdout, queuedNote)
+	default:
 		fmt.Fprintln(stdout, "No Main agent took it; the Board and the sidebar show ⚑. End your turn.")
 	}
 	_ = refresh(dir, run, detect, sourceFor, git) // the sidebar shows the marker without waiting for a herdr event
 	return nil
+}
+
+// queuedNote is what a subcommand prints when it handed its prompt to a detached kanban tell.
+const queuedNote = "Queued for the Main agent. End your turn."
+
+// tellOrQueue submits text to the Main agent in pane main at once, or, while its input line is in
+// use, hands it to a detached kanban tell, whose notification title is title.
+func tellOrQueue(run herdr.Runner, main, title, text string) (taken, queued bool) {
+	taken, waiting := start.TellNow(run, main, os.Getenv("HERDR_PANE_ID"), text)
+	return taken, waiting && spawn("tell", main, title, text) == nil
+}
+
+// tellLater submits text to the Main agent in pane main once its input line is empty, else shows
+// title as a herdr notification with text unless title is "".
+func tellLater(main, title, text string, run herdr.Runner) {
+	if !start.Tell(run, main, "", text) && title != "" {
+		run("notification", "show", title, "--body", text)
+	}
 }
 
 // checkouts returns checkout, then the other checkouts of its git repository, with their symlinks
