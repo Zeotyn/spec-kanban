@@ -107,8 +107,8 @@ func Watch(w Watched, run, git herdr.Runner) {
 			} else if b.Seq != a.Seq {
 				continue // the wait failed for another reason while it moved on
 			}
+			w.Mark("stall") // shown while Tell waits for the Main agent's input line
 			Tell(run, w.Main, a.Pane, w.stall(progress))
-			w.Mark("stall")
 			stalled = true
 		}
 		if _, err := run("agent", "wait", name, "--until", "working"); err != nil {

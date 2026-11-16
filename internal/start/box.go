@@ -29,9 +29,6 @@ func inputBox(screen string) (text string, found bool) {
 		return "", false
 	}
 	box[0] = first
-	for i := range box {
-		box[i] = strings.TrimSpace(box[i])
-	}
 	return strings.TrimSpace(strings.Join(box, "\n")), true
 }
 
