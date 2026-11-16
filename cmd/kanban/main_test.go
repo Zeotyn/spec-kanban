@@ -161,8 +161,8 @@ func TestSyncLoadWritesBoardCache(t *testing.T) {
 	}
 }
 
-// noPane keeps the pane calls of Launch and Resume, the probe of the prompt and the read for an
-// error, from run: internal/start tests them.
+// noPane keeps the pane calls of Launch and Resume, the probe of the prompt, the read for an error
+// and the read of the input box, from run: internal/start tests them.
 func noPane(run herdr.Runner) herdr.Runner {
 	return func(args ...string) ([]byte, error) {
 		if args[0] == "pane" {
@@ -231,8 +231,8 @@ func TestLaunchWatches(t *testing.T) {
 	if err := launch("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:apply m1-board-view", noPane(run)); err != nil {
 		t.Fatal(err)
 	}
-	if want := "agent get m1-board-view"; len(calls) != 4 || calls[3] != want {
-		t.Errorf("want Launch's three calls, then %q; got %q", want, calls)
+	if want := "agent get m1-board-view"; len(calls) != 5 || calls[3] != want || calls[4] != want {
+		t.Errorf("want Launch's three calls and its check that the prompt went in, then %q; got %q", want, calls)
 	}
 	if got, _ := cache.ReadMain(dir, proj, "m1-board-view"); got != "w1:p9" {
 		t.Errorf("Main pane record %q, want w1:p9", got)
@@ -249,7 +249,7 @@ func TestRunCommand(t *testing.T) {
 	if err := runCommand("m1-board-view", "w2:p1J", "w2:tG", "claude", "/opsx:verify m1-board-view", noPane(run)); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"tab focus w2:tG", "agent start m1-board-view --kind claude --pane w2:p1J --timeout 60000", "agent prompt m1-board-view /opsx:verify m1-board-view"}
+	want := []string{"tab focus w2:tG", "agent start m1-board-view --kind claude --pane w2:p1J --timeout 60000", "agent prompt m1-board-view /opsx:verify m1-board-view", "agent get m1-board-view"}
 	if !reflect.DeepEqual(calls, want) {
 		t.Errorf("want Launch only, no watcher\n got %q\nwant %q", calls, want)
 	}
@@ -511,8 +511,8 @@ func TestStartChangeKeepsPromptOverInstructions(t *testing.T) {
 	if got := stderr.String(); !strings.Contains(got, "instructions is ignored because prompt is set") {
 		t.Errorf("stderr %q lacks the warning", got)
 	}
-	if last := calls[len(calls)-1]; last != "agent prompt f-001-a go 001-a" {
-		t.Errorf("last herdr call %q, want the configured prompt without the escalation sentence", last)
+	if !slices.Contains(calls, "agent prompt f-001-a go 001-a") {
+		t.Errorf("herdr calls %q lack the configured prompt without the escalation sentence", calls)
 	}
 }
 

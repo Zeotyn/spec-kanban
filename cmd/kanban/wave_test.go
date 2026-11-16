@@ -341,7 +341,7 @@ func TestWaveMember(t *testing.T) {
 	if err := waveMember(w.Project, 1, "c4-foo", "w4:p1", "claude", "/opsx:apply c4-foo", noPane(run)); err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"agent start c4-foo --kind claude --pane w4:p1 --timeout 60000", "agent prompt c4-foo /opsx:apply c4-foo", "agent get c4-foo"}; !reflect.DeepEqual(calls, want) {
+	if want := []string{"agent start c4-foo --kind claude --pane w4:p1 --timeout 60000", "agent prompt c4-foo /opsx:apply c4-foo", "agent get c4-foo", "agent get c4-foo"}; !reflect.DeepEqual(calls, want) {
 		t.Errorf("want no focus, then the watcher\n got %q\nwant %q", calls, want)
 	}
 	if got, _ := cache.ReadMain(cache.UserDir(), w.Project, "c4-foo"); got != w.Coordinator {

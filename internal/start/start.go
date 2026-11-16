@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/zeotyn/spec-kanban/internal/config"
 	"github.com/zeotyn/spec-kanban/internal/herdr"
@@ -263,7 +264,49 @@ func LaunchUnfocused(change, kind, prompt, pane string, run herdr.Runner) error 
 	if _, err := run("agent", "prompt", herdr.AgentName(change), prompt); err != nil {
 		return fmt.Errorf("%s runs in tab %q but the prompt was not sent: %w", kind, change, err)
 	}
+	if kind == "claude" {
+		return submitted(run, change, pane, prompt)
+	}
 	return nil
+}
+
+// submitted makes sure the claude agent of change in pane took prompt, whose Enter Claude Code may
+// lose while it settles. It checks every second for 5 s, then up to 3 times sends Enter and checks
+// for 2 s more. The prompt is taken when the agent works or its input box is empty, holds other text
+// (typed by the user) or cannot be read; it still sits there while the box starts with its first 20
+// characters.
+func submitted(run herdr.Runner, change, pane, prompt string) error {
+	head := []rune(strings.TrimSpace(prompt))
+	head = head[:min(20, len(head))]
+	taken := func() bool {
+		if a, err := getAgent(run, herdr.AgentName(change)); err == nil && a.Status == "working" {
+			return true
+		}
+		out, err := run("pane", "read", pane, "--source", "visible", "--format", "ansi")
+		if err != nil {
+			return true
+		}
+		text, found := inputBox(string(out))
+		return !found || text == "" || !strings.HasPrefix(text, string(head))
+	}
+	poll := func(d time.Duration) bool {
+		for end := now().Add(d); !taken(); sleep(time.Second) {
+			if !now().Before(end) {
+				return false
+			}
+		}
+		return true
+	}
+	if poll(5 * time.Second) {
+		return nil
+	}
+	for range 3 {
+		run("pane", "send-keys", pane, "enter") // a lost Enter shows in the next check
+		if poll(2 * time.Second) {
+			return nil
+		}
+	}
+	return fmt.Errorf("the prompt was typed but not submitted in tab %s%s", change, tail(pane, run))
 }
 
 // Agent is a named herdr agent as agent list reports it.

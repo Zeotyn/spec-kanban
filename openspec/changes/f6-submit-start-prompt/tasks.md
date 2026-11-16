@@ -1,7 +1,7 @@
 ## 1. Check
 
-- [ ] 1.1 Add `submitted(run, name, pane, prompt)` in `internal/start` (design D1, D2): poll for up to 5 s for `working` or an empty box, treating no box, a read error or other text as taken; then up to 3 times `herdr pane send-keys <pane> enter` and 2 s of polling; return `the prompt was typed but not submitted in tab <change>` with the pane's last lines; table tests with a fake runner and the f4 screens (taken at once, empty box, Enter needed once, still stuck, other text, no box)
-- [ ] 1.2 Call it in `LaunchUnfocused` after `herdr agent prompt` for kind `claude` only; adjust the launch tests (Start, Verify/Archive in a new tab, wave coordinator and member) so their fake runners report `working`
+- [x] 1.1 Add `submitted(run, name, pane, prompt)` in `internal/start` (design D1, D2): poll for up to 5 s for `working` or an empty box, treating no box, a read error or other text as taken; then up to 3 times `herdr pane send-keys <pane> enter` and 2 s of polling; return `the prompt was typed but not submitted in tab <change>` with the pane's last lines; table tests with a fake runner and the f4 screens (taken at once, empty box, Enter needed once, still stuck, other text, no box)
+- [x] 1.2 Call it in `LaunchUnfocused` after `herdr agent prompt` for kind `claude` only; adjust the launch tests (Start, Verify/Archive in a new tab, wave coordinator and member) so their fake runners report `working`
 
 ## 2. Docs
 

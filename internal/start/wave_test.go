@@ -54,7 +54,7 @@ func TestWave(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := []string{create, `pane run w3:p1  echo kanban-rea""dy-n`, "pane wait-output w3:p1 --match kanban-ready-n --timeout 2000",
-			coord, "agent prompt wave-1 " + text, "tab focus w3:t1"}
+			coord, "agent prompt wave-1 " + text, "agent get wave-1", "pane read w3:p1 --source visible --format ansi", "tab focus w3:t1"}
 		if !reflect.DeepEqual(h.calls, want) {
 			t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 		}

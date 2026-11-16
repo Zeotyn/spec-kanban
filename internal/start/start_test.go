@@ -110,6 +110,8 @@ var (
 	probe = `pane run w2:p1J  echo kanban-rea""dy-n`
 	waits = "pane wait-output w2:p1J --match kanban-ready-n --timeout 2000"
 	read  = "pane read w2:p1J --source recent-unwrapped --lines 20"
+	// screen reads the input box to check that the prompt went in.
+	screen = "pane read w2:p1J --source visible --format ansi"
 	// shown is what tail keeps of pane-read.txt.
 	shown = `zsh: command not found: cho | ~/code/spec-kanban main | ❯  echo kanban-rea""dy-n | kanban-ready-n | ❯ claude | nope | ~/code/spec-kanban main | ❯`
 )
@@ -125,7 +127,7 @@ func TestStart(t *testing.T) {
 			name: "new tab",
 			out:  map[string]string{"tab create": "tab-create.json"},
 			fail: map[string]error{"agent get": notFound},
-			want: []string{get, create, tfocus, probe, waits, launch, prompt},
+			want: []string{get, create, tfocus, probe, waits, launch, prompt, get, screen},
 		},
 		{
 			name: "agent running: focus only",
@@ -135,7 +137,7 @@ func TestStart(t *testing.T) {
 		{
 			name: "agent exited: restart in its tab",
 			out:  map[string]string{"agent get": "agent-get.json", "pane process-info": "process-info-shell.json"},
-			want: []string{get, info, tfocus, probe, waits, launch, prompt},
+			want: []string{get, info, tfocus, probe, waits, launch, prompt, get, screen},
 		},
 	}
 	for _, tt := range tests {
@@ -231,13 +233,18 @@ func TestLaunchKindAndPrompt(t *testing.T) {
 }
 
 func TestLaunchPromptWithLeadingDash(t *testing.T) { // herdr reads the text positionally and rejects --
-	var last []string
-	run := func(args ...string) ([]byte, error) { last = args; return nil, nil }
+	var sent []string
+	run := func(args ...string) ([]byte, error) {
+		if args[1] == "prompt" {
+			sent = args
+		}
+		return nil, nil
+	}
 	if err := Launch(change, "claude", "-x "+change, "w2:p1J", "w2:tG", run); err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"agent", "prompt", change, "-x " + change}; !reflect.DeepEqual(last, want) {
-		t.Errorf("got %q, want %q", last, want)
+	if want := []string{"agent", "prompt", change, "-x " + change}; !reflect.DeepEqual(sent, want) {
+		t.Errorf("got %q, want %q", sent, want)
 	}
 }
 
@@ -249,7 +256,7 @@ func TestLaunch(t *testing.T) {
 		want  []string
 		wants string // substring of the error, "" for none
 	}{
-		{"focuses the tab, starts claude and sends the prompt", nil, []string{tfocus, probe, waits, launch, prompt}, ""},
+		{"focuses the tab, starts claude and sends the prompt", nil, []string{tfocus, probe, waits, launch, prompt, get, screen}, ""},
 		{"tab focus", map[string]error{"tab focus": boom}, []string{tfocus}, "tab focus: boom"},
 		{"claude not ready", map[string]error{"agent start": boom}, []string{tfocus, probe, waits, launch, read}, "claude did not become ready in tab \"m1-board-view\", the prompt was not sent: boom; pane shows: " + shown},
 		{"claude not ready, pane unreadable", map[string]error{"agent start": boom, "pane read": errors.New("gone")}, []string{tfocus, probe, waits, launch, read}, "the prompt was not sent: boom; pane could not be read: gone"},
@@ -689,7 +696,7 @@ func TestStartFeatureName(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"agent get f-" + feature, "tab create --cwd " + proj + " --label " + feature + " --no-focus", tfocus, probe, waits,
-		"agent start f-" + feature + " --kind claude --pane w2:p1J --timeout 60000", "agent prompt f-" + feature + " /speckit-implement"}
+		"agent start f-" + feature + " --kind claude --pane w2:p1J --timeout 60000", "agent prompt f-" + feature + " /speckit-implement", "agent get f-" + feature, screen}
 	if !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 	}
@@ -709,7 +716,7 @@ func TestStartLongName(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"agent get " + agent, "tab create --cwd " + proj + " --label " + long + " --no-focus", tfocus, probe, waits,
-		"agent start " + agent + " --kind claude --pane w2:p1J --timeout 60000", "agent prompt " + agent + " /opsx:apply " + long}
+		"agent start " + agent + " --kind claude --pane w2:p1J --timeout 60000", "agent prompt " + agent + " /opsx:apply " + long, "agent get " + agent, screen}
 	if !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 	}
@@ -803,7 +810,7 @@ func TestLaunchUnfocused(t *testing.T) {
 		t.Fatal(err)
 	}
 	run1, wait1 := `pane run w2:p1J  echo kanban-rea""dy-1`, "pane wait-output w2:p1J --match kanban-ready-1 --timeout 2000"
-	if want := []string{run1, wait1, launch, prompt}; !reflect.DeepEqual(h.calls, want) {
+	if want := []string{run1, wait1, launch, prompt, get, screen}; !reflect.DeepEqual(h.calls, want) {
 		t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 	}
 }
@@ -818,7 +825,7 @@ func TestLaunchWaitsForPrompt(t *testing.T) {
 		if err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run); err != nil {
 			t.Fatal(err)
 		}
-		if want := []string{tfocus, run1, wait1, launch, prompt}; !reflect.DeepEqual(h.calls, want) {
+		if want := []string{tfocus, run1, wait1, launch, prompt, get, screen}; !reflect.DeepEqual(h.calls, want) {
 			t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 		}
 	})
@@ -828,7 +835,7 @@ func TestLaunchWaitsForPrompt(t *testing.T) {
 		if err := Launch(change, "claude", "/opsx:apply "+change, "w2:p1J", "w2:tG", h.run); err != nil {
 			t.Fatal(err)
 		}
-		if want := []string{tfocus, run1, wait1, run2, wait2, launch, prompt}; !reflect.DeepEqual(h.calls, want) {
+		if want := []string{tfocus, run1, wait1, run2, wait2, launch, prompt, get, screen}; !reflect.DeepEqual(h.calls, want) {
 			t.Errorf("herdr calls\n got %q\nwant %q", h.calls, want)
 		}
 	})
@@ -865,5 +872,45 @@ func TestTail(t *testing.T) {
 	h = &fakeHerdr{t: t, fail: map[string]error{"pane read": errors.New("gone")}}
 	if got, want := tail("w2:p1J", h.run), "; pane could not be read: gone"; got != want {
 		t.Errorf("tail = %q, want %q", got, want)
+	}
+}
+
+func TestSubmitted(t *testing.T) {
+	const text = "/opsx:propose wenn noch eine zweite Zeile" // its first 20 characters start pane-read-claude-lines.txt's box
+	screen, enter := "pane read w2:p1J --source visible --format ansi", "pane send-keys w2:p1J enter"
+	check := []string{get, screen}
+	polls := func(n int) []string { return slices.Repeat(check, n) }
+	then := func(n int, a, b any) []any { return append(slices.Repeat([]any{a}, n), b) } // a n times, then b
+	stuck := slices.Concat(polls(6), []string{enter}, polls(3), []string{enter}, polls(3), []string{enter}, polls(3))
+	tests := []struct {
+		name    string
+		answers map[string][]any
+		want    []string
+		wantErr string
+	}{
+		{"taken at once", map[string][]any{get: {"agent-get-working.json"}}, []string{get}, ""},
+		{"empty box", map[string][]any{screen: {"pane-read-claude-empty.txt"}}, check, ""},
+		{"Enter needed once", map[string][]any{screen: then(6, "pane-read-claude-lines.txt", "pane-read-claude-placeholder.txt")},
+			slices.Concat(polls(6), []string{enter}, check), ""},
+		{"working after Enter", map[string][]any{get: then(6, "agent-get-watched.json", "agent-get-working.json"), screen: {"pane-read-claude-lines.txt"}},
+			slices.Concat(polls(6), []string{enter, get}), ""},
+		{"still stuck", map[string][]any{screen: {"pane-read-claude-lines.txt"}, read: {"pane-read.txt"}},
+			append(stuck, read), "the prompt was typed but not submitted in tab " + change + "; pane shows: " + shown},
+		{"other text", map[string][]any{screen: {"pane-read-claude-one-line.txt"}}, check, ""},
+		{"no box", map[string][]any{screen: {"pane-read-claude-dialog.txt"}}, check, ""},
+		{"read error", map[string][]any{screen: {notFound}}, check, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeTime(t)
+			h := &script{t: t, answers: tt.answers}
+			err := submitted(h.run, change, "w2:p1J", text)
+			if tt.wantErr == "" && err != nil || tt.wantErr != "" && (err == nil || err.Error() != tt.wantErr) {
+				t.Fatalf("err = %v, want %q", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(h.calls, tt.want) {
+				t.Errorf("herdr calls\n got %q\nwant %q", h.calls, tt.want)
+			}
+		})
 	}
 }
