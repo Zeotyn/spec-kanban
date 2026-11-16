@@ -62,3 +62,4 @@ The watcher already runs detached, so its Handoff and Stall call the waiting `Te
 - [The screen shows an old box above the real one] → The parser uses the last two rules on the screen, which is the live box.
 - [Text in the box that the user abandoned] → The prompt waits 10 minutes, then the marker or notification shows it. The user's text is never touched.
 - [Two prompts queue for the same pane] → Each waits on its own and goes out when the box is empty. herdr submits them one after the other, and Claude Code queues the second while it works on the first.
+- [A Stall prompt waits while its worker resumes] → The prompt can arrive after the worker already works again. The marker is set before the wait and clears when the worker works again, and the prompt itself tells the Main agent to do nothing when the worker continues by itself.

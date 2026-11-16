@@ -21,8 +21,8 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
-- [ ] 5.2 `openspec validate f4-no-prompt-into-input --strict` passes
+- [x] 5.1 `go test -race ./...`, `go vet ./...`, `gofmt -l .` pass
+- [x] 5.2 `openspec validate f4-no-prompt-into-input --strict` passes
 
 ## Smoke test (user, in herdr)
 
