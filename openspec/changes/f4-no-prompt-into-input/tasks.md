@@ -16,8 +16,8 @@
 
 ## 4. Docs
 
-- [ ] 4.1 README: prompts to the Main agent wait while you type, the 10-minute limit, and `Queued for the Main agent`
-- [ ] 4.2 CHANGELOG `## Unreleased`: no prompt into typed input
+- [x] 4.1 README: prompts to the Main agent wait while you type, the 10-minute limit, and `Queued for the Main agent`
+- [x] 4.2 CHANGELOG `## Unreleased`: no prompt into typed input
 
 ## 5. Verification
 
