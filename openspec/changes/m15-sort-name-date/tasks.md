@@ -13,8 +13,8 @@
 
 ## 3. Docs
 
-- [ ] 3.1 README: `o` in the key table, the creation date on the Card
-- [ ] 3.2 CHANGELOG `## Unreleased`: sort by name or date with `o`, creation date on open Cards
+- [x] 3.1 README: `o` in the key table, the creation date on the Card
+- [x] 3.2 CHANGELOG `## Unreleased`: sort by name or date with `o`, creation date on open Cards
 
 ## 4. Verification
 

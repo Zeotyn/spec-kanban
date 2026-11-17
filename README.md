@@ -43,6 +43,7 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `Enter` | open details | – |
 | `e` | edit `tasks.md` | edit the shown document |
 | `r` | reload | – |
+| `o` | sort the open columns by name, by creation date, then back to default | – |
 | `s` | start the Change in a new agent tab in its worktree; with 2 or more marks, start a [wave](#waves) | – |
 | `space` | mark a Ready Card for a wave | – |
 | `v` `a` | verify / archive a Review Change through an agent | – |
@@ -51,6 +52,8 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `q` `Esc` | close (`Esc` first clears a filter, then the marks) | back to the Board |
 
 `?` shows all keys and the version; any key closes the help.
+
+An open Card's last line shows its creation date before the age of its last change, as `11-17 · 3h` (`2025-11-17 · 4w` for another year), from `created` in the Change's `.openspec.yaml` or the `**Created**:` line of a Feature's `spec.md`. Without a date, or in a Card too narrow for it, only the age shows. `o` sorts Draft, Ready, In Progress and Review by name in natural order (`m2` before `m10`), then by creation date newest first with undated Cards last, then back to the default order; Archived keeps its order. The footer shows `sort: name` or `sort: date` while it is not the default, and each opening of the Board starts with the default.
 
 While a Draft Card is selected, the footer starts with why it is in Draft: `draft: design missing` (or several, like `draft: specs, design missing`) for planning artifacts neither done nor skipped, `draft: no tasks` when they are all planned but `tasks.md` holds no task, and `draft: planning unknown` when the planning state could not be read. The keys follow, short when the full ones do not fit.
 

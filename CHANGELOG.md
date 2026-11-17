@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Sort: `o` sorts the open columns by name (natural order), then by creation date (newest first, undated last), then back to the default order; the footer shows `sort: name` or `sort: date`. Archived keeps its order, and the Board opens with the default sort.
+- Creation date: open Cards show when the Change or Feature was created before the age, as `11-17 · 3h`, read from `created` in `.openspec.yaml` or the `**Created**:` line of `spec.md`. The cache is rebuilt once.
+
 ## 0.4.1 - 2026-11-17
 
 - Install from branch `release`: `herdr plugin install zeotyn/spec-kanban --ref release` follows the newest release, so `herdr plugin update` brings each new release with its downloaded binary. The release pipeline moves the branch after each release. Installs pinned with `--ref v<version>` stay as they are; reinstall with `--ref release` to switch.
