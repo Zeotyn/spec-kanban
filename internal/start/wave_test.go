@@ -130,6 +130,24 @@ func TestWave(t *testing.T) {
 			t.Errorf("commits %q, want %q", commits, want)
 		}
 	})
+	t.Run("commit on: a member with its own branch is not committed", func(t *testing.T) {
+		out := map[string]string{"branch --show-current": "main\n", "rev-parse --verify --quiet refs/heads/f5-bar": "1234\n",
+			"status --porcelain -- openspec/changes/c4-foo": ""}
+		for k, v := range committed {
+			out[k] = v
+		}
+		g := gitWith(out, proj, "main")
+		h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json"}}
+		if err := Wave(proj, 1, members, items, "", true, "claude", "/opt/kanban", h.run, src, g.run,
+			func(string, string, string) error { return nil }, func() {}); err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range g.calls {
+			if strings.Contains(c, "openspec/changes/f5-bar") && !strings.HasPrefix(c, "cat-file") {
+				t.Errorf("f5-bar has its own branch, but git ran %q", c)
+			}
+		}
+	})
 	t.Run("commit fails: no branch", func(t *testing.T) {
 		out := map[string]string{"branch --show-current": "main\n", "status --porcelain -- openspec/changes/f5-bar": "?? x\n", "add -- openspec/changes/f5-bar": ""}
 		h := &fakeHerdr{t: t}

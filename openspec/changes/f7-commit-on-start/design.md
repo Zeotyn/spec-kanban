@@ -21,14 +21,14 @@ It runs only when `cfg.Commit` is true and the ref is the base (no Change branch
 2. `git status --porcelain -- <rel>` must list something; otherwise there is nothing to commit.
 3. `git add -- <rel>`, then `git commit -m "docs: plan <change>" -- <rel>`. With paths, `git commit` commits only those paths and leaves other staged files staged.
 
-A failing step returns git's error, and Start fails before anything is created. Hooks run, since there is no `--no-verify`. The existing `cat-file` check runs afterwards unchanged, so a commit that did not happen still gives the refusal.
+A failing step returns git's error, and Start fails before anything is created. A failed commit first unstages `<rel>` again, so the index is as before. Hooks run, since there is no `--no-verify`. The existing `cat-file` check runs afterwards unchanged, so a commit that did not happen still gives the refusal.
 Alternative: copy the uncommitted folder into the worktree. That lost because the merge back into the base then fails on the same untracked files.
 
 ### D2: The message is `docs: plan <change>` for every Source
 It is the same for OpenSpec and Spec Kit, short and in Conventional Commits form. The Source's `Rel` already gives the directory, so no Source change is needed.
 
 ### D3: Wave commits each member, then creates the branch
-`Wave` calls `commitPlan` for each member in order before its check loop. One commit per member keeps the history readable. When one commit fails, the wave fails before `wave-<N>` is created; earlier members stay committed, which is harmless, since they are the user's own plans.
+`Wave` calls `commitPlan` for each member without its own branch, in order, before its check loop. One commit per member keeps the history readable. When one commit fails, the wave fails before `wave-<N>` is created; earlier members stay committed, which is harmless, since they are the user's own plans.
 
 ## Risks / Trade-offs
 

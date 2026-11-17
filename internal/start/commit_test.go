@@ -36,7 +36,7 @@ func TestCommitPlan(t *testing.T) {
 		{"detached HEAD", "main", map[string]string{branch: "\n"}, []string{branch}, ""},
 		{"nothing to commit", "main", map[string]string{branch: "main\n", status: ""}, []string{branch, status}, ""},
 		{"commit fails", "main", map[string]string{branch: "main\n", status: "?? " + rel + "/\n", add: ""},
-			[]string{branch, status, add, commit}, "exit status 1"},
+			[]string{branch, status, add, commit, "reset -q -- " + rel}, "exit status 1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -100,5 +100,17 @@ func TestCommitPlanGit(t *testing.T) {
 	}
 	if got := must("diff", "--cached", "--name-only"); got != "README.md" {
 		t.Errorf("staged %q, want README.md", got)
+	}
+
+	write(rel+"/tasks.md", "- [ ] 1.1\n") // a hook refuses: git's error, nothing of the Change left staged
+	write(".git/hooks/pre-commit", "#!/bin/sh\nexit 1\n")
+	if err := os.Chmod(filepath.Join(dir, ".git/hooks/pre-commit"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := commitPlan(git, "main", rel, change); err == nil || !strings.Contains(err.Error(), "git commit") {
+		t.Errorf("got %v, want git's error", err)
+	}
+	if got := must("diff", "--cached", "--name-only"); got != "README.md" {
+		t.Errorf("staged %q after a refused commit, want README.md", got)
 	}
 }

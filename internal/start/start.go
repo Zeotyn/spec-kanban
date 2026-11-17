@@ -190,7 +190,8 @@ func place(project, change string, wt Worktree, run herdr.Runner, src work.Sourc
 }
 
 // commitPlan commits the uncommitted files under rel, and only those, as "docs: plan <change>" when the
-// checkout is on the local branch base; otherwise it commits nothing. It returns git's error.
+// checkout is on the local branch base; otherwise it commits nothing. It returns git's error, with rel
+// unstaged again after a failed commit.
 func commitPlan(git herdr.Runner, base, rel, change string) error {
 	if out, err := git("branch", "--show-current"); err != nil || strings.TrimSpace(string(out)) != base {
 		return nil
@@ -201,8 +202,11 @@ func commitPlan(git herdr.Runner, base, rel, change string) error {
 	if _, err := git("add", "--", rel); err != nil {
 		return err
 	}
-	_, err := git("commit", "-m", "docs: plan "+change, "--", rel)
-	return err
+	if _, err := git("commit", "-m", "docs: plan "+change, "--", rel); err != nil {
+		git("reset", "-q", "--", rel) // a failed unstage leaves the index as the user could, so git's error wins
+		return err
+	}
+	return nil
 }
 
 // notOn is the refusal of a Change missing from ref.
