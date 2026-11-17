@@ -26,6 +26,7 @@ The config file SHALL be a JSON object with these optional keys:
 - `hide`: a list of Phase names (`Draft`, `Ready`, `In Progress`, `Review`, `Archived`, ignoring case) whose columns the Board does not show. It SHALL leave at least one Phase shown. Default: empty.
 - `worktree`: a boolean, whether Start runs the agent in the Change's git checkout rather than in the Project. Default: `true`.
 - `base`: a non-empty string, the git ref a new worktree's branch starts from, overriding the detected base. Default: unset.
+- `commit`: a boolean, whether Start commits a Change's uncommitted planning files on the base before it creates the Change's worktree (see the agent-start spec). Default: `false`.
 - `source`: `openspec` or `speckit`, the Source that reads a Project recognised by both. Default: unset, meaning OpenSpec.
 - `wave`: an object with the optional key `size`, the maximum number of Changes in a wave (see the waves spec), an integer of at least 2. Default: `{"size": 5}`; a `wave` without `size` has size 5.
 
@@ -84,6 +85,14 @@ When both `prompt` and `instructions` are set, the settings SHALL be kept, `prom
 #### Scenario: Default wave size
 - **WHEN** `config.json` has no `wave` key
 - **THEN** a wave holds at most 5 Changes
+
+#### Scenario: Commit on Start
+- **WHEN** `config.json` is `{"commit": true}`
+- **THEN** Start commits a Change's uncommitted planning files on the base before it creates the worktree
+
+#### Scenario: Commit off by default
+- **WHEN** `config.json` has no `commit` key
+- **THEN** Start commits nothing and refuses a Change that is not on the base, as before
 
 ### Requirement: Invalid config falls back to defaults with a warning
 When `config.json` cannot be read, is not valid JSON, contains an unknown key, or a setting breaks its rule (an `agent` herdr does not know, a `prompt` without `{change}`, an unknown Phase in `hide`, all Phases hidden, an empty `base`, a `source` other than `openspec` or `speckit`, an `instructions` that is not a string, a `wave` with an unknown key or a `size` below 2 or not an integer, a value of the wrong type), all settings SHALL have their defaults. The Board SHALL show a warning naming the file and the problem in place of its footer when it opens, until the next key; `kanban start` SHALL print the warning to stderr and continue.
