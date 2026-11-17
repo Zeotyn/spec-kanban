@@ -21,7 +21,7 @@ It runs only when `cfg.Commit` is true and the ref is the base (no Change branch
 2. `git status --porcelain -- <rel>` must list something; otherwise there is nothing to commit.
 3. `git add -- <rel>`, then `git commit -m "docs: plan <change>" -- <rel>`. With paths, `git commit` commits only those paths and leaves other staged files staged.
 
-A failing step returns git's error, and Start fails before anything is created. A failed commit first unstages `<rel>` again, so the index is as before. Hooks run, since there is no `--no-verify`. The existing `cat-file` check runs afterwards unchanged, so a commit that did not happen still gives the refusal.
+A failing step returns git's error, and Start fails before anything is created. A failed commit first unstages `<rel>` again; files outside it keep their staging, while earlier staging under `<rel>` is lost (nothing on disk is). Hooks run, since there is no `--no-verify`. The existing `cat-file` check runs afterwards unchanged, so a commit that did not happen still gives the refusal.
 Alternative: copy the uncommitted folder into the worktree. That lost because the merge back into the base then fails on the same untracked files.
 
 ### D2: The message is `docs: plan <change>` for every Source
