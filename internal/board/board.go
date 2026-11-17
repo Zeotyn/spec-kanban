@@ -150,7 +150,7 @@ func New(project string, docs func(work.Item) work.Docs, load func() ([]work.Ite
 		now: now, hide: hide, notice: notice, wave: wave,
 		version: version, loading: project != "", width: 120, height: 30}
 	if snapshot != nil {
-		m.all, m.loaded = work.Group(snapshot), true
+		m.all, m.loaded = work.Group(snapshot, work.Default), true
 		m.refilter()
 	}
 	return m
@@ -243,7 +243,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading, m.err = false, msg.err
 		first := !m.loaded
 		if msg.err == nil {
-			m.all, m.loaded, m.waves = work.Group(msg.changes), true, msg.waves
+			m.all, m.loaded, m.waves = work.Group(msg.changes, work.Default), true, msg.waves
 			for name := range m.marks { // a Card that left Ready loses its mark
 				if !slices.ContainsFunc(m.all[work.Ready], func(c work.Item) bool { return c.Name == name }) {
 					delete(m.marks, name)

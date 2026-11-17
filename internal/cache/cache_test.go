@@ -44,13 +44,14 @@ func writeFile(t *testing.T, dir, content string) {
 
 func TestReadInvalid(t *testing.T) {
 	for _, tc := range []struct{ name, content string }{
-		{"invalid JSON", `{"version":2,`},
+		{"invalid JSON", `{"version":3,`},
 		{"version 1", `{"version":1,"project":"/abs/project","changes":[]}`},
-		{"other version", `{"version":3,"project":"/abs/project","changes":[]}`},
-		{"other project", `{"version":2,"project":"/other","changes":[]}`},
-		{"empty name", `{"version":2,"project":"/abs/project","changes":[{"name":"a"},{"name":""}]}`},
-		{"phase after Archived", `{"version":2,"project":"/abs/project","changes":[{"name":"a","phase":5}]}`},
-		{"negative phase", `{"version":2,"project":"/abs/project","changes":[{"name":"a","phase":-1}]}`},
+		{"version 2", `{"version":2,"project":"/abs/project","changes":[]}`},
+		{"other version", `{"version":4,"project":"/abs/project","changes":[]}`},
+		{"other project", `{"version":3,"project":"/other","changes":[]}`},
+		{"empty name", `{"version":3,"project":"/abs/project","changes":[{"name":"a"},{"name":""}]}`},
+		{"phase after Archived", `{"version":3,"project":"/abs/project","changes":[{"name":"a","phase":5}]}`},
+		{"negative phase", `{"version":3,"project":"/abs/project","changes":[{"name":"a","phase":-1}]}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -76,7 +77,7 @@ func TestReadEmptyDir(t *testing.T) {
 
 func TestReadValidEmpty(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, dir, `{"version":2,"project":"/abs/project","changes":[]}`)
+	writeFile(t, dir, `{"version":3,"project":"/abs/project","changes":[]}`)
 	got := Read(dir, project)
 	if got == nil || len(got) != 0 {
 		t.Errorf("Read = %#v, want non-nil empty", got)
@@ -98,7 +99,7 @@ func TestRoundTrip(t *testing.T) {
 	want := []work.Item{
 		{Name: "a", Total: 3, Modified: time.Date(2026, 10, 29, 12, 0, 0, 123e6, time.UTC),
 			Phase: work.Ready, Artifacts: map[string]string{"proposal": "done"}, Stamp: "0123abcd", Dir: "/abs/wt"},
-		{Name: "b", Done: 1, Total: 2, Modified: time.Date(2026, 10, 28, 8, 30, 0, 0, time.UTC), Phase: work.InProgress},
+		{Name: "b", Done: 1, Total: 2, Modified: time.Date(2026, 10, 28, 8, 30, 0, 0, time.UTC), Phase: work.InProgress, Created: "2026-10-27"},
 		{Name: "c", Phase: work.Archived, ArchivedOn: "2026-10-01"},
 	}
 	if err := Write(dir, project, want); err != nil {

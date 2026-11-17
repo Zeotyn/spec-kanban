@@ -273,3 +273,24 @@ func TestMergedRuleRealGit(t *testing.T) {
 		t.Errorf("phases %v, want %v", got, want)
 	}
 }
+
+func TestLoadCreated(t *testing.T) {
+	p := t.TempDir()
+	write(t, p, map[string]string{
+		"specs/001-date/spec.md":        "# Feature\n\n**Feature Branch**: `001-date`\n\n**Created**: 2026-10-30\n\n**Created**: 2026-11-01\n",
+		"specs/002-placeholder/spec.md": "**Created**: [DATE]\n",
+		"specs/003-none/spec.md":        "# Feature\n",
+		"specs/004-later/spec.md":       "Text\n**Created**: [DATE]\n**Created**: 2026-11-02\n",
+	})
+	items, err := New(nil, "").Load(p, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, it := range items {
+		got[it.Name] = it.Created
+	}
+	if want := map[string]string{"001-date": "2026-10-30", "002-placeholder": "", "003-none": "", "004-later": "2026-11-02"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Created %q, want %q", got, want)
+	}
+}

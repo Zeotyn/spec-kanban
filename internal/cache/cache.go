@@ -20,7 +20,7 @@ import (
 )
 
 // Version is the cache format version; bump it whenever the stored shape or the reuse rule changes.
-const Version = 2
+const Version = 3
 
 type file struct {
 	Version int         `json:"version"`

@@ -35,24 +35,43 @@ type Item struct {
 	Phase      Phase             `json:"phase"`                // decided by the Source
 	Artifacts  map[string]string `json:"artifacts,omitempty"`  // planning artifact id → done|ready|blocked|skipped, nil when not read
 	ArchivedOn string            `json:"archivedOn,omitempty"` // "2026-10-29"; "" when open or undated
+	Created    string            `json:"created,omitempty"`    // creation date "2026-11-17"; "" when unknown
 	Stamp      string            `json:"stamp,omitempty"`      // the Source's reuse key, "" is never reused
 	Dir        string            `json:"dir,omitempty"`        // Project directory of the checkout the Item is read from; "" for the Project
 }
 
-// Group splits items into columns indexed by Phase: Ready as a queue (fixes, then milestones, both
-// by number, then the rest in natural name order), the other open Phases newest first, Archived by
-// archive date newest first with undated last; ties by name.
-func Group(items []Item) [len(names)][]Item {
+// Sort is the order of the open columns.
+type Sort int
+
+const (
+	Default Sort = iota // Ready as a queue, the other open Phases newest modification first
+	ByName              // natural name order
+	ByDate              // creation date newest first, undated last
+)
+
+// Next is the sort after s, back to Default after ByDate.
+func (s Sort) Next() Sort { return (s + 1) % 3 }
+
+func (s Sort) String() string { return [...]string{"default", "name", "date"}[s] }
+
+// Group splits items into columns indexed by Phase. Archived goes by archive date newest first with
+// undated last. The open Phases follow sort; by Default Ready is a queue (fixes, then milestones,
+// both by number, then the rest in natural name order) and the others are newest first. Ties by name.
+func Group(items []Item, sort Sort) [len(names)][]Item {
 	var cols [len(names)][]Item
 	for _, it := range items {
 		cols[it.Phase] = append(cols[it.Phase], it)
 	}
 	for p := range cols {
 		slices.SortFunc(cols[p], func(a, b Item) int {
-			if Phase(p) == Archived { // descending puts undated ("") last
+			switch {
+			case Phase(p) == Archived: // descending puts undated ("") last
 				return cmp.Or(cmp.Compare(b.ArchivedOn, a.ArchivedOn), cmp.Compare(a.Name, b.Name))
-			}
-			if Phase(p) == Ready {
+			case sort == ByName:
+				return cmp.Or(natural(a.Name, b.Name), cmp.Compare(a.Name, b.Name))
+			case sort == ByDate:
+				return cmp.Or(cmp.Compare(b.Created, a.Created), natural(a.Name, b.Name), cmp.Compare(a.Name, b.Name))
+			case Phase(p) == Ready:
 				return cmp.Or(cmp.Compare(queueRank(a.Name), queueRank(b.Name)), natural(a.Name, b.Name), cmp.Compare(a.Name, b.Name))
 			}
 			return cmp.Or(b.Modified.Compare(a.Modified), cmp.Compare(a.Name, b.Name))

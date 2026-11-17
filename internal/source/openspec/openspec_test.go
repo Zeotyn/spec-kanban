@@ -409,3 +409,52 @@ func TestArchivedIn(t *testing.T) {
 		}
 	}
 }
+
+func TestCreated(t *testing.T) {
+	for _, tt := range []struct {
+		name, yaml, want string
+	}{
+		{"date", "schema: spec-driven\ncreated: 2026-11-17\n", "2026-11-17"},
+		{"quoted with comment", "created: \"2026-11-17\" # by openspec\n", "2026-11-17"},
+		{"no key", "schema: spec-driven\n", ""},
+		{"invalid", "created: 2026-13-45\n", ""},
+		{"nested key", "meta:\n  created: 2026-11-17\n", ""},
+		{"missing file", "", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tt.yaml != "" {
+				if err := os.WriteFile(filepath.Join(dir, ".openspec.yaml"), []byte(tt.yaml), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got := created(dir); got != tt.want {
+				t.Errorf("created = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadCreated(t *testing.T) {
+	project, wt := withChanges(t, "a", "b"), withChanges(t, "b")
+	for dir, files := range map[string]map[string]string{
+		filepath.Join(project, "openspec", "changes", "a"): {".openspec.yaml": "created: 2026-11-10\n"},
+		filepath.Join(project, "openspec", "changes", "b"): {".openspec.yaml": "created: 2026-11-01\n"},
+		filepath.Join(wt, "openspec", "changes", "b"):      {".openspec.yaml": "created: 2026-11-17\n"},
+	} {
+		for f, content := range files {
+			if err := os.WriteFile(filepath.Join(dir, f), []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	list := `{"changes":[{"name":"a","completedTasks":1,"totalTasks":2},{"name":"b","completedTasks":1,"totalTasks":2}]}`
+	clis := map[string]*fakeCLI{project: {list: list}, wt: {list: list}}
+	got, err := load(project, func(dir string) herdr.Runner { return clis[dir].run }, []worktree.Checkout{{Path: wt, Branch: "b"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Created != "2026-11-10" || got[1].Created != "2026-11-17" {
+		t.Errorf("Load %+v, want a created 2026-11-10 and b created 2026-11-17 from its checkout", got)
+	}
+}

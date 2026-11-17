@@ -62,13 +62,69 @@ func TestGroup(t *testing.T) {
 			[]Item{archived("undated", ""), archived("m0-spike-agent-start", "2026-10-29"), archived("old", "2026-10-01"), archived("m0-plugin-skeleton", "2026-10-29")},
 			[]string{"m0-plugin-skeleton", "m0-spike-agent-start", "old", "undated"}},
 	} {
-		cols := Group(c.items)
+		cols := Group(c.items, Default)
 		if got := names(cols[c.phase]); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: %s %q, want %q", c.name, c.phase, got, c.want)
 		}
 		if n := len(cols[c.phase]); n != len(c.items) {
 			t.Errorf("%s: %d of %d items in %s", c.name, n, len(c.items), c.phase)
 		}
+	}
+}
+
+func TestGroupSort(t *testing.T) {
+	day := func(d int) time.Time { return time.Date(2026, 10, d, 12, 0, 0, 0, time.UTC) }
+	item := func(p Phase, name, created string, modified time.Time) Item {
+		return Item{Name: name, Phase: p, Created: created, Modified: modified}
+	}
+	names := func(items []Item) []string {
+		var n []string
+		for _, it := range items {
+			n = append(n, it.Name)
+		}
+		return n
+	}
+	for _, c := range []struct {
+		name  string
+		sort  Sort
+		phase Phase
+		items []Item
+		want  []string
+	}{
+		{"name in Ready", ByName, Ready,
+			[]Item{item(Ready, "m9-mouse", "", day(1)), item(Ready, "f2-fix", "", day(2)), item(Ready, "c10-docs", "", day(3))},
+			[]string{"c10-docs", "f2-fix", "m9-mouse"}},
+		{"name natural in Draft", ByName, Draft,
+			[]Item{item(Draft, "m10-b", "", day(3)), item(Draft, "m2-a", "", day(1)), item(Draft, "m01-c", "", day(2))},
+			[]string{"m01-c", "m2-a", "m10-b"}},
+		{"date newest first, undated last", ByDate, InProgress,
+			[]Item{item(InProgress, "a-one", "2026-11-10", day(3)), item(InProgress, "b-two", "2026-11-17", day(1)), item(InProgress, "c-three", "", day(5))},
+			[]string{"b-two", "a-one", "c-three"}},
+		{"date ties by name", ByDate, Review,
+			[]Item{item(Review, "b", "2026-11-17", day(3)), item(Review, "z", "", day(1)), item(Review, "a", "2026-11-17", day(1)), item(Review, "y", "", day(9))},
+			[]string{"a", "b", "y", "z"}},
+		{"date in Ready ignores the queue", ByDate, Ready,
+			[]Item{item(Ready, "f1-fix", "2026-11-01", day(1)), item(Ready, "x-new", "2026-11-02", day(1))},
+			[]string{"x-new", "f1-fix"}},
+		{"Archived ignores name", ByName, Archived,
+			[]Item{{Name: "a", Phase: Archived, ArchivedOn: "2026-10-01"}, {Name: "b", Phase: Archived, ArchivedOn: "2026-10-02"}},
+			[]string{"b", "a"}},
+		{"Archived ignores date", ByDate, Archived,
+			[]Item{{Name: "a", Phase: Archived, ArchivedOn: "2026-10-01", Created: "2026-11-01"}, {Name: "b", Phase: Archived, ArchivedOn: "2026-10-02"}},
+			[]string{"b", "a"}},
+	} {
+		if got := names(Group(c.items, c.sort)[c.phase]); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: %s %q, want %q", c.name, c.phase, got, c.want)
+		}
+	}
+}
+
+func TestSortNext(t *testing.T) {
+	if got := []Sort{Default.Next(), ByName.Next(), ByDate.Next()}; !reflect.DeepEqual(got, []Sort{ByName, ByDate, Default}) {
+		t.Errorf("Next = %v", got)
+	}
+	if got := []string{Default.String(), ByName.String(), ByDate.String()}; !reflect.DeepEqual(got, []string{"default", "name", "date"}) {
+		t.Errorf("String = %q", got)
 	}
 }
 

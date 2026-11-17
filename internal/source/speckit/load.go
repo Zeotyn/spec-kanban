@@ -1,12 +1,14 @@
 package speckit
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/zeotyn/spec-kanban/internal/work"
 	"github.com/zeotyn/spec-kanban/internal/worktree"
@@ -76,10 +78,11 @@ func features(project string) ([]work.Item, error) {
 func feature(dir, name string) (work.Item, bool) {
 	fd := filepath.Join(dir, "specs", name)
 	exists := func(f string) bool { _, err := os.Stat(filepath.Join(fd, f)); return err == nil }
-	if !exists("spec.md") {
+	spec, err := os.ReadFile(filepath.Join(fd, "spec.md"))
+	if errors.Is(err, fs.ErrNotExist) {
 		return work.Item{}, false
 	}
-	it := work.Item{Name: name, Artifacts: map[string]string{"proposal": "skipped", "specs": "done"}}
+	it := work.Item{Name: name, Artifacts: map[string]string{"proposal": "skipped", "specs": "done"}, Created: createdOn(spec)}
 	tasks, err := os.ReadFile(filepath.Join(fd, "tasks.md"))
 	if err == nil {
 		it.Artifacts["tasks"] = "done"
@@ -98,6 +101,18 @@ func feature(dir, name string) (work.Item, bool) {
 		return nil
 	})
 	return it, true
+}
+
+var createdLine = regexp.MustCompile(`(?m)^\*\*Created\*\*:.*?(\d{4}-\d{2}-\d{2})`)
+
+// createdOn returns the first valid date on a `**Created**:` line of spec, "" when there is none.
+func createdOn(spec []byte) string {
+	for _, m := range createdLine.FindAllSubmatch(spec, -1) {
+		if _, err := time.Parse(time.DateOnly, string(m[1])); err == nil {
+			return string(m[1])
+		}
+	}
+	return ""
 }
 
 var task = regexp.MustCompile(`(?m)^[ \t]*[-*] \[( |x|X)\] (.*)$`)

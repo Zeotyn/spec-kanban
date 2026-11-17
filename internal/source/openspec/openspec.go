@@ -2,6 +2,8 @@
 package openspec
 
 import (
+	"bufio"
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -91,6 +93,7 @@ func load(project string, cli func(dir string) herdr.Runner, others []worktree.C
 	var wg sync.WaitGroup
 	slots := make(chan struct{}, maxParallel)
 	for i := range changes {
+		changes[i].Created = created(filepath.Join(cmp.Or(changes[i].Dir, project), rel(changes[i].Name)))
 		if changes[i].Done > 0 {
 			changes[i].Phase = phaseOf(changes[i].Done, changes[i].Total, false)
 			continue
@@ -140,6 +143,29 @@ func archive(dir string) ([]work.Item, error) {
 		archived = append(archived, c)
 	}
 	return archived, nil
+}
+
+// created returns the top-level `created` date of the Change in dir from its .openspec.yaml, "" when
+// the file, the key or a valid date is missing. The file is flat, so a line scan does without YAML.
+func created(dir string) string {
+	f, err := os.Open(filepath.Join(dir, ".openspec.yaml"))
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	for sc := bufio.NewScanner(f); sc.Scan(); {
+		v, ok := strings.CutPrefix(sc.Text(), "created:")
+		if !ok {
+			continue
+		}
+		v, _, _ = strings.Cut(v, "#")
+		v = strings.Trim(strings.TrimSpace(v), `"'`)
+		if _, err := time.Parse(time.DateOnly, v); err != nil {
+			return ""
+		}
+		return v
+	}
+	return ""
 }
 
 func isIn(changes []work.Item, name string) bool {
