@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.1 - 2026-11-17
+
 - Install from branch `release`: `herdr plugin install zeotyn/spec-kanban --ref release` follows the newest release, so `herdr plugin update` brings each new release with its downloaded binary. The release pipeline moves the branch after each release. Installs pinned with `--ref v<version>` stay as they are; reinstall with `--ref release` to switch.
 
 ## 0.4.0 - 2026-11-17
