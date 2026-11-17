@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-11-17
+
 - Fixed: a Start whose first prompt stayed typed but not submitted in Claude's input box sat idle until the Stall. After every launch of a new `claude` agent with a prompt (Start, Verify or Archive in a new tab, a wave's coordinator and members), kanban checks that the prompt went in and sends Enter up to 3 times; when that does not help, the launch fails with `the prompt was typed but not submitted in tab <change>`.
 - No prompt into typed input: a Handoff, Stall, Escalation or wave prompt waits while the Main agent's input line holds text you typed, checks every 2 seconds, and goes out once the line is empty; for agent kinds other than `claude` it waits while the Main pane is focused. After 10 minutes it is not sent and counts as not taken. `kanban escalate`, `kanban wave escalate` and `kanban wave finish` print `Queued for the Main agent. End your turn.` instead of waiting.
 - Draft reason: while a Draft Card is selected, the Board footer starts with why the Change is in Draft, like `draft: design missing` or `draft: no tasks`, before the keys.
