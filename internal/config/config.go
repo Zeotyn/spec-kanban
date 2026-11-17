@@ -31,6 +31,7 @@ type Config struct {
 	Hide         [5]bool
 	Worktree     bool
 	Base         string
+	Commit       bool   // commit a Change's plan on the base before Start creates its worktree
 	Source       string // "", "openspec" or "speckit"
 	WaveSize     int    // wave.size; 0 when unset, see Wave
 }
@@ -67,6 +68,7 @@ func Parse(b []byte) (Config, error) {
 		Hide         []string `json:"hide"`
 		Worktree     *bool    `json:"worktree"`
 		Base         *string  `json:"base"`
+		Commit       *bool    `json:"commit"`
 		Source       *string  `json:"source"`
 		Wave         *struct {
 			Size *int `json:"size"`
@@ -114,6 +116,9 @@ func Parse(b []byte) (Config, error) {
 			return Default(), errors.New("base is empty")
 		}
 		cfg.Base = *raw.Base
+	}
+	if raw.Commit != nil {
+		cfg.Commit = *raw.Commit
 	}
 	if raw.Source != nil {
 		if *raw.Source != "openspec" && *raw.Source != "speckit" {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- New config key `commit` (default `false`): with `true`, Start and a wave commit a Change's uncommitted planning files on the base as `docs: plan <change>` before they create the worktree, only when the project is checked out on the base branch, and only the files under the Change's directory.
+- The refusal for a Change missing from the base now names the fix: `<change> is not on <ref>: commit it there, set base, or set "commit": true`.
 - Sort: `o` sorts the open columns by name (natural order), then by creation date (newest first, undated last), then back to the default order; the footer shows `sort: name` or `sort: date`. Archived keeps its order, and the Board opens with the default sort.
 - Creation date: open Cards show when the Change or Feature was created before the age, as `11-17 · 3h`, read from `created` in `.openspec.yaml` or the `**Created**:` line of `spec.md`. The cache is rebuilt once.
 

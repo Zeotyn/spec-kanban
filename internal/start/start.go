@@ -2,6 +2,7 @@
 package start
 
 import (
+	"bytes"
 	"cmp"
 	"crypto/rand"
 	"encoding/hex"
@@ -18,11 +19,12 @@ import (
 	"github.com/zeotyn/spec-kanban/internal/worktree"
 )
 
-// Worktree holds the worktree settings: whether Start works in the Change's checkout, and the
-// configured base of a new worktree ("" to detect it).
+// Worktree holds the worktree settings: whether Start works in the Change's checkout, the
+// configured base of a new worktree ("" to detect it), and whether Start commits the plan there.
 type Worktree struct {
-	On   bool
-	Base string
+	On     bool
+	Base   string
+	Commit bool
 }
 
 // Start sends prompt to a herdr agent of kind named after the Change: Prepare, then Launch when the
@@ -175,11 +177,37 @@ func place(project, change string, wt Worktree, run herdr.Runner, src work.Sourc
 	if _, err := git("rev-parse", "--verify", "--quiet", "refs/heads/"+change); err != nil {
 		ref = worktree.Base(wt.Base, git)
 		base = ref
+		if wt.Commit {
+			if err := commitPlan(git, base, src.Rel(change), change); err != nil {
+				return "", "", "", err
+			}
+		}
 	}
 	if _, err := git("cat-file", "-e", ref+":"+src.Rel(change)); err != nil {
-		return "", "", "", fmt.Errorf("%s is not on %s: commit it there or set base", change, ref)
+		return "", "", "", notOn(change, ref)
 	}
 	return createWorktree(project, change, base, run)
+}
+
+// commitPlan commits the uncommitted files under rel, and only those, as "docs: plan <change>" when the
+// checkout is on the local branch base; otherwise it commits nothing. It returns git's error.
+func commitPlan(git herdr.Runner, base, rel, change string) error {
+	if out, err := git("branch", "--show-current"); err != nil || strings.TrimSpace(string(out)) != base {
+		return nil
+	}
+	if out, err := git("status", "--porcelain", "--", rel); err != nil || len(bytes.TrimSpace(out)) == 0 {
+		return err
+	}
+	if _, err := git("add", "--", rel); err != nil {
+		return err
+	}
+	_, err := git("commit", "-m", "docs: plan "+change, "--", rel)
+	return err
+}
+
+// notOn is the refusal of a Change missing from ref.
+func notOn(change, ref string) error {
+	return fmt.Errorf(`%s is not on %s: commit it there, set base, or set "commit": true`, change, ref)
 }
 
 // createWorktree has herdr create a worktree of project on branch, new from base unless base is "",

@@ -34,11 +34,11 @@ func CoordinatorPrompt(self string, n int, path, base string, members []string, 
 }
 
 // Wave starts wave n of changes, which must be Ready among project's items: it creates branch
-// wave-<n> from base (detected when "") in a worktree workspace labelled like it, records the wave
+// wave-<n> from base (detected when "", each member's plan committed there first when commit) in a worktree workspace labelled like it, records the wave
 // before the coordinator can act on it, launches the coordinator named like the branch with its
 // prompt (self is the plugin binary), and focuses its tab. It starts no member. When a step fails it
 // reports the step and forgets a recorded wave. git runs git inside project.
-func Wave(project string, n int, changes []string, items []work.Item, base, kind, self string, run herdr.Runner, src work.Source, git herdr.Runner,
+func Wave(project string, n int, changes []string, items []work.Item, base string, commit bool, kind, self string, run herdr.Runner, src work.Source, git herdr.Runner,
 	record func(pane, path, base string) error, forget func()) error {
 	for _, c := range changes {
 		i := slices.IndexFunc(items, func(it work.Item) bool { return it.Name == c && it.Phase != work.Archived })
@@ -50,9 +50,17 @@ func Wave(project string, n int, changes []string, items []work.Item, base, kind
 		}
 	}
 	branch, ref := fmt.Sprintf("wave-%d", n), worktree.Base(base, git)
+	for _, c := range changes {
+		if !commit {
+			break
+		}
+		if err := commitPlan(git, ref, src.Rel(c), c); err != nil {
+			return err
+		}
+	}
 	for _, c := range changes { // a member must be on the wave branch to start there
 		if _, err := git("cat-file", "-e", ref+":"+src.Rel(c)); err != nil {
-			return fmt.Errorf("%s is not on %s: commit it there or set base", c, ref)
+			return notOn(c, ref)
 		}
 	}
 	pane, tab, path, err := createWorktree(project, branch, ref, run)

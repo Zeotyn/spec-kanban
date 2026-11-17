@@ -511,12 +511,68 @@ func TestPrepareChangeNotOnBase(t *testing.T) {
 	delete(git.out, "cat-file -e main:openspec/changes/"+change)
 	h := &fakeHerdr{t: t, fail: map[string]error{"agent get": notFound}}
 	_, _, err := Prepare(proj, change, Worktree{On: true}, h.run, src, git.run)
-	if err == nil || !strings.Contains(err.Error(), change+" is not on main") {
-		t.Fatalf("want error naming %s and main, got %v", change, err)
+	if want := change + ` is not on main: commit it there, set base, or set "commit": true`; err == nil || err.Error() != want {
+		t.Fatalf("got %v, want %s", err, want)
 	}
 	if !reflect.DeepEqual(h.calls, []string{get}) {
 		t.Errorf("nothing may be created, herdr calls %q", h.calls)
 	}
+}
+
+func TestPrepareCommitsPlan(t *testing.T) {
+	const rel = "openspec/changes/" + change
+	plan := map[string]string{
+		"branch --show-current":                         "main\n",
+		"status --porcelain -- " + rel:                  "?? " + rel + "/\n",
+		"add -- " + rel:                                 "",
+		"commit -m docs: plan " + change + " -- " + rel: "",
+	}
+	commit, check := "commit -m docs: plan "+change+" -- "+rel, "cat-file -e main:"+rel
+	t.Run("committed before the check", func(t *testing.T) {
+		git := gitWith(plan, proj, "main")
+		h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json"}, fail: map[string]error{"agent get": notFound}}
+		if _, _, err := Prepare(proj, change, Worktree{On: true, Commit: true}, h.run, src, git.run); err != nil {
+			t.Fatal(err)
+		}
+		if i, j := slices.Index(git.calls, commit), slices.Index(git.calls, check); i < 0 || j < i {
+			t.Errorf("git calls %q: want %q before %q", git.calls, commit, check)
+		}
+	})
+	t.Run("commit off", func(t *testing.T) {
+		git := gitWith(plan, proj, "main")
+		h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json"}, fail: map[string]error{"agent get": notFound}}
+		if _, _, err := Prepare(proj, change, Worktree{On: true}, h.run, src, git.run); err != nil {
+			t.Fatal(err)
+		}
+		if slices.Contains(git.calls, commit) {
+			t.Errorf("committed with commit off: %q", git.calls)
+		}
+	})
+	t.Run("Change branch exists: nothing committed", func(t *testing.T) {
+		extra := map[string]string{"rev-parse --verify --quiet refs/heads/" + change: "1234\n", "cat-file -e " + change + ":" + rel: ""}
+		for k, v := range plan {
+			extra[k] = v
+		}
+		git := gitWith(extra, proj, "main")
+		h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json"}, fail: map[string]error{"agent get": notFound}}
+		if _, _, err := Prepare(proj, change, Worktree{On: true, Commit: true}, h.run, src, git.run); err != nil {
+			t.Fatal(err)
+		}
+		if slices.Contains(git.calls, commit) {
+			t.Errorf("committed on the Change's branch: %q", git.calls)
+		}
+	})
+	t.Run("commit fails: nothing created", func(t *testing.T) {
+		git := gitWith(plan, proj, "main")
+		delete(git.out, commit)
+		h := &fakeHerdr{t: t, fail: map[string]error{"agent get": notFound}}
+		if _, _, err := Prepare(proj, change, Worktree{On: true, Commit: true}, h.run, src, git.run); err == nil || err.Error() != "exit status 1" {
+			t.Fatalf("got %v, want git's error", err)
+		}
+		if !reflect.DeepEqual(h.calls, []string{get}) {
+			t.Errorf("nothing may be created, herdr calls %q", h.calls)
+		}
+	})
 }
 
 func TestPrepareAgentInCheckout(t *testing.T) {

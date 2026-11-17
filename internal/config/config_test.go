@@ -26,6 +26,8 @@ func TestParse(t *testing.T) {
 		{"worktree as a string", `{"worktree": "no"}`, def, "worktree"},
 		{"base empty", `{"base": ""}`, def, "base"},
 		{"base as a number", `{"base": 1}`, def, "base"},
+		{"commit on", `{"commit": true}`, Config{Worktree: true, Commit: true}, ""},
+		{"commit as a string", `{"commit": "yes"}`, def, "commit"},
 		{"agent kept", `{"agent": "codex"}`, Config{Agent: "codex", Prompt: def.Prompt, Worktree: true}, ""},
 		{"prompt alone", `{"prompt": "/opsx:apply {change} with TDD"}`, Config{Prompt: "/opsx:apply {change} with TDD", Worktree: true}, ""},
 		{"hide alone", `{"hide": ["Archived"]}`, Config{Prompt: def.Prompt, Hide: [5]bool{work.Archived: true}, Worktree: true}, ""},

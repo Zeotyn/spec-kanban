@@ -215,7 +215,7 @@ func startChange(change string, stderr io.Writer, run herdr.Runner) error {
 	}
 	src := sourceFor(proj)
 	kind := start.Kind(cfg.Agent, os.Getenv("HERDR_PANE_ID"), run)
-	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
+	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base, Commit: cfg.Commit}
 	return start.Start(proj, change, kind, cfg.PromptFor(change, src.Prompt(proj, kind)), wt, run, src, gitCLI(proj))
 }
 
@@ -228,7 +228,7 @@ func showBoard(proj string) error {
 	_, sourceFor := sources(cfg)
 	src := sourceFor(proj)
 	git := gitCLI(proj)
-	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base}
+	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base, Commit: cfg.Commit}
 	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
 		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, src, git)
 		if err != nil || pane == "" {

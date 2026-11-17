@@ -45,7 +45,7 @@ func TestWave(t *testing.T) {
 		h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json"}}
 		var recorded string
 		forgot := false
-		err := Wave(proj, 1, members, items, "", "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
+		err := Wave(proj, 1, members, items, "", false, "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
 			func(pane, path, base string) error {
 				recorded = pane + " " + path + " " + base + " after " + h.calls[len(h.calls)-1]
 				return nil
@@ -64,14 +64,14 @@ func TestWave(t *testing.T) {
 	})
 	t.Run("member not in Ready", func(t *testing.T) {
 		h := &fakeHerdr{t: t}
-		err := Wave(proj, 1, []string{"f5-bar", "m9-x"}, items, "", "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
+		err := Wave(proj, 1, []string{"f5-bar", "m9-x"}, items, "", false, "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
 			func(string, string, string) error { t.Error("recorded"); return nil }, func() {})
 		if err == nil || err.Error() != "m9-x is not in Ready" || len(h.calls) != 0 {
 			t.Errorf("got %v, calls %q", err, h.calls)
 		}
 	})
 	t.Run("member not open", func(t *testing.T) {
-		err := Wave(proj, 1, []string{"f5-bar", "gone"}, items, "", "claude", "/opt/kanban", (&fakeHerdr{t: t}).run, src, gitWith(committed, proj, "main").run,
+		err := Wave(proj, 1, []string{"f5-bar", "gone"}, items, "", false, "claude", "/opt/kanban", (&fakeHerdr{t: t}).run, src, gitWith(committed, proj, "main").run,
 			func(string, string, string) error { return nil }, func() {})
 		if err == nil || err.Error() != `"gone" is not an open change of `+filepath.Base(proj) {
 			t.Errorf("got %v", err)
@@ -79,7 +79,7 @@ func TestWave(t *testing.T) {
 	})
 	t.Run("worktree fails", func(t *testing.T) {
 		h := &fakeHerdr{t: t, fail: map[string]error{"worktree create": errors.New("branch exists")}}
-		err := Wave(proj, 1, members, items, "", "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
+		err := Wave(proj, 1, members, items, "", false, "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
 			func(string, string, string) error { t.Error("recorded"); return nil }, func() {})
 		if err == nil || err.Error() != "worktree create: branch exists" {
 			t.Errorf("got %v", err)
@@ -88,7 +88,7 @@ func TestWave(t *testing.T) {
 	t.Run("coordinator fails: record forgotten", func(t *testing.T) {
 		h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json", "pane read": "pane-read.txt"}, fail: map[string]error{"agent start": errors.New("timeout")}}
 		forgot := false
-		err := Wave(proj, 1, members, items, "", "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
+		err := Wave(proj, 1, members, items, "", false, "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
 			func(string, string, string) error { return nil }, func() { forgot = true })
 		if err == nil || !strings.Contains(err.Error(), `claude did not become ready in tab "wave-1"`) || !forgot {
 			t.Errorf("got %v, forgot %v", err, forgot)
@@ -96,15 +96,52 @@ func TestWave(t *testing.T) {
 	})
 	t.Run("member not on the base", func(t *testing.T) {
 		h := &fakeHerdr{t: t}
-		err := Wave(proj, 1, members, items, "", "claude", "/opt/kanban", h.run, src, gitWith(map[string]string{"cat-file -e main:openspec/changes/f5-bar": ""}, proj, "main").run,
+		err := Wave(proj, 1, members, items, "", false, "claude", "/opt/kanban", h.run, src, gitWith(map[string]string{"cat-file -e main:openspec/changes/f5-bar": ""}, proj, "main").run,
 			func(string, string, string) error { t.Error("recorded"); return nil }, func() {})
-		if err == nil || err.Error() != "c4-foo is not on main: commit it there or set base" || len(h.calls) != 0 {
+		if err == nil || err.Error() != `c4-foo is not on main: commit it there, set base, or set "commit": true` || len(h.calls) != 0 {
+			t.Errorf("got %v, calls %q", err, h.calls)
+		}
+	})
+	t.Run("commit on: each member committed before the branch", func(t *testing.T) {
+		out := map[string]string{"branch --show-current": "main\n"}
+		for _, m := range members {
+			rel := "openspec/changes/" + m
+			out["status --porcelain -- "+rel] = "?? " + rel + "/\n"
+			out["add -- "+rel] = ""
+			out["commit -m docs: plan "+m+" -- "+rel] = ""
+		}
+		for k, v := range committed {
+			out[k] = v
+		}
+		g := gitWith(out, proj, "main")
+		h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json"}}
+		err := Wave(proj, 1, members, items, "", true, "claude", "/opt/kanban", h.run, src, g.run,
+			func(string, string, string) error { return nil }, func() {})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var commits []string
+		for _, c := range g.calls {
+			if strings.HasPrefix(c, "commit ") {
+				commits = append(commits, c)
+			}
+		}
+		if want := []string{"commit -m docs: plan f5-bar -- openspec/changes/f5-bar", "commit -m docs: plan c4-foo -- openspec/changes/c4-foo"}; !reflect.DeepEqual(commits, want) {
+			t.Errorf("commits %q, want %q", commits, want)
+		}
+	})
+	t.Run("commit fails: no branch", func(t *testing.T) {
+		out := map[string]string{"branch --show-current": "main\n", "status --porcelain -- openspec/changes/f5-bar": "?? x\n", "add -- openspec/changes/f5-bar": ""}
+		h := &fakeHerdr{t: t}
+		err := Wave(proj, 1, members, items, "", true, "claude", "/opt/kanban", h.run, src, gitWith(out, proj, "main").run,
+			func(string, string, string) error { t.Error("recorded"); return nil }, func() {})
+		if err == nil || err.Error() != "exit status 1" || len(h.calls) != 0 {
 			t.Errorf("got %v, calls %q", err, h.calls)
 		}
 	})
 	t.Run("record fails", func(t *testing.T) {
 		h := &fakeHerdr{t: t, out: map[string]string{"worktree create": "worktree-create.json"}}
-		err := Wave(proj, 1, members, items, "", "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
+		err := Wave(proj, 1, members, items, "", false, "claude", "/opt/kanban", h.run, src, gitWith(committed, proj, "main").run,
 			func(string, string, string) error { return errors.New("disk full") }, func() {})
 		if err == nil || err.Error() != "record wave 1: disk full" || len(h.calls) != 1 {
 			t.Errorf("got %v, calls %q", err, h.calls)

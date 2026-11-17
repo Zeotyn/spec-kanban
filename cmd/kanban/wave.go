@@ -41,7 +41,7 @@ func launchWave(proj, mainPane string, changes []string, run herdr.Runner, sourc
 	branches, _ := g("for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/wave-*") // none read: the records still count
 	n := cache.NextWave(cache.ReadWaves(user, proj), strings.Fields(string(branches)))
 	w := cache.Wave{Project: proj, Number: n, Branch: fmt.Sprintf("wave-%d", n), Main: mainPane, State: cache.Dir(), Members: changes}
-	return start.Wave(proj, n, changes, items, cfg.Base, start.Kind(cfg.Agent, mainPane, run), self, run, src, g,
+	return start.Wave(proj, n, changes, items, cfg.Base, cfg.Commit, start.Kind(cfg.Agent, mainPane, run), self, run, src, g,
 		func(pane, path, base string) error {
 			w.Coordinator, w.Path, w.Base = pane, path, base
 			return cache.WriteWave(user, w)
