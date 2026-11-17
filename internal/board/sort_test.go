@@ -110,3 +110,21 @@ func TestCardCreated(t *testing.T) {
 		}
 	}
 }
+
+func TestSortShownWithMarks(t *testing.T) {
+	m := keys(board(t, 120, 30, sorting), "2", " ", "o")
+	if f, _ := m.footer(); !strings.HasPrefix(f, "sort: name · 1 marked") {
+		t.Errorf("footer %q", f)
+	}
+}
+
+func TestCardCreatedUnbordered(t *testing.T) {
+	m := board(t, 120, 12, nil)
+	c := work.Item{Name: "a", Total: 2, Phase: work.Ready, Artifacts: planned, Created: "2026-10-17", Modified: ago(3 * time.Hour)}
+	if got := m.card(c, work.Ready, 20, false)[2]; got != " P S D T  10-17 · 3h" {
+		t.Errorf("wide: %q", got)
+	}
+	if got := m.card(c, work.Ready, 19, false)[2]; got != " P S D T  3h" {
+		t.Errorf("narrow: %q", got)
+	}
+}

@@ -9,7 +9,7 @@ Neither OpenSpec nor Spec Kit has a priority for a whole Change or Feature, so a
 - **Sort key `o`:** cycles the order of the open columns through `default` (as today: Ready as a queue, Draft, In Progress and Review newest modification first), `name` (natural order, `m2` before `m10`) and `date` (creation date, newest first, undated last). Archived keeps its archive-date order. The footer shows `sort: name` or `sort: date` while it is not `default`. The order resets to `default` when the Board closes.
 - **Creation date on the Card:** open Cards show the creation date next to the age, as `11-17 · 3h` (`2025-11-17 · 4w` for another year). A Card without a creation date shows the age only, as today.
 - **Sources:** the OpenSpec Source reads `created` from the Change's `.openspec.yaml`; the Spec Kit Source reads the date from the `**Created**:` line of the Feature's `spec.md`.
-- Key help, footer and README list `o`.
+- Key help and README list `o`.
 
 Non-goals: no priority field, no dependency detection between Changes, no sort order kept across openings of the Board.
 
@@ -22,6 +22,7 @@ None.
 ### Modified Capabilities
 
 - `board`: a new requirement for the sort key; the Card content adds the creation date.
+- `change-phases`: the ordering within a Phase becomes the `default` sort.
 - `change-source`: a new requirement that a Change carries its creation date from `.openspec.yaml`.
 - `speckit-source`: a new requirement that a Feature carries its creation date from `spec.md`.
 

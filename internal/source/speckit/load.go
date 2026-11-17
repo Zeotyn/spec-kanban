@@ -1,7 +1,6 @@
 package speckit
 
 import (
-	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -79,7 +78,7 @@ func feature(dir, name string) (work.Item, bool) {
 	fd := filepath.Join(dir, "specs", name)
 	exists := func(f string) bool { _, err := os.Stat(filepath.Join(fd, f)); return err == nil }
 	spec, err := os.ReadFile(filepath.Join(fd, "spec.md"))
-	if errors.Is(err, fs.ErrNotExist) {
+	if err != nil && !exists("spec.md") {
 		return work.Item{}, false
 	}
 	it := work.Item{Name: name, Artifacts: map[string]string{"proposal": "skipped", "specs": "done"}, Created: createdOn(spec)}

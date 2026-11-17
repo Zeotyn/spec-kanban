@@ -83,8 +83,12 @@ type hit struct {
 // footer renders footerKeys in full, or short when the full form is wider than the Board, and where the actions are,
 // after the Draft reason of the selected Card; while Cards are marked it sums the marks up instead, without actions.
 func (m Model) footer() (string, []hit) {
+	sorted := ""
+	if m.sort != work.Default {
+		sorted = "sort: " + m.sort.String() + " · "
+	}
 	if len(m.marks) > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(fmt.Sprintf("%d marked · s wave · esc clear", len(m.marks))), nil
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(fmt.Sprintf("%s%d marked · s wave · esc clear", sorted, len(m.marks))), nil
 	}
 	prefix := ""
 	if col := m.cols[m.nav.col]; len(col) > 0 {
@@ -92,9 +96,7 @@ func (m Model) footer() (string, []hit) {
 			prefix = r + " · "
 		}
 	}
-	if m.sort != work.Default {
-		prefix += "sort: " + m.sort.String() + " · "
-	}
+	prefix += sorted
 	build := func(short bool) (string, []hit) {
 		var b strings.Builder
 		b.WriteString(prefix)

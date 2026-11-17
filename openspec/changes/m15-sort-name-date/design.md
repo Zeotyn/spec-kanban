@@ -17,7 +17,7 @@ See proposal.md for why.
 ## Decisions
 
 ### D1: `Created string` on `work.Item`, `YYYY-MM-DD` or ""
-It is the same shape as `ArchivedOn`, so a descending string compare sorts newest first with undated last. The Sources set it while they build the Item. OpenSpec reads `.openspec.yaml` with a line scan for `created:` instead of a YAML library, as the file is flat; the value is checked with `time.Parse("2006-01-02", …)`. Spec Kit takes the first `**Created**:` line of `spec.md` and the first `YYYY-MM-DD` on it. Both read from the checkout the Item comes from. `cache.Version` goes to 3, so old caches without `created` are dropped once.
+It is the same shape as `ArchivedOn`, so a descending string compare sorts newest first with undated last. The Sources set it while they build the Item. OpenSpec reads `.openspec.yaml` with a line scan for `created:` instead of a YAML library, as the file is flat; the value is checked with `time.Parse("2006-01-02", …)`. Spec Kit takes the first `**Created**:` line of `spec.md` that holds a valid `YYYY-MM-DD`, so the template's `[DATE]` is skipped. Both read from the checkout the Item comes from. `cache.Version` goes to 3, so old caches without `created` are dropped once.
 Alternative: `time.Time`. That lost because a calendar date has no time zone, and an empty string is the natural "undated".
 
 ### D2: `work.Group(items, sort)` with a `Sort` type
