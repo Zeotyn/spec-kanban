@@ -75,7 +75,7 @@ var helpGroups = []struct {
 }{
 	{"Board", []key{{"h/l j/k", "column, card"}, {"gg/G", "first/last card"}, {"ctrl+d/u", "half page down/up"}, {"1-5", "column by number"},
 		{"enter", "details"}, {"e", "edit tasks"}, {"s/v/a", "start, verify, archive"}, {"space", "mark for a wave"},
-		{"/ n/N", "filter by name, next/previous match"}, {"esc", "clear the filter, else marks, else close"}, {"r", "reload"}, {"?", "this help"}, {"q", "close"}}},
+		{"/ n/N", "filter by name, next/previous match"}, {"esc", "clear the filter, else marks, else close"}, {"r/o", "reload, sort by name, date, default"}, {"?", "this help"}, {"q", "close"}}},
 	{"Filter prompt", []key{{"enter/esc", "keep/clear the filter"}, {"backspace", "delete, close when empty"}}},
 	{"Details", []key{{"1-4, tab", "switch document"}, {"shift+tab", "previous document"}, {"j/k gg/G", "scroll, top/end"},
 		{"ctrl+d/u", "half page down/up"}, {"e", "edit the document"}, {"q/esc", "back to the Board"}}},
@@ -115,6 +115,7 @@ type Model struct {
 	all           [columns][]work.Item // every Change by Phase
 	cols          [columns][]work.Item // the Changes of all that match filter
 	filter        string
+	sort          work.Sort       // order of the open columns, Default each time the Board opens
 	prompting     bool            // keys go to the filter prompt
 	running       map[string]bool // names of running herdr agents, kept across loads
 	waiting       map[string]bool // Changes that wait for the user, kept across loads
@@ -243,7 +244,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading, m.err = false, msg.err
 		first := !m.loaded
 		if msg.err == nil {
-			m.all, m.loaded, m.waves = work.Group(msg.changes, work.Default), true, msg.waves
+			m.all, m.loaded, m.waves = work.Group(msg.changes, m.sort), true, msg.waves
 			for name := range m.marks { // a Card that left Ready loses its mark
 				if !slices.ContainsFunc(m.all[work.Ready], func(c work.Item) bool { return c.Name == name }) {
 					delete(m.marks, name)
@@ -318,6 +319,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case k == "/":
 			m.nav.pendingG, m.prompting = false, true
+		case k == "o":
+			m.nav.pendingG, m.sort = false, m.sort.Next()
+			m.all = work.Group(slices.Concat(m.all[:]...), m.sort)
+			m.refilter()
 		case k == "n" && m.filter != "":
 			m.nav.match(1, m.counts(), m.visible())
 		case k == "N" && m.filter != "":
@@ -782,9 +787,16 @@ func (m Model) card(c work.Item, p work.Phase, w int, selected bool) []string {
 		second = theme.Faint.Render("archived")
 	default:
 		second = progressBar(c.Done, c.Total, max(3, min(10, inner-8)), phaseColor(p))
-		third = age(m.now().Sub(c.Modified))
+		marks, created, aged := "", c.Created, age(m.now().Sub(c.Modified))
 		if p == work.Draft || p == work.Ready {
-			third = planMarks(c.Artifacts) + "  " + third
+			marks = planMarks(c.Artifacts) + "  "
+		}
+		if strings.HasPrefix(created, m.now().Format("2006-")) {
+			created = created[5:] // the year is the current one
+		}
+		third = marks + aged
+		if dated := marks + created + " · " + aged; created != "" && lipgloss.Width(dated) <= inner {
+			third = dated // a narrow Card drops the date before the age is cut
 		}
 		third = theme.Faint.Render(third)
 	}

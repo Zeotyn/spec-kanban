@@ -11,7 +11,7 @@ Board
   space        mark for a wave                         
   / n/N        filter by name, next/previous match     
   esc          clear the filter, else marks, else close
-  r            reload                                  
+  r/o          reload, sort by name, date, default     
   ?            this help                               
   q            close                                   
                                                        

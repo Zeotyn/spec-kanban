@@ -976,13 +976,13 @@ func TestPromptTypesBoardKeys(t *testing.T) {
 	m := keys(board(t, 120, 30, fixture), "2", "/")
 	started := starter(&m, nil)
 	args := fakeEditor(t, nil)
-	for _, k := range []string{"j", "q", "n", "N", "s", "e", "r", "g", "G", "h", "l", "1", "/", " "} {
+	for _, k := range []string{"j", "q", "n", "N", "s", "e", "r", "g", "G", "h", "l", "1", "/", " ", "o"} {
 		var cmd tea.Cmd
 		if m, cmd = pressKey(m, k); cmd != nil {
 			t.Errorf("%q in the prompt returned a command", k)
 		}
 	}
-	if m.filter != "jqnNsergGhl1/ " || !m.prompting || len(*started) != 0 || *args != nil || m.loading {
+	if m.filter != "jqnNsergGhl1/ o" || !m.prompting || len(*started) != 0 || *args != nil || m.loading {
 		t.Errorf("keys in the prompt must be text: filter %q, prompting %v", m.filter, m.prompting)
 	}
 }

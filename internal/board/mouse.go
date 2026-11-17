@@ -92,6 +92,9 @@ func (m Model) footer() (string, []hit) {
 			prefix = r + " · "
 		}
 	}
+	if m.sort != work.Default {
+		prefix += "sort: " + m.sort.String() + " · "
+	}
 	build := func(short bool) (string, []hit) {
 		var b strings.Builder
 		b.WriteString(prefix)
