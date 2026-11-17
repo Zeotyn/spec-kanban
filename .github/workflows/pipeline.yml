@@ -44,6 +44,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Full history, so the push of branch release below is not refused.
+          fetch-depth: 0
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -81,3 +84,6 @@ jobs:
           out=$(sh scripts/build.sh)
           test "$out" = "downloaded kanban $VERSION"
           test "$(bin/kanban --version)" = "$VERSION"
+      # Fast-forward only: without --force git refuses a tag that is not ahead of release.
+      - name: Move branch release
+        run: git push origin "$GITHUB_SHA:refs/heads/release"

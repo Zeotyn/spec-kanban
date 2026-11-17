@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Install from branch `release`: `herdr plugin install zeotyn/spec-kanban --ref release` follows the newest release, so `herdr plugin update` brings each new release with its downloaded binary. The release pipeline moves the branch after each release. Installs pinned with `--ref v<version>` stay as they are; reinstall with `--ref release` to switch.
+
 ## 0.4.0 - 2026-11-17
 
 - Fixed: a Start whose first prompt stayed typed but not submitted in Claude's input box sat idle until the Stall. After every launch of a new `claude` agent with a prompt (Start, Verify or Archive in a new tab, a wave's coordinator and members), kanban checks that the prompt went in and sends Enter up to 3 times; when that does not help, the launch fails with `the prompt was typed but not submitted in tab <change>`.

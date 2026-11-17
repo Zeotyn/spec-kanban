@@ -21,13 +21,13 @@ A [herdr](https://herdr.dev) plugin that shows a project's [OpenSpec](https://gi
 
 ## Install
 
-Install a release (see [Releases](https://github.com/zeotyn/spec-kanban/releases)); this downloads its checksum-verified binary and needs no Go:
+Install from branch `release`, which always points at the newest release (see [Releases](https://github.com/zeotyn/spec-kanban/releases)); this downloads its checksum-verified binary and needs no Go:
 
 ```sh
-herdr plugin install zeotyn/spec-kanban --ref v<version>
+herdr plugin install zeotyn/spec-kanban --ref release
 ```
 
-`herdr plugin update` keeps a release pinned; to upgrade, install the new tag. Installing without `--ref` takes `main`, which builds from source with Go unless `main` is exactly a release.
+`herdr plugin update` then brings each new release. To pin one version, install its tag with `--ref v<version>`; `update` keeps it, and to upgrade you install the new tag. Installing without `--ref` takes `main`, which builds from source with Go unless `main` is exactly a release.
 
 Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.config/herdr/config.toml` and run `herdr server reload-config`. `prefix+o` opens the board for the project of the focused pane; `q` or `Esc` closes it.
 
@@ -199,7 +199,7 @@ To release: bump `version` in `herdr-plugin.toml`, add a `## <version> - <YYYY-M
 git tag v<version> && git push origin v<version>
 ```
 
-The release workflow refuses a tag that does not match the manifest, builds the binaries and publishes them with the changelog section as notes.
+The release workflow refuses a tag that does not match the manifest, builds the binaries, publishes them with the changelog section as notes and then moves branch `release` to the tag, fast-forward only. If that last step fails (for example for a tag that is not ahead of `release`), the release is still published; fast-forward the branch by hand when it should follow: `git push origin 'v<version>^{commit}:refs/heads/release'`.
 
 ## Credits
 
