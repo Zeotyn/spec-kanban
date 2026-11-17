@@ -12,7 +12,7 @@
 ## 3. Verification
 
 - [x] 3.1 `openspec validate c1-release-branch --strict` passes
-- [ ] 3.2 Ask the user before creating branch `release` at `v0.4.0` on GitHub (design D2); after the go-ahead run `git push origin 'v0.4.0^{commit}:refs/heads/release'` and check that `git ls-remote origin release` shows the commit of `v0.4.0`
+- [x] 3.2 Ask the user before creating branch `release` at `v0.4.0` on GitHub (design D2); after the go-ahead run `git push origin 'v0.4.0^{commit}:refs/heads/release'` and check that `git ls-remote origin release` shows the commit of `v0.4.0`
 
 ## Smoke test (user, in herdr)
 

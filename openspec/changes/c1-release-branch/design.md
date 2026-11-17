@@ -31,4 +31,5 @@ The pipeline runs on every branch push, so the branch move triggers a test run o
 ## Risks / Trade-offs
 
 - [herdr's `update` does not rerun `[[build]]`] → `bin/kanban` would be missing or stale. Check once with a real update from `v0.4.0` to the next release (smoke test). If it fails, the README falls back to `install --ref release` and an issue goes to herdr.
+- [GitHub refuses a `GITHUB_TOKEN` push that brings in changes under `.github/workflows/`] → The branch step fails for every release that changed a workflow, the next one included. Accepted: the README names the manual fast-forward as the fix; a token with `workflows` write would need a secret to maintain.
 - [A release is published but the branch step fails] → The release exists, and `update` users just do not see it yet. The failed step shows in the pipeline, and the fix is a manual fast-forward push.

@@ -199,7 +199,7 @@ To release: bump `version` in `herdr-plugin.toml`, add a `## <version> - <YYYY-M
 git tag v<version> && git push origin v<version>
 ```
 
-The release workflow refuses a tag that does not match the manifest, builds the binaries, publishes them with the changelog section as notes and then moves branch `release` to the tag, fast-forward only. If that last step fails (for example for a tag that is not ahead of `release`), the release is still published; fast-forward the branch by hand when it should follow: `git push origin 'v<version>^{commit}:refs/heads/release'`.
+The release workflow refuses a tag that does not match the manifest, builds the binaries, publishes them with the changelog section as notes and then moves branch `release` to the tag, fast-forward only. If that last step fails (for a tag that is not ahead of `release`, or because GitHub refuses the job's token a push that brings in changes under `.github/workflows/`), the release is still published; fast-forward the branch by hand when it should follow: `git push origin 'v<version>^{commit}:refs/heads/release'`.
 
 ## Credits
 
