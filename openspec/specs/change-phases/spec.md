@@ -52,7 +52,7 @@ The Phase SHALL depend only on the Change's archive state, tasks and planning, n
 - **THEN** its Phase is Review
 
 ### Requirement: Cards are ordered within a Phase
-Within Draft, In Progress and Review, Cards SHALL be ordered by last modification, newest first. Within Ready, Cards SHALL be ordered as a queue, independent of their modification time: first the fixes, named `f<digits>-…`, by number ascending; then the milestones, named `m<digits>-…`, by number ascending; then all other Cards in natural name order, where runs of digits compare as numbers. A name counts as a fix or a milestone only when the `f` or `m` is followed by at least one digit and then `-`. Within Archived, Cards SHALL be ordered by archive date, newest first, with undated Cards last. In every Phase, ties are ordered by name.
+Within Draft, In Progress and Review, Cards SHALL be ordered by last modification, newest first. Within Ready, Cards SHALL be ordered as a queue, independent of their modification time: first the fixes, named `f<digits>-…`, by number ascending; then the milestones, named `m<digits>-…`, by number ascending; then all other Cards in natural name order, where runs of digits compare as numbers. A name counts as a fix or a milestone only when the `f` or `m` is followed by at least one digit and then `-`. Within Archived, Cards SHALL be ordered by archive date, newest first, with undated Cards last. In every Phase, ties are ordered by name. This is the Board's `default` sort; the sort key of the board spec MAY reorder Draft, Ready, In Progress and Review.
 
 #### Scenario: Two Draft Changes
 - **WHEN** Draft Change `a` was last modified yesterday and `b` an hour ago

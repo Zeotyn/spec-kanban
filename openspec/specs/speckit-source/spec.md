@@ -3,9 +3,7 @@
 ## Purpose
 
 Defines how the plugin reads a Spec Kit Project: which Source a Project gets, which Features it has with their Progress and Phase, which documents the detail view shows, and what Start and the Handoff do differently for a Feature.
-
 ## Requirements
-
 ### Requirement: One Source per Project
 A directory SHALL be a Spec Kit Project when it contains both a `.specify` directory and a `specs` directory, and an OpenSpec Project when it contains `openspec/changes`. The Project of a working directory SHALL be the nearest directory at or above it that is a Project of either kind. A Project SHALL be read by exactly one Source: the only one that recognises it, or, when it is both kinds, OpenSpec unless the config key `source` is `speckit`. A `source` naming a Source that does not recognise the Project SHALL be ignored for that Project. The Board SHALL never mix Work items of two Sources.
 
@@ -179,3 +177,15 @@ A Feature SHALL count as finished when all its at least one tasks are completed;
 #### Scenario: Finish in a worktree
 - **WHEN** the agent of `001-user-login-email` settles with 9/9 tasks in worktree `~/.herdr/worktrees/app/001-user-login-email`
 - **THEN** the Main agent's prompt asks to review it, merge branch `001-user-login-email` into `main`, delete `~/.herdr/worktrees/app/001-user-login-email/.specify/feature.json` unless git tracks it, then run `git worktree remove ~/.herdr/worktrees/app/001-user-login-email`, and names no archive command
+
+### Requirement: Creation date of a Feature
+An open Feature SHALL carry its creation date from the first line of its `spec.md` that starts with `**Created**:` and holds a date `YYYY-MM-DD`. When `spec.md` is missing, has no such line or the line holds no valid date (like the template's `[DATE]`), the Feature SHALL have no creation date, and loading SHALL go on without an error.
+
+#### Scenario: Date from the spec header
+- **WHEN** `specs/001-user-login/spec.md` holds the line `**Created**: 2026-10-30`
+- **THEN** Feature `001-user-login` has the creation date 2026-10-30
+
+#### Scenario: Placeholder date
+- **WHEN** a Feature's `spec.md` holds `**Created**: [DATE]`
+- **THEN** the Feature has no creation date and the Board loads without an error
+
