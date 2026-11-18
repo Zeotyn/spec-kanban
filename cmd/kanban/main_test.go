@@ -540,19 +540,48 @@ func TestBoardPrompt(t *testing.T) {
 		cfg    config.Config
 		src    work.Source
 		change string
+		text   *string // S's line, nil for s
 		want   string
 	}{
-		{"Start a Ready Change", config.Config{}, openspec.New(nil), "m1-board-view", "/opsx:apply m1-board-view"},
-		{"Start with a configured prompt", config.Config{Prompt: "/opsx:apply {change} with ponytail, TDD, subagents and review loops"}, openspec.New(nil), "m1-board-view",
+		{"Start a Ready Change", config.Config{}, openspec.New(nil), "m1-board-view", nil, "/opsx:apply m1-board-view"},
+		{"Start with a configured prompt", config.Config{Prompt: "/opsx:apply {change} with ponytail, TDD, subagents and review loops"}, openspec.New(nil), "m1-board-view", nil,
 			"/opsx:apply m1-board-view with ponytail, TDD, subagents and review loops"},
-		{"Start with configured instructions", config.Config{Instructions: "with ponytail, TDD, subagents and review loops"}, openspec.New(nil), "m1-board-view",
+		{"Start with configured instructions", config.Config{Instructions: "with ponytail, TDD, subagents and review loops"}, openspec.New(nil), "m1-board-view", nil,
 			"/opsx:apply m1-board-view with ponytail, TDD, subagents and review loops"},
-		{"Start a Spec Kit Feature", config.Config{}, speckit.New(nil, ""), "001-user-login-email", "/speckit-implement"},
+		{"Start a Spec Kit Feature", config.Config{}, speckit.New(nil, ""), "001-user-login-email", nil, "/speckit-implement"},
+		{"S replaces the instructions", config.Config{Instructions: "with TDD"}, openspec.New(nil), "m16-adjust-start-and-config", ptr("with TDD, no new dependencies"),
+			"/opsx:apply m16-adjust-start-and-config with TDD, no new dependencies"},
+		{"S without instructions configured", config.Config{}, openspec.New(nil), "m1-board-view", ptr("quickly"), "/opsx:apply m1-board-view quickly"},
+		{"S with an empty line", config.Config{Instructions: "with TDD"}, openspec.New(nil), "m1-board-view", ptr(""), "/opsx:apply m1-board-view"},
+		{"S replaces the prompt", config.Config{Prompt: "/opsx:apply {change} quickly"}, openspec.New(nil), "m1-board-view", ptr("/opsx:apply m1-board-view slowly"),
+			"/opsx:apply m1-board-view slowly"},
+		{"S with an empty line and a prompt", config.Config{Prompt: "/opsx:apply {change} quickly"}, openspec.New(nil), "m1-board-view", ptr(""), "/opsx:apply m1-board-view"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, want := boardPrompt(tt.cfg, tt.src, sk, tt.change, "claude", self), tt.want+sentence(tt.change); got != want {
+			if got, want := boardPrompt(tt.cfg, tt.src, sk, tt.change, "claude", self, tt.text), tt.want+sentence(tt.change); got != want {
 				t.Errorf("prompt\n got %q\nwant %q", got, want)
+			}
+		})
+	}
+}
+
+func ptr(s string) *string { return &s }
+
+func TestStartText(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  config.Config
+		want string
+	}{
+		{"nothing configured", config.Config{}, ""},
+		{"instructions", config.Config{Instructions: "with TDD"}, "with TDD"},
+		{"prompt", config.Config{Prompt: "/opsx:apply {change} quickly"}, "/opsx:apply m1-board-view quickly"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := startText(tt.cfg, "m1-board-view"); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
 	}

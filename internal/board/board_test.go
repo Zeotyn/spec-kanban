@@ -654,7 +654,7 @@ func TestRunningBadgeSurvivesReloads(t *testing.T) {
 // starter fakes the start func: it records the Changes it is called with and returns err.
 func starter(m *Model, err error) *[]string {
 	var started []string
-	m.start = func(change string) error {
+	m.start = func(change string, _ *string) error {
 		started = append(started, change)
 		return err
 	}

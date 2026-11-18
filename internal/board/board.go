@@ -30,6 +30,9 @@ const (
 // editedMsg reports that the editor started from the Board has exited.
 type editedMsg struct{ err error }
 
+// configEditedMsg reports that the editor started by c has exited.
+type configEditedMsg struct{ err error }
+
 type loadedMsg struct {
 	changes []work.Item
 	waves   map[string]int // Change name → number of the active wave it is a member of
@@ -53,6 +56,13 @@ type Wave struct {
 	Start   func(changes []string) error // starts a wave of the Changes, like start; may be nil
 }
 
+// Config is what the Board needs for S and c; any func may be nil (S's line starts empty, c does nothing).
+type Config struct {
+	Text   func(change string) string                             // the configured text S's line starts with
+	Path   func() (string, error)                                 // config.json, created when missing
+	Reload func() (hide [columns]bool, wave Wave, warning string) // the config read again, "" or its warning
+}
+
 // key is a key and what it does, for the help.
 type key struct{ key, desc string }
 
@@ -74,7 +84,8 @@ var helpGroups = []struct {
 	keys  []key
 }{
 	{"Board", []key{{"h/l j/k", "column, card"}, {"gg/G", "first/last card"}, {"ctrl+d/u", "half page down/up"}, {"1-5", "column by number"},
-		{"enter", "details"}, {"e", "edit tasks"}, {"s/v/a", "start, verify, archive"}, {"space", "mark for a wave"},
+		{"enter", "details"}, {"e/c", "edit tasks, edit the config"},
+		{"s/S/v/a", "start, adjusted start, verify, archive"}, {"space", "mark for a wave"},
 		{"/ n/N", "filter by name, next/previous match"}, {"esc", "clear the filter, else marks, else close"}, {"r/o", "reload, sort by name, date, default"}, {"?", "this help"}, {"q", "close"}}},
 	{"Filter prompt", []key{{"enter/esc", "keep/clear the filter"}, {"backspace", "delete, close when empty"}}},
 	{"Details", []key{{"1-4, tab", "switch document"}, {"shift+tab", "previous document"}, {"j/k gg/G", "scroll, top/end"},
@@ -103,7 +114,8 @@ type Model struct {
 	docs          func(work.Item) work.Docs
 	load          func() ([]work.Item, error)
 	agents        func() (running, waiting map[string]bool, err error) // names of the running herdr agents, Changes that wait
-	start         func(change string) error
+	start         func(change string, text *string) error              // text is S's line, nil for s
+	config        Config
 	resumable     func(change string) (kind string, ok bool) // the recorded agent kind ("" if none) and whether it can be reopened
 	resume        func(change string) error
 	act           func(change string, a work.Action) error // hand the Source's command for a to an agent
@@ -117,6 +129,8 @@ type Model struct {
 	filter        string
 	sort          work.Sort       // order of the open columns, Default each time the Board opens
 	prompting     bool            // keys go to the filter prompt
+	startFor      string          // the Change S's line starts, "" when the line is closed
+	startText     string          // S's line
 	running       map[string]bool // names of running herdr agents, kept across loads
 	waiting       map[string]bool // Changes that wait for the user, kept across loads
 	starting      string          // the Change being started; keys other than ctrl+c are ignored meanwhile
@@ -144,7 +158,7 @@ type Model struct {
 // hide marks Phases not shown as columns; notice replaces the footer until the first key; version is shown in the help;
 // wave marks Cards for a wave and starts it.
 func New(project string, docs func(work.Item) work.Docs, load func() ([]work.Item, error), now func() time.Time, snapshot []work.Item,
-	agents func() (running, waiting map[string]bool, err error), start func(change string) error,
+	agents func() (running, waiting map[string]bool, err error), start func(change string, text *string) error,
 	resumable func(change string) (string, bool), resume func(change string) error, act func(change string, a work.Action) error,
 	lacks func(a work.Action) string, hide [columns]bool, notice, version string, wave Wave) Model {
 	m := Model{project: project, docs: docs, load: load, agents: agents, start: start, resumable: resumable, resume: resume, act: act, lacks: lacks,
@@ -154,6 +168,12 @@ func New(project string, docs func(work.Item) work.Docs, load func() ([]work.Ite
 		m.all, m.loaded = work.Group(snapshot, work.Default), true
 		m.refilter()
 	}
+	return m
+}
+
+// WithConfig gives the Board what it needs for S and c.
+func (m Model) WithConfig(c Config) Model {
+	m.config = c
 	return m
 }
 
@@ -199,7 +219,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if k, ok := msg.(tea.KeyMsg); ok && m.starting == "" && !m.prompting {
+	if k, ok := msg.(tea.KeyMsg); ok && m.starting == "" && !m.prompting && m.startFor == "" {
 		switch {
 		case m.help && k.String() == "ctrl+c":
 			return m, tea.Quit
@@ -290,6 +310,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.notice = "editor failed: " + msg.err.Error()
 		}
 		return m.refresh()
+	case configEditedMsg:
+		if m.config.Reload != nil {
+			var warning string
+			m.hide, m.wave, warning = m.config.Reload()
+			m.notice = warning
+			m.refilter()
+		}
+		if msg.err != nil {
+			m.notice = "editor failed: " + msg.err.Error()
+		}
 	case tea.KeyMsg:
 		if m.starting != "" { // quitting now would leave a half-started agent behind
 			if msg.String() == "ctrl+c" {
@@ -300,6 +330,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.notice = ""
 		if m.prompting {
 			return m.prompt(msg)
+		}
+		if m.startFor != "" {
+			return m.startLine(msg)
 		}
 		if m.asking {
 			return m.ask(msg)
@@ -348,6 +381,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if col := m.cols[m.nav.col]; len(col) > 0 {
 				return m.startCard(col[m.nav.sel[m.nav.col]], work.Phase(m.nav.col))
 			}
+		case k == "S" && len(m.marks) >= 2:
+			m.nav.pendingG = false
+			m.notice = "S starts one change: clear the marks first"
+		case k == "S":
+			m.nav.pendingG = false
+			if col := m.cols[m.nav.col]; len(col) > 0 {
+				return m.startWith(col[m.nav.sel[m.nav.col]], work.Phase(m.nav.col))
+			}
+		case k == "c":
+			m.nav.pendingG = false
+			return m.editConfig()
 		case k == "v" || k == "a":
 			m.nav.pendingG = false
 			if col := m.cols[m.nav.col]; len(col) > 0 {
@@ -415,20 +459,51 @@ func (m Model) prompt(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case tea.KeyEsc:
 		m.prompting, m.filter = false, ""
 	case tea.KeyBackspace:
-		if r := []rune(m.filter); len(r) > 0 {
-			m.filter = string(r[:len(r)-1])
-		} else {
+		if m.filter == "" {
 			m.prompting = false
+		}
+	}
+	m.filter = typed(m.filter, msg)
+	m.refilter()
+	return m, nil
+}
+
+// startLine applies a key to S's line: text is typed as in the filter prompt, Enter starts its Change
+// with the line, Esc closes it.
+func (m Model) startLine(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyCtrlC:
+		return m, tea.Quit
+	case tea.KeyEsc:
+		m.startFor = ""
+	case tea.KeyEnter:
+		change, text := m.startFor, m.startText
+		m.startFor = ""
+		if m.start == nil {
+			return m, nil
+		}
+		m.starting = change
+		return m, func() tea.Msg { return startedMsg{m.start(change, &text)} }
+	}
+	m.startText = typed(m.startText, msg)
+	return m, nil
+}
+
+// typed is s after a typing key: Backspace deletes the last character, text is added; other keys leave s.
+func typed(s string, msg tea.KeyMsg) string {
+	switch msg.Type {
+	case tea.KeyBackspace:
+		if r := []rune(s); len(r) > 0 {
+			return string(r[:len(r)-1])
 		}
 	case tea.KeyRunes, tea.KeySpace:
 		for _, r := range msg.Runes { // a paste may carry newlines and control characters
 			if unicode.IsPrint(r) {
-				m.filter += string(r)
+				s += string(r)
 			}
 		}
 	}
-	m.refilter()
-	return m, nil
+	return s
 }
 
 // refilter shows the Changes matching the filter in the shown columns, keeping each column's selection by name.
@@ -523,9 +598,43 @@ func (m Model) startCard(c work.Item, p work.Phase) (Model, tea.Cmd) {
 			return m, nil
 		}
 		m.starting = c.Name
-		return m, func() tea.Msg { return startedMsg{m.start(c.Name)} }
+		return m, func() tea.Msg { return startedMsg{m.start(c.Name, nil)} }
 	}
 	return m, nil
+}
+
+// startsWith reports whether S opens its line on c in Phase p: a Ready or In Progress Card without a running agent.
+func (m Model) startsWith(c work.Item, p work.Phase) bool {
+	return (p == work.Ready || p == work.InProgress) && !m.running[herdr.AgentName(c.Name)]
+}
+
+// startWith opens S's line for c in Phase p, focuses its running agent as s does, or explains why not.
+func (m Model) startWith(c work.Item, p work.Phase) (Model, tea.Cmd) {
+	switch {
+	case m.running[herdr.AgentName(c.Name)]:
+		return m.startCard(c, p)
+	case !m.startsWith(c, p):
+		m.notice = "S starts a Ready or In Progress change"
+	default:
+		m.startFor, m.startText = c.Name, ""
+		if m.config.Text != nil {
+			m.startText = m.config.Text(c.Name)
+		}
+	}
+	return m, nil
+}
+
+// editConfig opens the config in the editor, or explains why not.
+func (m Model) editConfig() (Model, tea.Cmd) {
+	if m.config.Path == nil {
+		return m, nil
+	}
+	path, err := m.config.Path()
+	if err != nil {
+		m.notice = err.Error()
+		return m, nil
+	}
+	return m, editor.Open(func(err error) tea.Msg { return configEditedMsg{err} }, path)
 }
 
 // lacking is why the Source cannot do a, "" when it names its command.
@@ -626,6 +735,9 @@ func (m Model) view() string {
 	footer, _ := m.footer()
 	if m.prompting {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("/" + m.filter + "█")
+	}
+	if m.startFor != "" {
+		footer = lipgloss.NewStyle().MaxWidth(m.width).Render("start> " + m.startText + "█")
 	}
 	if m.asking {
 		footer = lipgloss.NewStyle().MaxWidth(m.width).Render(fmt.Sprintf("start wave of %d? y/n", len(m.marks)))

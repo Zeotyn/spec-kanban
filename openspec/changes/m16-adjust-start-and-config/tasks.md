@@ -1,8 +1,8 @@
 ## 1. Start with adjusted instructions
 
-- [ ] 1.1 `boardPrompt` takes an optional override of the configured text and `startOne` passes it through (design D1); table tests: no override, override with and without `prompt`, empty override
-- [ ] 1.2 Board: `S` opens the input line `start> ` pre-filled through a `startText(change)` callback, `enter` starts with the line, `esc` closes it; running agent focuses as `s`; notice for Cards `s` cannot start and for 2 or more marks (design D2); tests
-- [ ] 1.3 Card menu entry "start with…" on the Cards where `S` works; key help lists `S`; golden files updated
+- [x] 1.1 `boardPrompt` takes an optional override of the configured text and `startOne` passes it through (design D1); table tests: no override, override with and without `prompt`, empty override
+- [x] 1.2 Board: `S` opens the input line `start> ` pre-filled through a `startText(change)` callback, `enter` starts with the line, `esc` closes it; running agent focuses as `s`; notice for Cards `s` cannot start and for 2 or more marks (design D2); tests
+- [x] 1.3 Card menu entry "start with…" on the Cards where `S` works; key help lists `S`; golden files updated
 
 ## 2. Edit the config
 

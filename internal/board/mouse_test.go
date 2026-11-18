@@ -436,7 +436,7 @@ func TestMenuAtEdges(t *testing.T) {
 			t.Errorf("line %q is wider than the popup", l)
 		}
 	}
-	m, _ = enter(keys(board(t, 120, 30, fixture), "3")) // the details fill the popup
+	m, _ = enter(keys(board(t, 120, 30, fixture), "1")) // the details fill the popup
 	m, _ = mouse(m, 0, 29, tea.MouseButtonRight)
 	if _, y, _, h := box(t, m); y+h > 30 || strings.Count(m.View(), "\n") != 29 {
 		t.Errorf("menu at row %d must end inside 30 rows:\n%s", y, m.View())
@@ -446,7 +446,7 @@ func TestMenuAtEdges(t *testing.T) {
 func TestMenuOverWideCharacters(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.ANSI)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
-	cs := []work.Item{{Name: "日本語の変更日本語の変更", Total: 2, Phase: work.Ready, Modified: ago(time.Hour)}}
+	cs := []work.Item{{Name: "日本語の変更日本語の変更", Phase: work.Draft, Modified: ago(time.Hour)}} // only Start in the menu
 	m := board(t, 120, 30, cs)
 	before := strings.Split(m.View(), "\n")
 	nx, ny := at(t, m, "日本", false)

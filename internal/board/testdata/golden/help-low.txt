@@ -6,8 +6,8 @@ Board
   ctrl+d/u     half page down/up                       
   1-5          column by number                        
   enter        details                                 
-  e            edit tasks                              
-  s/v/a        start, verify, archive                  
+  e/c          edit tasks, edit the config             
+  s/S/v/a      start, adjusted start, verify, archive  
   space        mark for a wave                         
   / n/N        filter by name, next/previous match     
   esc          clear the filter, else marks, else close

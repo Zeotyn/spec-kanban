@@ -180,7 +180,7 @@ func startMember(w cache.Wave, change string, stdout io.Writer, run herdr.Runner
 		return err
 	}
 	kind := start.Kind(cfg.Agent, w.Coordinator, run)
-	prompt := boardPrompt(cfg, src, w.Project, change, kind, self) +
+	prompt := boardPrompt(cfg, src, w.Project, change, kind, self, nil) +
 		fmt.Sprintf(" Do not archive %s: the coordinator of wave %d merges and archives it.", change, w.Number)
 	if err := spawn("wave-member", w.Project, strconv.Itoa(w.Number), change, pane, kind, prompt); err != nil {
 		return err

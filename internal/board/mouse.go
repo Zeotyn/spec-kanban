@@ -135,9 +135,13 @@ type menu struct {
 	keys []string
 }
 
-// menuFor opens the Card menu for c at cell x, y: Start or Resume, then the actions the Source names.
+// menuFor opens the Card menu for c at cell x, y: Start or Resume, Start with… where S opens its line,
+// then the actions the Source names.
 func (m Model) menuFor(c work.Item, x, y int) *menu {
 	keys := []string{"s"}
+	if m.startsWith(c, c.Phase) {
+		keys = append(keys, "S")
+	}
 	for _, a := range actions {
 		if m.act != nil && m.lacking(a.step) == "" {
 			keys = append(keys, a.key)
@@ -156,6 +160,10 @@ func (c menu) box(width, height int) (lines []string, x, y int) {
 		entries[0] = theme.Faint.Render(entries[0])
 	}
 	for _, k := range c.keys[1:] {
+		if k == "S" {
+			entries = append(entries, "✎ Start with…  S")
+			continue
+		}
 		e := actionOf(k).entry
 		if c.card.Phase != work.Review { // its key only explains why not
 			e = theme.Faint.Render(e)
@@ -203,8 +211,11 @@ func overlay(view string, box []string, x, y int) string {
 // the Board's footer.
 func (m Model) choose(c work.Item, k string) (Model, tea.Cmd) {
 	m.detail = nil
-	if k == "s" {
+	switch k {
+	case "s":
 		return m.startCard(c, c.Phase)
+	case "S":
+		return m.startWith(c, c.Phase)
 	}
 	return m.actCard(c, c.Phase, actionOf(k))
 }
@@ -220,9 +231,9 @@ func (m Model) press(k string) (Model, tea.Cmd) {
 }
 
 // mouse handles a press of a mouse button; releases and motion are ignored, and so is everything while
-// the filter prompt is open, the wave question is asked or a Start runs.
+// the filter prompt or S's line is open, the wave question is asked or a Start runs.
 func (m Model) mouse(msg tea.MouseMsg) (Model, tea.Cmd) {
-	if msg.Action != tea.MouseActionPress || m.prompting || m.asking || m.starting != "" {
+	if msg.Action != tea.MouseActionPress || m.prompting || m.startFor != "" || m.asking || m.starting != "" {
 		return m, nil
 	}
 	if m.help { // a click closes it; a trackpad swipe of wheel events would close it and scroll on

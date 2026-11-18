@@ -229,7 +229,7 @@ func showBoard(proj string) error {
 	src := sourceFor(proj)
 	git := gitCLI(proj)
 	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base, Commit: cfg.Commit}
-	startOne := func(change string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
+	startOne := func(change string, text *string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
 		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, src, git)
 		if err != nil || pane == "" {
 			return err
@@ -239,7 +239,7 @@ func showBoard(proj string) error {
 		if err != nil {
 			return err
 		}
-		return spawn("launch", change, pane, tab, kind, boardPrompt(cfg, src, proj, change, kind, self))
+		return spawn("launch", change, pane, tab, kind, boardPrompt(cfg, src, proj, change, kind, self, text))
 	}
 	act := func(change string, a work.Action) error { // the Source's command alone: prompt and instructions are for Start
 		command := src.Command(a, change)
@@ -265,7 +265,7 @@ func showBoard(proj string) error {
 		return spawn("resume", change, pane, tab)
 	}
 	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), lookup(proj, dir, cache.UserDir(), herdr.Exec, git), startOne,
-		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString(), boardWave(cfg, src, proj)), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString(), boardWave(cfg, src, proj)).WithConfig(board.Config{Text: func(change string) string { return startText(cfg, change) }}), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
 }
 
@@ -324,9 +324,26 @@ func lookup(proj, dir, user string, run, git herdr.Runner) func() (running, wait
 }
 
 // boardPrompt is the prompt of a Start from the Board: what kanban start sends, then the sentence
-// that tells the agent how to escalate with the plugin binary self.
-func boardPrompt(cfg config.Config, src work.Source, proj, change, kind, self string) string {
+// that tells the agent how to escalate with the plugin binary self. A non-nil text (S's line)
+// replaces the configured prompt when one is set, else the instructions; empty, it means the
+// Source's prompt alone.
+func boardPrompt(cfg config.Config, src work.Source, proj, change, kind, self string, text *string) string {
+	switch {
+	case text == nil:
+	case cfg.Prompt != "" && *text != "":
+		cfg.Prompt = *text
+	default:
+		cfg.Prompt, cfg.Instructions = "", *text
+	}
 	return cfg.PromptFor(change, src.Prompt(proj, kind)) + " " + start.Sentence(self, change)
+}
+
+// startText is what S's line holds for change: the configured prompt for it, else the instructions.
+func startText(cfg config.Config, change string) string {
+	if cfg.Prompt != "" {
+		return strings.ReplaceAll(cfg.Prompt, "{change}", change)
+	}
+	return cfg.Instructions
 }
 
 // lacking returns why src cannot do an action, "" when it names the action's command.
