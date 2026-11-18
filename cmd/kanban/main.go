@@ -343,15 +343,16 @@ func lookup(proj, dir, user string, run, git herdr.Runner) func() (running, wait
 
 // boardPrompt is the prompt of a Start from the Board: what kanban start sends, then the sentence
 // that tells the agent how to escalate with the plugin binary self. A non-nil text (S's line)
-// replaces the configured prompt when one is set, else the instructions; empty, it means the
+// replaces the configured prompt when one is set, else the instructions; blank, it means the
 // Source's prompt alone.
 func boardPrompt(cfg config.Config, src work.Source, proj, change, kind, self string, text *string) string {
-	switch {
-	case text == nil:
-	case cfg.Prompt != "" && *text != "":
-		cfg.Prompt = *text
-	default:
-		cfg.Prompt, cfg.Instructions = "", *text
+	if text != nil {
+		t := strings.TrimSpace(*text)
+		if cfg.Prompt == "" || t == "" {
+			cfg.Prompt, cfg.Instructions = "", t
+		} else {
+			cfg.Prompt = t
+		}
 	}
 	return cfg.PromptFor(change, src.Prompt(proj, kind)) + " " + start.Sentence(self, change)
 }

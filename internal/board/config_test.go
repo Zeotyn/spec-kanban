@@ -58,14 +58,21 @@ func TestStartWithEmptyLine(t *testing.T) {
 	for range "with TDD" {
 		m = keys(m, "backspace")
 	}
-	m = keys(m, "backspace") // an empty line stays open
 	if !strings.Contains(m.View(), "start> █") {
-		t.Fatalf("backspace on an empty line must keep it open:\n%s", m.View())
+		t.Fatalf("the line must be empty:\n%s", m.View())
 	}
 	m, cmd := pressEnter(m)
 	m.Update(cmd())
 	if !slices.Equal(*got, []string{"m1-board-view: "}) {
 		t.Errorf("started %q, want the empty line", *got)
+	}
+}
+
+func TestStartWithBackspaceOnEmptyLineCloses(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "2") // no Text: the line starts empty
+	got := texter(&m, nil)
+	if m = keys(m, "S", "backspace"); strings.Contains(m.View(), "start>") || len(*got) != 0 {
+		t.Errorf("backspace on an empty line must close it as in the filter prompt:\n%s", m.View())
 	}
 }
 
@@ -154,6 +161,27 @@ func TestStartWithFromMenu(t *testing.T) {
 	m.running = map[string]bool{herdr.AgentName(c.Name): true}
 	if k := m.menuFor(c, 0, 0).keys; slices.Contains(k, "S") {
 		t.Errorf("a running agent: no S in the menu, keys %q", k)
+	}
+}
+
+func TestStartWithFromMenuWithMarks(t *testing.T) {
+	m := withText(keys(board(t, 120, 30, fixture), "2", " ", "j", " "))
+	m, _ = m.choose(m.cols[work.Ready][0], "S")
+	if strings.Contains(m.View(), "start>") || !strings.Contains(m.View(), "S starts one change: clear the marks first") {
+		t.Errorf("the menu entry must say what S says with marks:\n%s", m.View())
+	}
+}
+
+func TestEditConfigLowersWaveSize(t *testing.T) {
+	m := keys(board(t, 120, 30, fixture), "2", " ", "j", " ")
+	fakeEditor(t, nil)
+	m = m.WithConfig(Config{
+		Path:   func() (string, error) { return "/cfg/config.json", nil },
+		Reload: func() ([columns]bool, Wave, string) { return [columns]bool{}, Wave{Size: 1}, "" },
+	})
+	m, cmd := pressKey(m, "c")
+	if m = send(m, cmd()); len(m.marks) != 0 {
+		t.Errorf("marks over the new wave size must go, kept %v", m.marks)
 	}
 }
 

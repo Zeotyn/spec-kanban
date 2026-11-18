@@ -139,7 +139,7 @@ type menu struct {
 // then the actions the Source names.
 func (m Model) menuFor(c work.Item, x, y int) *menu {
 	keys := []string{"s"}
-	if m.startsWith(c, c.Phase) {
+	if m.adjustable(c, c.Phase) {
 		keys = append(keys, "S")
 	}
 	for _, a := range actions {

@@ -31,3 +31,4 @@ Alternative: close and reopen the Board after `c`. That lost because it loses th
 - [The user saves broken JSON] → The same fallback as at opening: defaults and the warning. The file stays as the user left it, so the next `c` opens it for a fix.
 - [Settings that Starts already running use] → A running Start or wave keeps what it was spawned with. Only later actions use the new config.
 - [`S` text with a line break] → The input is one line, so this cannot happen.
+- [`source` changed through `c`] → The Board's loader and Documents are built from the Source at opening, so `source` (and the `base` Spec Kit reads merged Features against) applies at the next opening; swapping the Source live is not worth it.

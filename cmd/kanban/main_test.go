@@ -555,6 +555,8 @@ func TestBoardPrompt(t *testing.T) {
 		{"S with an empty line", config.Config{Instructions: "with TDD"}, openspec.New(nil), "m1-board-view", ptr(""), "/opsx:apply m1-board-view"},
 		{"S replaces the prompt", config.Config{Prompt: "/opsx:apply {change} quickly"}, openspec.New(nil), "m1-board-view", ptr("/opsx:apply m1-board-view slowly"),
 			"/opsx:apply m1-board-view slowly"},
+		{"S with a blank line", config.Config{Instructions: "with TDD"}, openspec.New(nil), "m1-board-view", ptr("  "), "/opsx:apply m1-board-view"},
+		{"S with a blank line and a prompt", config.Config{Prompt: "/opsx:apply {change} quickly"}, openspec.New(nil), "m1-board-view", ptr(" "), "/opsx:apply m1-board-view"},
 		{"S with an empty line and a prompt", config.Config{Prompt: "/opsx:apply {change} quickly"}, openspec.New(nil), "m1-board-view", ptr(""), "/opsx:apply m1-board-view"},
 	}
 	for _, tt := range tests {

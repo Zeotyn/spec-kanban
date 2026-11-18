@@ -314,6 +314,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.config.Reload != nil {
 			var warning string
 			m.hide, m.wave, warning = m.config.Reload()
+			if m.wave.Size > 0 && len(m.marks) > m.wave.Size {
+				m.marks = nil
+			}
 			m.notice = warning
 			m.refilter()
 		}
@@ -381,9 +384,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if col := m.cols[m.nav.col]; len(col) > 0 {
 				return m.startCard(col[m.nav.sel[m.nav.col]], work.Phase(m.nav.col))
 			}
-		case k == "S" && len(m.marks) >= 2:
-			m.nav.pendingG = false
-			m.notice = "S starts one change: clear the marks first"
 		case k == "S":
 			m.nav.pendingG = false
 			if col := m.cols[m.nav.col]; len(col) > 0 {
@@ -468,14 +468,18 @@ func (m Model) prompt(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// startLine applies a key to S's line: text is typed as in the filter prompt, Enter starts its Change
-// with the line, Esc closes it.
+// startLine applies a key to S's line: text is typed as in the filter prompt, Backspace closes the
+// empty line, Enter starts its Change with the line, Esc closes it.
 func (m Model) startLine(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC:
 		return m, tea.Quit
 	case tea.KeyEsc:
 		m.startFor = ""
+	case tea.KeyBackspace:
+		if m.startText == "" {
+			m.startFor = ""
+		}
 	case tea.KeyEnter:
 		change, text := m.startFor, m.startText
 		m.startFor = ""
@@ -603,17 +607,19 @@ func (m Model) startCard(c work.Item, p work.Phase) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// startsWith reports whether S opens its line on c in Phase p: a Ready or In Progress Card without a running agent.
-func (m Model) startsWith(c work.Item, p work.Phase) bool {
+// adjustable reports whether S opens its line on c in Phase p: a Ready or In Progress Card without a running agent.
+func (m Model) adjustable(c work.Item, p work.Phase) bool {
 	return (p == work.Ready || p == work.InProgress) && !m.running[herdr.AgentName(c.Name)]
 }
 
 // startWith opens S's line for c in Phase p, focuses its running agent as s does, or explains why not.
 func (m Model) startWith(c work.Item, p work.Phase) (Model, tea.Cmd) {
 	switch {
+	case len(m.marks) >= 2:
+		m.notice = "S starts one change: clear the marks first"
 	case m.running[herdr.AgentName(c.Name)]:
 		return m.startCard(c, p)
-	case !m.startsWith(c, p):
+	case !m.adjustable(c, p):
 		m.notice = "S starts a Ready or In Progress change"
 	default:
 		m.startFor, m.startText = c.Name, ""
