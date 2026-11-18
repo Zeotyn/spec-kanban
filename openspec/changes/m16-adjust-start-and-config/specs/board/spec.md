@@ -15,6 +15,10 @@
 - **WHEN** no `prompt` is set, the user presses `S`, clears the line and presses `enter`
 - **THEN** the agent gets `/opsx:apply <change>` and the Escalation sentence
 
+#### Scenario: Blank line with a prompt
+- **WHEN** the config sets `prompt`, the user presses `S`, replaces the line with spaces and presses `enter`
+- **THEN** the agent gets `/opsx:apply <change>` and the Escalation sentence
+
 #### Scenario: Prompt configured
 - **WHEN** the config sets `prompt` to `/opsx:apply {change} quickly` and the user presses `S` on `m1-board-view`
 - **THEN** the line holds `/opsx:apply m1-board-view quickly`, and `enter` sends the edited line as the whole prompt
@@ -28,7 +32,7 @@
 - **THEN** no line opens and the footer says `S starts one change: clear the marks first`
 
 ### Requirement: Edit the config from the Board
-`c` on the Board SHALL open the plugin's `config.json` (see the kanban-config spec) in the user's editor (`$EDITOR`, `vi` when unset) and suspend the Board while the editor runs, as `e` does. When the file does not exist, it SHALL be created with `{}` first, together with its directory. When the editor exits, the Board SHALL read the config again: hidden Phases, the wave size and every later Start, Verify and Archive SHALL use the new settings (except `source` and the `base` Spec Kit reads merged Features against, which apply when the Board opens next), marks beyond a lowered wave size SHALL be cleared, and a config that is broken SHALL show the config warning in the footer until the next key and mean the defaults, as at opening. When the config directory cannot be determined, `c` SHALL show a short notice and open no editor. The selection and the filter SHALL stay. The key help SHALL list `c`.
+`c` on the Board SHALL open the plugin's `config.json` (see the kanban-config spec) in the user's editor (`$EDITOR`, `vi` when unset) and suspend the Board while the editor runs, as `e` does. When the file does not exist, it SHALL be created with `{}` first, together with its directory. When the editor exits, the Board SHALL read the config again: hidden Phases, the wave size and every later Start, Verify and Archive SHALL use the new settings (except `source` and the `base` Spec Kit reads merged Features against, which apply when the Board opens next), all marks SHALL be cleared when they exceed a lowered wave size, and a config that is broken SHALL show the config warning in the footer until the next key and mean the defaults, as at opening. When the config directory cannot be determined, `c` SHALL show a short notice and open no editor. The selection and the filter SHALL stay. The key help SHALL list `c`.
 
 #### Scenario: Change instructions for good
 - **WHEN** the user presses `c`, sets `"instructions": "with TDD"` in the editor and quits it
@@ -45,3 +49,7 @@
 #### Scenario: Broken config
 - **WHEN** the user leaves invalid JSON in the editor and quits it
 - **THEN** the footer shows the config warning naming the file and the problem, and the Board uses the defaults
+
+#### Scenario: Lowered wave size
+- **WHEN** 3 Ready Cards are marked and the user presses `c`, sets `"wave": {"size": 2}` and quits the editor
+- **THEN** no Card is marked anymore

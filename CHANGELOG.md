@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- `S` starts a Change with adjusted instructions: a `start>` line pre-filled with the configured `instructions` (or the whole `prompt`) lets you edit the text for this start only; nothing is saved. The Card menu offers "Start with…".
-- `c` opens `config.json` in `$EDITOR`, creating it as `{}` when missing; when the editor exits, the Board reloads the config and applies hidden Phases, the wave size and the settings of later Starts.
+- `S` starts a Change with adjusted instructions: a `start>` line pre-filled with the configured `instructions` (or the whole `prompt`) lets you edit the text for this start only; nothing is saved. A blank line sends the Source's command alone; `Esc`, or `Backspace` on an empty line, cancels. The Card menu offers "Start with…".
+- `c` opens `config.json` in `$EDITOR`, creating it as `{}` when missing; when the editor exits, the Board reloads the config and applies hidden Phases, the wave size and the settings of later Starts; marks over a lowered wave size are cleared. `source`, and the `base` Spec Kit reads merged Features against, apply at the next opening.
 - New config key `commit` (default `false`): with `true`, Start and a wave commit a Change's uncommitted planning files on the base as `docs: plan <change>` before they create the worktree, only when the project is checked out on the base branch, and only the files under the Change's directory.
 - The refusal for a Change missing from the base now names the fix: `<change> is not on <ref>: commit it there, set base, or set "commit": true`.
 - Sort: `o` sorts the open columns by name (natural order), then by creation date (newest first, undated last), then back to the default order; the footer shows `sort: name` or `sort: date`. Archived keeps its order, and the Board opens with the default sort.
