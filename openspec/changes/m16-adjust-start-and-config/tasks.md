@@ -11,8 +11,8 @@
 
 ## 3. Docs
 
-- [ ] 3.1 README: `S` and `c` in the key table; Settings mention that `c` opens the config
-- [ ] 3.2 CHANGELOG `## Unreleased`: `S` starts with adjusted instructions, `c` edits the config
+- [x] 3.1 README: `S` and `c` in the key table; Settings mention that `c` opens the config
+- [x] 3.2 CHANGELOG `## Unreleased`: `S` starts with adjusted instructions, `c` edits the config
 
 ## 4. Verification
 

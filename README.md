@@ -42,9 +42,11 @@ Then copy the keybinding from [`herdr-config.toml`](herdr-config.toml) into `~/.
 | `1`–`5` / `1`–`4`, `Tab` | jump to column | switch tab |
 | `Enter` | open details | – |
 | `e` | edit `tasks.md` | edit the shown document |
+| `c` | edit `config.json` in `$EDITOR`, then reload it (see [Settings](#settings)) | – |
 | `r` | reload | – |
 | `o` | sort the open columns by name, by creation date, then back to default | – |
 | `s` | start the Change in a new agent tab in its worktree; with 2 or more marks, start a [wave](#waves) | – |
+| `S` | start with adjusted instructions: edit the pre-filled `start>` line, `Enter` starts, `Esc` cancels | – |
 | `space` | mark a Ready Card for a wave | – |
 | `v` `a` | verify / archive a Review Change through an agent | – |
 | `/` `n` `N` | filter Cards by name, next/previous match | – |
@@ -67,6 +69,8 @@ While a Draft Card is selected, the footer starts with why it is in Draft: `draf
 `/` opens a prompt in the footer; every key typed there is text and filters the columns at once, ignoring case. `Enter` keeps the filter, `Esc` clears it, `Backspace` on an empty prompt closes it. `m1` (or `M1`) matches only the Changes with milestone badge M1, not `m10-…` or `fix-m1-…`. The filter shows in the header and stays across reloads.
 
 `s` works on Ready and In Progress Cards. It opens a new tab named after the Change in a git worktree of the project and closes the Board at once; the tab then gets focus, the agent starts in it and gets the prompt (`/opsx:apply <change>` plus `instructions` unless `prompt` is configured, see [Settings](#settings)). Before the agent starts, the plugin waits for the shell prompt by typing a probe line (a `kanban-ready-…` line in the tab is its answer), so a shell rc that asks a question no longer swallows the agent command. If that Change already has an agent, `s` focuses it instead. Errors before the Board closes show in its footer, later ones (agent not ready, prompt not sent) as a herdr notification. A start that fails because the shell or the agent did not become ready shows the pane's last lines in the notification. Known limit: a shell that does not read `""` as an empty string, like nushell, fails the probe. On a Review Card, `s` reopens the Change's recorded session (see [Handoff](#handoff)) in its worktree without a prompt, or focuses its running agent; without a recorded session, or for an agent kind that cannot resume, the footer says why not, as it does on Draft and Archived Cards. A green `●` before a Card's name marks a Change with a Running agent; a red `⚑` in its place marks a Change that waits for you (see [Handoff](#handoff)). From a shell, `kanban start <change>` does the same without the Phase check.
+
+`S` on a Ready or In Progress Card opens a `start>` line in the footer holding the configured `instructions`, or the whole `prompt` when one is set. Edit it and press `Enter`: the Change starts as with `s`, with the line in place of the configured text, for this start only. An empty line sends the Source's command alone. `Esc` closes the line. On a Card with a running agent `S` focuses it as `s` does; with 2 or more marks it asks you to clear them first. The Card menu's "Start with…" does the same.
 
 `v` and `a` send `/opsx:verify <change>` and `/opsx:archive <change>` for a Review Card, exactly that, without `prompt` or `instructions`. When the Change's agent is idle in its tab, the command goes to it and its tab gets focus; while that agent works or waits for an answer, the footer says so (`m1-board-view is working: wait until it is idle`) and nothing is sent. Without an agent, a new one starts where `s` would start it, in the Change's worktree, and gets the command. Either way the Board closes, nothing watches the agent and no [Handoff](#handoff) follows: read the result in the agent's tab. After Archive in a worktree, merging its branch and removing the worktree stay up to you or the Main agent. On a Card outside Review, `v` and `a` only show a notice.
 
@@ -134,7 +138,7 @@ A directory with both `.specify` and `specs` is a Spec Kit Project; its Work ite
 
 ## Settings
 
-Settings live in `config.json` in the plugin's config directory, which `herdr plugin config-dir spec-kanban` prints. The file is optional; every key is too:
+Settings live in `config.json` in the plugin's config directory, which `herdr plugin config-dir spec-kanban` prints. `c` on the Board opens it in `$EDITOR` (`vi` when unset), creating it as `{}` when it does not exist. The file is optional; every key is too:
 
 ```json
 {
@@ -158,7 +162,7 @@ Settings live in `config.json` in the plugin's config directory, which `herdr pl
 
 The kind `s` starts is `agent` when set, else the agent running in the pane the Board was opened from (for `kanban start`, the pane it runs in), else `claude`. OpenSpec names its commands per tool, so with a kind other than `claude` set `prompt` to the command OpenSpec installed for that tool (`openspec init --tools <tool>`). Spec Kit's command follows the kind by itself (see [Spec Kit](#spec-kit)). A `prompt` such as `/opsx:apply {change}` also reaches Spec Kit Projects and breaks their Start; use `instructions` to add words to either tool's command.
 
-The file is read when the Board opens or `kanban start` runs. If it is broken (invalid JSON, an unknown key, a value breaking the rules above), all settings fall back to their defaults: the Board shows the problem in its footer until the next key, and `kanban start` prints it to stderr.
+The file is read when the Board opens, when the editor `c` opened exits (hidden Phases, wave size and later Starts, Verifies and Archives use the new settings; `source` applies at the next opening), and when `kanban start` runs. If it is broken (invalid JSON, an unknown key, a value breaking the rules above), all settings fall back to their defaults: the Board shows the problem in its footer until the next key, and `kanban start` prints it to stderr.
 
 ## Sidebar
 
