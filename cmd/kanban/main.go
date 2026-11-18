@@ -220,17 +220,18 @@ func startChange(change string, stderr io.Writer, run herdr.Runner) error {
 }
 
 // showBoard runs the Board UI. No cwd fallback: herdr starts the pane in the plugin root,
-// which is itself an OpenSpec project.
+// which is itself an OpenSpec project. The callbacks read cfg when they run: c reloads it.
+// The Source is chosen at opening.
 func showBoard(proj string) error {
-	dir := cache.Dir()
-	cfg, warn := config.Load(config.Dir(herdr.Exec))
+	dir, cfgDir := cache.Dir(), config.Dir(herdr.Exec)
+	cfg, warn := config.Load(cfgDir)
 	notice := boardNotice(warn, cache.UserDir(), proj, time.Now())
 	_, sourceFor := sources(cfg)
 	src := sourceFor(proj)
 	git := gitCLI(proj)
-	wt := start.Worktree{On: cfg.Worktree, Base: cfg.Base, Commit: cfg.Commit}
+	wt := func() start.Worktree { return start.Worktree{On: cfg.Worktree, Base: cfg.Base, Commit: cfg.Commit} }
 	startOne := func(change string, text *string) error { // no checkOpen: the Board only offers open Changes, and it costs ~0.65 s
-		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, src, git)
+		pane, tab, err := start.Prepare(proj, change, wt(), herdr.Exec, src, git)
 		if err != nil || pane == "" {
 			return err
 		}
@@ -243,7 +244,7 @@ func showBoard(proj string) error {
 	}
 	act := func(change string, a work.Action) error { // the Source's command alone: prompt and instructions are for Start
 		command := src.Command(a, change)
-		pane, tab, err := start.Run(proj, change, command, wt, herdr.Exec, src, git)
+		pane, tab, err := start.Run(proj, change, command, wt(), herdr.Exec, src, git)
 		if err != nil || pane == "" {
 			return err
 		}
@@ -255,7 +256,7 @@ func showBoard(proj string) error {
 		return cache.ReadSession(dir, proj, change).Agent, reopenable(change)
 	}
 	resume := func(change string) error {
-		pane, tab, err := start.Prepare(proj, change, wt, herdr.Exec, src, git)
+		pane, tab, err := start.Prepare(proj, change, wt(), herdr.Exec, src, git)
 		if err != nil || pane == "" {
 			return err
 		}
@@ -265,8 +266,25 @@ func showBoard(proj string) error {
 		return spawn("resume", change, pane, tab)
 	}
 	_, err := tea.NewProgram(board.New(proj, func(it work.Item) work.Docs { return src.Docs(proj, it) }, loader(dir, proj, src, git), time.Now, cache.Read(dir, proj), lookup(proj, dir, cache.UserDir(), herdr.Exec, git), startOne,
-		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString(), boardWave(cfg, src, proj)).WithConfig(board.Config{Text: func(change string) string { return startText(cfg, change) }}), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+		resumable, resume, act, lacking(src), cfg.Hide, notice, versionString(), boardWave(cfg, src, proj)).WithConfig(boardConfig(cfgDir, &cfg, src, proj)), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
+}
+
+// boardConfig is the Board's Config for proj with the config in dir: S's text and Reload go through
+// cfg, which the Board's other callbacks read too.
+func boardConfig(dir string, cfg *config.Config, src work.Source, proj string) board.Config {
+	return board.Config{
+		Text: func(change string) string { return startText(*cfg, change) },
+		Path: func() (string, error) { return config.File(dir) },
+		Reload: func() ([5]bool, board.Wave, string) {
+			c, warn := config.Load(dir)
+			*cfg = c
+			if warn != nil {
+				return c.Hide, boardWave(c, src, proj), warn.Error()
+			}
+			return c.Hide, boardWave(c, src, proj), ""
+		},
+	}
 }
 
 // boardNotice is the notice the Board of proj opens with at now: the config warning when there is

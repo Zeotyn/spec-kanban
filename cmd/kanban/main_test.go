@@ -1010,3 +1010,29 @@ func TestAge(t *testing.T) {
 		}
 	}
 }
+
+func TestBoardConfig(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "spec-kanban")
+	cfg := config.Default()
+	bc := boardConfig(dir, &cfg, openspec.New(nil), t.TempDir())
+	path, err := bc.Path()
+	if b, _ := os.ReadFile(path); err != nil || string(b) != "{}\n" {
+		t.Fatalf("Path must create {}: %q, %v", b, err)
+	}
+	if err := os.WriteFile(path, []byte(`{"instructions": "with TDD", "hide": ["archived"], "wave": {"size": 3}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hide, wave, warn := bc.Reload()
+	if !hide[work.Archived] || wave.Size != 3 || warn != "" || cfg.Instructions != "with TDD" || bc.Text("m1-board-view") != "with TDD" {
+		t.Errorf("reload: hide %v, wave %d, warning %q, cfg %+v", hide, wave.Size, warn, cfg)
+	}
+	if err := os.WriteFile(path, []byte(`{`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if hide, _, warn = bc.Reload(); !strings.Contains(warn, path) || hide[work.Archived] || !reflect.DeepEqual(cfg, config.Default()) {
+		t.Errorf("a broken config: warning %q, cfg %+v", warn, cfg)
+	}
+	if _, err := boardConfig("", &cfg, openspec.New(nil), "").Path(); err == nil {
+		t.Error("no config directory must be an error")
+	}
+}

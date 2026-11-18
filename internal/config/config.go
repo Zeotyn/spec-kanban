@@ -166,6 +166,29 @@ func Load(dir string) (Config, error) {
 	return Default(), fmt.Errorf("%s: %w, using defaults", path, err)
 }
 
+// File is config.json in dir, created holding {} together with dir when missing; an error when dir is "".
+func File(dir string) (string, error) {
+	if dir == "" {
+		return "", errors.New("no config directory: is herdr running?")
+	}
+	path := filepath.Join(dir, "config.json")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if errors.Is(err, fs.ErrExist) {
+		return path, nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if _, err := f.WriteString("{}\n"); err != nil {
+		f.Close()
+		return "", err
+	}
+	return path, f.Close()
+}
+
 // Dir is HERDR_PLUGIN_CONFIG_DIR, or what herdr prints for the plugin outside plugin commands; "" when
 // herdr fails.
 func Dir(run herdr.Runner) string {

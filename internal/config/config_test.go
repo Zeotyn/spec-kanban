@@ -193,3 +193,26 @@ func TestDir(t *testing.T) {
 		})
 	}
 }
+
+func TestFile(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "plugins", "spec-kanban")
+	path, err := File(dir)
+	if err != nil || path != filepath.Join(dir, "config.json") {
+		t.Fatalf("File = %q, %v", path, err)
+	}
+	if b, _ := os.ReadFile(path); string(b) != "{}\n" {
+		t.Errorf("a missing config must be created as {}, got %q", b)
+	}
+	if err := os.WriteFile(path, []byte(`{"commit": true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := File(dir); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(path); string(b) != `{"commit": true}` {
+		t.Errorf("an existing config must stay, got %q", b)
+	}
+	if _, err := File(""); err == nil || !strings.Contains(err.Error(), "no config directory") {
+		t.Errorf("without a dir: %v", err)
+	}
+}

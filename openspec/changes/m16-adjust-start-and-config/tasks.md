@@ -6,8 +6,8 @@
 
 ## 2. Edit the config
 
-- [ ] 2.1 Config holder in `cmd/kanban` with `reload`, used by every callback; `editConfig` returns the path and creates `{}` with its directory when missing, or an error without a config directory (design D3); tests
-- [ ] 2.2 Board: `c` suspends for `$EDITOR` on that path like `e`, then reloads and applies hidden Phases, wave size and the warning, keeping the selection and the filter; notice without a config directory; key help lists `c`; tests
+- [x] 2.1 Config holder in `cmd/kanban` with `reload`, used by every callback; `editConfig` returns the path and creates `{}` with its directory when missing, or an error without a config directory (design D3); tests
+- [x] 2.2 Board: `c` suspends for `$EDITOR` on that path like `e`, then reloads and applies hidden Phases, wave size and the warning, keeping the selection and the filter; notice without a config directory; key help lists `c`; tests
 
 ## 3. Docs
 
